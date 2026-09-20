@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>AFK Rome Village · Prototype</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main>
+    <header>
+      <div class="brand">AFK <span>ROME VILLAGE</span></div>
+
+    </header>
+
+    <section class="intro">
+      <div>
+        <span class="eyebrow">ИГРОВОЙ ПРОТОТИП / 01</span>
+        <h1>Держим рубеж.<br><em>Растим деревню.</em></h1>
+      </div>
+      <p>Орки идут слева. Страж защищает ворота, а фермер собирает урожай.</p>
+    </section>
+
+    <section class="game-layout">
+      <div class="phone-frame" aria-label="Горизонтальный экран телефона, 19.5:9">
+      <div class="game-card">
+        <canvas id="game" aria-label="Игровая сцена: орки бегут к деревне, страж защищается, фермер работает"></canvas>
+        <div id="loading" class="loading">Готовим персонажей…</div>
+      </div>
+
+      </div>
+
+      <aside aria-label="Отладочная панель">
+        <div class="panel-head"><span>ОТЛАДОЧНАЯ ПАНЕЛЬ</span><b>LIVE</b></div>
+        <div class="debug-toolbar">
+        <div class="scene-bar">
+          <span><i id="live-dot"></i><b id="state-label">ВОЛНА ИДЁТ</b></span>
+          <span>ВОЛНА <b id="wave">1</b></span>
+        </div>
+      <div class="resources" aria-label="Ресурсы">
+        <span><i class="grain"></i><b id="food">0</b> еда</span>
+        <span><i class="coin"></i><b id="coins">0</b> монет</span>
+      </div>
+        </div>
+        <div class="debug-grid">
+        <div class="debug-stats">
+        <div class="gate">
+          <div><span>Ворота</span><strong id="gate-value">100%</strong></div>
+          <div class="bar"><i id="gate-bar"></i></div>
+          <div class="guard-health"><span>Легионер</span><strong id="guard-health-value">100/100</strong></div>
+          <div class="bar guard-bar"><i id="guard-health-bar"></i></div>
+        </div>
+        <div class="stat-grid">
+          <div><span>Побеждено</span><strong id="kills">0</strong><small>орков</small></div>
+          <div><span>Осталось</span><strong id="mob-count">0</strong><small>в волне</small></div>
+        </div>
+        </div>
+        <div class="activity">
+          <div><img class="character-icon" src="assets/icons/legionary-head.png" alt=""><span><b>Легионер</b><small>держит рубеж</small></span><em id="guard-status">ГОТОВ</em></div>
+          <div><img class="character-icon" src="assets/icons/farmer-head.png" alt=""><span><b>Фермер</b><small>производит еду</small></span><em id="farm-status">+ 1 / 3с</em></div>
+          <div id="archer-row" class="locked"><i class="archer-icon">➶</i><span><b>Лучник</b><small>откроется после волны 5</small></span><em id="archer-status">ЗАКРЫТ</em></div>
+        </div>
+        <div class="upgrades" aria-label="Улучшения">
+          <span class="upgrade-title">УЛУЧШЕНИЯ</span>
+          <button id="guard-upgrade"><b>⚔ Легионер <i id="guard-level">ур. 1</i></b><small id="guard-cost">5 еды · больше урона</small></button>
+          <button id="heal-guard"><b>♥ Лечить легионера</b><small id="heal-cost">здоровье полное</small></button>
+          <button id="gate-upgrade"><b>▥ Ворота <i id="gate-level">ур. 1</i></b><small id="gate-cost">8 монет · +25 прочности</small></button>
+          <button id="farm-upgrade"><b>✶ Ферма <i id="farm-level">ур. 1</i></b><small id="farm-cost">6 монет · больше еды</small></button>
+        </div>
+        <div class="debug-controls">
+        <button id="pause" class="primary">Ⅱ Пауза</button>
+        <div class="button-row">
+          <button id="wave-button">⚑ Новая волна</button>
+          <button id="speed">⏩ 1×</button>
+        </div>
+        <button id="reset" class="quiet">Сбросить прототип</button>
+        </div>
+        </div>
+        <div class="scene-legend">
+          <span><img src="assets/icons/orc-raider-head.png" alt="">ОРДА</span>
+          <span><img src="assets/icons/legionary-head.png" alt="">РУБЕЖ</span>
+          <span><img src="assets/icons/farmer-head.png" alt="">ДЕРЕВНЯ</span>
+          <span class="boss-legend"><img src="assets/icons/orc-brute-boss-head.png" alt="">БОСС · ВОЛНА 5</span>
+        </div>
+        <p class="note">Проверка полного цикла: <b>подготовка → конечная волна → награда → улучшение</b>. На пятой волне приходит громила.
+        </p>
+      </aside>
+    </section>
+  </main>
+  <script src="app.js"></script>
+</body>
+</html>
