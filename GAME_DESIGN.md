@@ -200,3 +200,15 @@ AFK-доход можно начислять за время отсутстви�
 - Полный сброс текущего уровня из архива не считается согласованным правилом поражения.
 
 Текущая проверка уже включает ферму, пехоту, лучника, ворота, заметные улучшения, несколько волн и повторную попытку после поражения. Следующий шаг — провести короткие игровые сессии и выяснить, хочется ли игрокам возвращаться за ресурсами, усиливать оборону и самостоятельно вызывать следующую волну.
+
+
+## Prototype progression update - 2026-09-22
+
+Boss victories gate major town unlocks. AFK resources fund upgrades within the
+current town tier, but cannot unlock a new tier. No upgrade-coin currency yet.
+Town I has one house, guard/farm caps of 5 and spikes capped at 2 after wave 3.
+Wave 1 has one orc; wave 2 has two ordinary orcs; wave 3 introduces dual swords.
+After beating the wave-5 boss, a free town upgrade grants town II, a second house,
+the tower and archer together, and guard/farm/spikes caps of 10/10/4.
+The current prototype ends at wave 5; the archer then fights ambient patrols.
+Further bosses, town tiers and perks are future content.

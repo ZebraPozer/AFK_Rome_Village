@@ -5,8 +5,8 @@ const ctx = canvas.getContext('2d');
 const ui = Object.fromEntries([
   'food','coins','wave','kills','mob-count','gate-value','gate-bar','pause','speed',
   'reset','wave-button','wave-difficulty','state-label','live-dot','guard-status','farm-status','loading',
-  'guard-upgrade','gate-upgrade','spikes-upgrade','farm-upgrade','heal-guard','guard-level','gate-level','spikes-level','farm-level',
-  'guard-cost','gate-cost','spikes-cost','farm-cost','heal-cost','guard-health-value','guard-health-bar','archer-row','archer-status'
+  'guard-upgrade','spikes-upgrade','farm-upgrade','guard-level','spikes-level','farm-level',
+  'guard-cost','spikes-cost','farm-cost','guard-health-value','guard-health-bar','archer-row','archer-status','town-upgrade','town-level','town-cost'
 ].map((id) => [id, document.getElementById(id)]));
 
 const sources = {
@@ -17,6 +17,7 @@ const sources = {
   orcRed: { src: 'assets/concepts/orc-red-elite-01.png', crop: [0, 0, 1254, 1254], background: 'cream' },
   boss: { src: 'assets/concepts/orc-brute-boss-01.png', crop: [0, 0, 1254, 1254] },
   farmer: { src: 'assets/concepts/roman-farmer-villager-01.png', crop: [165, 55, 770, 930], background: 'cream' },
+  archer: { src: 'assets/characters/roman-archer-ally-01.png', crop: [0, 0, 1312, 1199], background: 'checker' },
   spikes: { src: 'assets/obstacles/angled-wooden-palisade-mirrored.png', crop: [0, 0, 1536, 1024], background: 'checker' }
 };
 
@@ -27,14 +28,15 @@ const enemyTypes = {
   orcRed:    { hp: 16, damage: 6,  attackRate: 1.8,  speed: 0.6,  reward: 6, gateDamage: 25, height: 148, bar: '#c6533f' },
   boss:      { hp: 22, damage: 14, attackRate: 1.45, speed: 0.52, reward: 8, gateDamage: 35, height: 151.2, bar: '#a93336' }
 };
+const ORC_MOVEMENT_SPEED_MULTIPLIER = 2.5;
 
 function buildWavePlan(wave) {
   const plans = {
-    1: ['orc', 'orc', 'orc', 'orc', 'orc', 'orc', 'orc'],
-    2: ['orc', 'orcDual', 'orc', 'orcDual', 'orc', 'orc', 'orcDual', 'orc', 'orc'],
-    3: ['orc', 'orcDual', 'orcShield', 'orc', 'orcDual', 'orcShield', 'orc', 'orc', 'orcDual', 'orc', 'orc'],
-    4: ['orc', 'orcDual', 'orcShield', 'orc', 'orcDual', 'orcShield', 'orcRed', 'orc', 'orcDual', 'orcShield', 'orc', 'orc', 'orc'],
-    5: ['orc', 'orcDual', 'orcShield', 'orc', 'orcDual', 'orcShield', 'orcRed', 'orc', 'orcDual', 'orcShield', 'orcRed', 'orc', 'orcDual', 'orc', 'orc', 'boss']
+    1: ['orc'],
+    2: ['orc', 'orc'],
+    3: ['orc', 'orcDual'],
+    4: ['orc', 'orc', 'orcDual'],
+    5: ['orc', 'orcDual', 'orcShield', 'boss']
   };
   return [...(plans[wave] || plans[5])];
 }
@@ -44,7 +46,11 @@ function guardAttackInterval(level) {
 }
 
 function calculateWaveDifficulty(wave, progress) {
-  if (wave === 1) return { hp: 1, damage: 1 };
+  // The roster itself becomes more dangerous (more shield units, elites and a
+  // boss), so raw stat growth must not also rise monotonically. These factors
+  // are calibrated by tools/balance-bot.cjs against a farm/upgrade/play loop.
+  const rosterHpTuning = [9.8325, 5.4, 4.69, 2.96, 0.702];
+  if (wave === 1) return { hp: rosterHpTuning[0], damage: 1 };
   const step = wave - 1;
   const dpsRatio = progress.guardLevel * 0.72 / guardAttackInterval(progress.guardLevel);
   // Sublinear adaptation preserves the advantage of investing in combat.
@@ -52,7 +58,7 @@ function calculateWaveDifficulty(wave, progress) {
   const offense = 1 + 0.35 * (Math.sqrt(dpsRatio) - 1)
     + 0.12 * Math.pow(progress.spikesLevel, 0.75);
   return {
-    hp: (1 + 0.3 * step + 0.06 * step * step) * offense,
+    hp: (1 + 0.3 * step + 0.06 * step * step) * offense * (rosterHpTuning[wave - 1] || 0.5),
     damage: (1 + 0.12 * step) * Math.pow(progress.maxGuardHp / 100, 0.25)
   };
 }
@@ -80,10 +86,17 @@ const structureSources = {
   guardTower: 'assets/buildings/wooden-guard-tower-room.png'
 };
 const structures = {};
+const resourceSources = {
+  food: 'assets/icons/food.png',
+  gold: 'assets/icons/gold.png'
+};
+const resourceIcons = {};
 const state = {
   running: true,
   speed: 1,
   wave: 1,
+  clearedWave: 0,
+  patrolKills: 0,
   phase: 'preparation',
   gate: 100,
   maxGate: 100,
@@ -99,7 +112,10 @@ const state = {
   waveTotal: 0,
   spawned: 0,
   defeated: 0,
-  archerUnlocked: false,
+  townLevel: 1, archerUnlocked: false,
+  archerCooldown: 1.2,
+  archerAttackTimer: 0,
+  arrows: [],
   wavePlan: [],
   waveDifficulties: {},
   mobs: [],
@@ -110,6 +126,9 @@ const state = {
   attackCooldown: 0,
   attackTimer: 0,
   hitFlash: 0,
+  regenDelay: 0,
+  regenFlash: 0,
+  regenParticleTimer: 0,
   floaters: [],
   time: 0,
   last: 0
@@ -296,13 +315,18 @@ function spawnMob(type = 'orc', countsForWave = true) {
     damage: Math.round(stats.damage * difficulty.damage),
     attackRate: stats.attackRate,
     speed: stats.speed,
-    reward: stats.reward,
+    reward: countsForWave ? stats.reward : 0,
     gateDamage: stats.gateDamage,
     attackCooldown: Math.random() * 0.35
   });
 }
 
 function startWave() {
+  state.guardHp = state.maxGuardHp;
+  state.regenFlash = 0;
+  state.regenDelay = 0;
+  state.regenParticleTimer = 0;
+  state.floaters = state.floaters.filter((floater) => floater.kind !== 'heal');
   // Keep the first attempt's stats on retries so upgrades can overcome a defeat.
   state.waveDifficulties[state.wave] = getWaveDifficulty(state.wave);
   state.phase = 'wave';
@@ -314,20 +338,24 @@ function startWave() {
   state.spawned = 0;
   state.defeated = 0;
   state.spawnTimer = 0.2;
+  state.attackCooldown = 0;
+  state.attackTimer = 0;
   ui.pause.textContent = 'Ⅱ Пауза';
 }
 
 function finishWave() {
+  state.regenDelay = 0.35;
   state.phase = state.wave === 5 ? 'complete' : 'victory';
   state.running = true;
-  const reward = 6 + state.wave * 3;
+  const reward = state.wave > state.clearedWave ? 6 + state.wave * 3 : 0;
+  state.clearedWave = Math.max(state.clearedWave, state.wave);
   state.coins += reward;
   state.floaters.push({ kind: 'reward', amount: reward, x: 585, life: 1.8, duration: 1.8 });
   state.patrolTimer = 5;
-  if (state.wave === 5) state.archerUnlocked = true;
 }
 
 function failWave() {
+  state.regenDelay = 0.35;
   state.phase = 'defeat';
   state.running = true;
   state.mobs = [];
@@ -336,20 +364,57 @@ function failWave() {
 
 function resetGame() {
   Object.assign(state, {
-    running: true, speed: 1, wave: 1, phase: 'preparation', gate: 100, maxGate: 100,
+    running: true, speed: 1, wave: 1, clearedWave: 0, patrolKills: 0, phase: 'preparation', gate: 100, maxGate: 100,
     guardHp: 100, maxGuardHp: 100,
     food: 0, coins: 0, kills: 0, guardLevel: 1, gateLevel: 1, spikesLevel: 0, farmLevel: 1,
-    waveTotal: 0, spawned: 0, defeated: 0, archerUnlocked: false, wavePlan: [], waveDifficulties: {},
+    waveTotal: 0, spawned: 0, defeated: 0, townLevel: 1, archerUnlocked: false, archerCooldown: 1.2, archerAttackTimer: 0, arrows: [], wavePlan: [], waveDifficulties: {},
     mobs: [], spawnTimer: 0.6, patrolTimer: 4, patrolSpawned: 0, foodTimer: 3, attackCooldown: 0, attackTimer: 0,
-    hitFlash: 0, floaters: [], time: 0, last: 0
+    hitFlash: 0, regenDelay: 0, regenFlash: 0, regenParticleTimer: 0, floaters: [], time: 0, last: 0
   });
   ui.speed.textContent = '⏩ 1×';
   ui.pause.textContent = 'Ⅱ Пауза';
 }
 
-function update(delta, width) {
+function upgradeLimit(kind) {
+  if (kind === 'spikes') return state.clearedWave < 3 ? 0 : state.townLevel * 2;
+  return state.townLevel * 5;
+}
+
+function canUpgrade(kind) {
+  if (!['guard', 'spikes', 'farm'].includes(kind)) return false;
+  return state.phase !== 'wave' && state[`${kind}Level`] < upgradeLimit(kind);
+}
+
+function collectKillReward(mob) {
+  let reward = mob.reward;
+  if (!mob.countsForWave) {
+    state.patrolKills += 1;
+    reward = state.patrolKills % 3 === 0 ? 1 : 0;
+  }
+  state.coins += reward;
+  if (reward > 0) state.floaters.push({ kind: 'kill', amount: reward, x: mob.x, life: 1.35, duration: 1.35 });
+}
+
+function defeatMob(mob) {
+  if (mob.dead) return;
+  mob.dead = true;
+  state.kills += 1;
+  if (mob.countsForWave) state.defeated += 1;
+  collectKillReward(mob);
+}
+
+function update(delta, width, simulationStep = false) {
   if (!state.running) return;
-  const dt = delta * state.speed;
+  if (!simulationStep && state.speed > 1) {
+    let remaining = delta * state.speed;
+    while (remaining > 0 && state.running) {
+      const step = Math.min(remaining, 1 / 60);
+      update(step, width, true);
+      remaining -= step;
+    }
+    return;
+  }
+  const dt = simulationStep ? delta : delta * state.speed;
   state.time += dt;
   if (state.phase === 'wave') state.spawnTimer -= dt;
   const betweenWaves = state.phase === 'preparation' || state.phase === 'victory';
@@ -357,15 +422,24 @@ function update(delta, width) {
   state.foodTimer -= dt;
   state.attackCooldown = Math.max(0, state.attackCooldown - dt);
   state.attackTimer = Math.max(0, state.attackTimer - dt);
+  state.archerCooldown = Math.max(0, state.archerCooldown - dt);
+  state.archerAttackTimer = Math.max(0, state.archerAttackTimer - dt);
   state.hitFlash = Math.max(0, state.hitFlash - dt);
   for (const floater of state.floaters) floater.life -= dt;
   state.floaters = state.floaters.filter((floater) => floater.life > 0);
+  state.regenDelay = Math.max(0, state.regenDelay - dt);
+  state.regenFlash = Math.max(0, state.regenFlash - dt);
+  state.regenParticleTimer = Math.max(0, state.regenParticleTimer - dt);
 
-  if (state.phase === 'wave' && state.spawned < state.waveTotal && state.spawnTimer <= 0) {
+  // Small groups keep individual attacks readable; the boss gets a solo entrance.
+  const activeWaveMobs = state.mobs.filter((mob) => mob.countsForWave && !mob.dead).length;
+  const nextIsBoss = state.wavePlan[state.spawned] === 'boss';
+  if (state.phase === 'wave' && state.spawned < state.waveTotal && state.spawnTimer <= 0
+      && activeWaveMobs < (nextIsBoss ? 1 : 2)) {
     const nextType = state.wavePlan[state.spawned] || 'orc';
     spawnMob(nextType);
     state.spawned += 1;
-    state.spawnTimer = nextType === 'boss' || nextType === 'orcRed' ? 1.8 : Math.max(0.75, 1.65 - state.wave * 0.1);
+    state.spawnTimer = 4;
   }
   const activePatrols = state.mobs.filter((mob) => !mob.countsForWave && !mob.dead).length;
   if (betweenWaves && state.patrolTimer <= 0 && activePatrols < 2) {
@@ -373,6 +447,25 @@ function update(delta, width) {
     spawnMob(patrolType, false);
     state.patrolSpawned += 1;
     state.patrolTimer = 8 + Math.random() * 4;
+  }
+  // Check after spawning: even an approaching patrol interrupts recovery.
+  const combatActive = state.phase === 'wave' || state.mobs.some((mob) => !mob.dead);
+  if (combatActive) {
+    state.regenDelay = 0.35;
+    state.regenFlash = 0;
+    state.regenParticleTimer = 0;
+    state.floaters = state.floaters.filter((floater) => floater.kind !== 'heal');
+  } else if (state.regenDelay === 0 && state.guardHp < state.maxGuardHp) {
+    // Recover only after the entire skirmish ends, in about two seconds.
+    state.guardHp = Math.min(state.maxGuardHp, state.guardHp + state.maxGuardHp * 0.5 * dt);
+    state.regenFlash = 0.25;
+    if (state.regenParticleTimer === 0) {
+      for (const offset of [-32, 0, 32]) {
+        state.floaters.push({ kind: 'heal', x: width * 0.52 + offset,
+          offsetY: offset === 0 ? 18 : 0, life: 0.85, duration: 0.85 });
+      }
+      state.regenParticleTimer = 0.3;
+    }
   }
   if (state.foodTimer <= 0) {
     state.food += state.farmLevel;
@@ -394,12 +487,16 @@ function update(delta, width) {
       if (mob === frontline && mob.attackCooldown <= 0) {
         const damage = mob.damage;
         state.guardHp = Math.max(0, state.guardHp - damage);
-        state.floaters.push({ kind: 'hurt', amount: damage, x: guardX, life: 1.05, duration: 1.05 });
+        if (!mob.countsForWave) {
+          state.regenDelay = 0.45;
+          state.regenFlash = 0;
+        }
+        if (damage > 0) state.floaters.push({ kind: 'hurt', amount: damage, x: guardX, life: 1.05, duration: 1.05 });
         mob.attackMotion = 0.32;
         mob.attackCooldown = mob.attackRate;
       }
     } else {
-      mob.x += mobSpeed * mob.speed * dt;
+      mob.x += mobSpeed * mob.speed * ORC_MOVEMENT_SPEED_MULTIPLIER * dt;
     }
 
     if (state.spikesLevel > 0 && !mob.dead && mob.x >= guardX - 212 && mob.x <= guardX - 156) {
@@ -411,11 +508,7 @@ function update(delta, width) {
         mob.spikesCooldown = 0.75;
         state.floaters.push({ kind: 'spikes', amount: damage, x: mob.x, life: 0.9, duration: 0.9 });
         if (mob.hp <= 0) {
-          mob.dead = true;
-          state.kills += 1;
-          if (mob.countsForWave) state.defeated += 1;
-          state.coins += mob.reward;
-          state.floaters.push({ kind: 'kill', amount: mob.reward, x: mob.x, life: 1.35, duration: 1.35 });
+          defeatMob(mob);
         }
       }
     }
@@ -431,13 +524,34 @@ function update(delta, width) {
     state.hitFlash = 0.14;
     state.attackCooldown = guardAttackInterval(state.guardLevel);
     if (target.hp <= 0) {
-      target.dead = true;
-      state.kills += 1;
-      if (target.countsForWave) state.defeated += 1;
-      state.coins += target.reward;
-      state.floaters.push({ kind: 'kill', amount: target.reward, x: target.x, life: 1.35, duration: 1.35 });
+      defeatMob(target);
     }
   }
+
+  // Slow supporting fire keeps the legionary as the primary defender.
+  const archerTarget = state.mobs.reduce((lead, mob) => (
+    !mob.dead && mob.x < guardX - 8 && (!lead || mob.x > lead.x) ? mob : lead
+  ), null);
+  if (state.archerUnlocked && archerTarget && state.archerCooldown <= 0) {
+    const ground = 540 * 0.82;
+    const towerHeight = Math.min(344, 540 * 0.73);
+    state.arrows.push({
+      fromX: width * 0.67 - 38, fromY: ground - towerHeight * 0.72 - 52,
+      target: archerTarget, life: 0.34, duration: 0.34, damage: 1
+    });
+    state.archerCooldown = 3.6;
+    state.archerAttackTimer = 0.24;
+  }
+  for (const arrow of state.arrows) {
+    arrow.life -= dt;
+    if (arrow.life <= 0 && arrow.target && !arrow.target.dead) {
+      arrow.target.hp -= arrow.damage;
+      arrow.target.hit = 0.18;
+      state.floaters.push({ kind: 'arrow', amount: arrow.damage, x: arrow.target.x, life: 0.8, duration: 0.8 });
+      if (arrow.target.hp <= 0) defeatMob(arrow.target);
+    }
+  }
+  state.arrows = state.arrows.filter((arrow) => arrow.life > 0);
 
   state.mobs = state.mobs.filter((mob) => {
     if (mob.dead) return mob.hit > 0;
@@ -451,7 +565,12 @@ function update(delta, width) {
     return mob.x < width + 120;
   });
   if (state.gate <= 0) failWave();
-  else if (state.phase === 'wave' && state.spawned === state.waveTotal && state.defeated === state.waveTotal && state.mobs.length === 0) finishWave();
+  else if (state.phase === 'wave' && state.spawned === state.waveTotal && state.defeated === state.waveTotal && state.mobs.length === 0) {
+    // A small wave may not destroy the gate after the guard falls. Letting all
+    // enemies through must not count as a successful defense or award victory.
+    if (state.guardHp <= 0) failWave();
+    else finishWave();
+  }
 }
 
 function roundedRect(x, y, width, height, radius, fill) {
@@ -754,6 +873,14 @@ function drawBackground(width, height) {
     ctx.beginPath(); ctx.moveTo(width * 0.71, y); ctx.lineTo(width * 0.98, y - 8); ctx.stroke();
   }
 
+  if (state.townLevel >= 2) {
+    roundedRect(width * 0.735, ground * 0.56, width * 0.08, ground * 0.27, 3, '#dfc99f');
+    ctx.fillStyle = '#a75538';
+    ctx.beginPath();
+    ctx.moveTo(width * 0.72, ground * 0.58); ctx.lineTo(width * 0.775, ground * 0.44);
+    ctx.lineTo(width * 0.83, ground * 0.58); ctx.closePath(); ctx.fill();
+    roundedRect(width * 0.76, ground * 0.69, width * 0.025, ground * 0.14, 2, '#74513d');
+  }
   // Farmhouse.
   roundedRect(width * 0.83, ground * 0.47, width * 0.13, ground * 0.36, 3, '#e6d5af');
   ctx.fillStyle = '#b86542';
@@ -816,19 +943,24 @@ function drawGuardHealthBar(x, y) {
   if (ratio > 0) {
     const fillWidth = (width - 4) * ratio;
     const gradient = ctx.createLinearGradient(x - width / 2, y, x + width / 2, y);
-    gradient.addColorStop(0, '#8f322f');
-    gradient.addColorStop(0.7, '#b64c3d');
-    gradient.addColorStop(1, '#d08a48');
+    const healing = state.regenFlash > 0;
+    gradient.addColorStop(0, healing ? '#268b52' : '#8f322f');
+    gradient.addColorStop(0.7, healing ? '#65d58a' : '#b64c3d');
+    gradient.addColorStop(1, healing ? '#b9f5aa' : '#d08a48');
     roundedRect(x - width / 2 + 2, y + 2, fillWidth, height - 4, Math.min((height - 4) / 2, fillWidth / 2), gradient);
   }
-  ctx.strokeStyle = '#d7aa58';
+  ctx.strokeStyle = state.regenFlash > 0 ? '#b9f5aa' : '#d7aa58';
+  if (state.regenFlash > 0) {
+    ctx.shadowColor = '#65d58a';
+    ctx.shadowBlur = 12;
+  }
   ctx.lineWidth = 1.5;
   ctx.beginPath(); ctx.roundRect(x - width / 2, y, width, height, height / 2); ctx.stroke();
   ctx.fillStyle = '#fff4da';
   ctx.font = '700 8px system-ui, sans-serif';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.fillText(`${state.guardHp} / ${state.maxGuardHp}`, x, y + height / 2 + 0.5);
+  ctx.fillText(`${Math.ceil(state.guardHp)} / ${state.maxGuardHp}`, x, y + height / 2 + 0.5);
   ctx.restore();
 }
 
@@ -897,17 +1029,33 @@ function drawFloaters(height) {
     const sway = Math.sin(progress * Math.PI * 2) * 3;
     const alpha = Math.min(1, floater.life * 2.6);
     const pop = 0.82 + Math.sin(Math.min(1, progress * 2) * Math.PI / 2) * 0.22;
-    const label = floater.kind === 'food' ? `+${floater.amount}  🌾` : floater.kind === 'hurt' ? `−${floater.amount}  ♥` : floater.kind === 'spikes' ? `−${floater.amount}  ⋀` : floater.kind === 'reward' ? `ПОБЕДА  +${floater.amount}  🪙` : `+${floater.amount}  ☠`;
+    if (floater.kind === 'heal') {
+      ctx.save();
+      ctx.globalAlpha = alpha;
+      ctx.fillStyle = '#a2ffb2';
+      ctx.shadowColor = '#278d50';
+      ctx.shadowBlur = 8;
+      ctx.font = '800 24px system-ui, sans-serif';
+      ctx.fillText('+', floater.x + sway, ground - 40 - (floater.offsetY || 0) - progress * 115);
+      ctx.restore();
+      continue;
+    }
+    const resourceIcon = floater.kind === 'food' ? resourceIcons.food : floater.kind === 'reward' ? resourceIcons.gold : null;
+    const label = floater.kind === 'food' ? `+${floater.amount}` : floater.kind === 'hurt' ? `−${floater.amount}  ♥` : floater.kind === 'spikes' ? `−${floater.amount}  ⋀` : floater.kind === 'arrow' ? `−${floater.amount}  ➶` : floater.kind === 'reward' ? `ПОБЕДА  +${floater.amount}` : `+${floater.amount}  ☠`;
     ctx.save();
     ctx.globalAlpha = alpha;
     ctx.translate(floater.x + sway, y);
     ctx.scale(pop, pop);
     ctx.font = '700 17px system-ui, sans-serif';
+    const iconSize = resourceIcon ? 18 : 0;
+    const iconGap = resourceIcon ? 4 : 0;
     const textWidth = ctx.measureText(label).width;
+    const contentWidth = textWidth + iconSize + iconGap;
     const bubble = floater.kind === 'food' ? '#fff5cbea' : floater.kind === 'hurt' ? '#7d2929ed' : '#402e27e6';
-    roundedRect(-textWidth / 2 - 10, -14, textWidth + 20, 28, 14, bubble);
+    roundedRect(-contentWidth / 2 - 10, -14, contentWidth + 20, 28, 14, bubble);
     ctx.fillStyle = floater.kind === 'food' ? '#8b6929' : floater.kind === 'hurt' ? '#ffe2d8' : '#fff1df';
-    ctx.fillText(label, 0, 0);
+    ctx.fillText(label, resourceIcon ? -(iconSize + iconGap) / 2 : 0, 0);
+    if (resourceIcon) ctx.drawImage(resourceIcon, contentWidth / 2 - iconSize, -iconSize / 2, iconSize, iconSize);
     ctx.restore();
   }
   ctx.restore();
@@ -916,11 +1064,11 @@ function drawFloaters(height) {
 function drawScene(width, height) {
   drawBackground(width, height);
   drawForegroundFoliage(width, height);
-  if (!sprites.guard || !sprites.orc || !sprites.orcDual || !sprites.orcShield || !sprites.orcRed || !sprites.boss || !sprites.farmer || !structures.guardTower) return;
+  if (!sprites.guard || !sprites.archer || !sprites.orc || !sprites.orcDual || !sprites.orcShield || !sprites.orcRed || !sprites.boss || !sprites.farmer || !structures.guardTower) return;
   const ground = height * 0.82;
   const towerX = width * 0.67;
   const towerHeight = Math.min(344, height * 0.73);
-  drawStructure(structures.guardTower, towerX, ground + 8, towerHeight);
+  if (state.townLevel >= 2) drawStructure(structures.guardTower, towerX, ground + 8, towerHeight);
   const farmerDirection = Math.cos(state.time * 0.65) < 0;
   const farmerX = towerX + Math.sin(state.time * 0.65) * Math.min(25, width * 0.03);
   const farmerBob = Math.abs(Math.sin(state.time * 2.6)) * -2;
@@ -931,8 +1079,7 @@ function drawScene(width, height) {
     drawSprite(sprites.spikes, width * 0.435, ground - 16, spikesHeight, false, 0, 1, 0.84, 0.14);
   }
 
-  const mobsByDepth = [...state.mobs].sort((a, b) => (a.laneY ?? 0) - (b.laneY ?? 0));
-  for (const mob of mobsByDepth) {
+  const drawMob = (mob) => {
     const bob = Math.abs(Math.sin(state.time * 7 + mob.bob)) * -4;
     const mobGround = ground + 18 + (mob.laneY ?? 0);
     const attackProgress = mob.attackMotion > 0 ? 1 - mob.attackMotion / 0.32 : 0;
@@ -957,17 +1104,40 @@ function drawScene(width, height) {
       ctx.roundRect(drawX - barWidth / 2, mobGround - mobHeight - 18, barWidth, 6, 3);
       ctx.stroke();
     }
-  }
+  };
 
   const attackProgress = state.attackTimer > 0 ? Math.sin((1 - state.attackTimer / 0.28) * Math.PI) : 0;
   const guardX = width * 0.52 - attackProgress * 15;
+  const mobsByDepth = [...state.mobs].sort((a, b) => (a.laneY ?? 0) - (b.laneY ?? 0));
+  const firstMobInFront = mobsByDepth.findIndex((mob) => ground + 18 + (mob.laneY ?? 0) > ground);
+  const mobsBehindGuard = firstMobInFront === -1 ? mobsByDepth : mobsByDepth.slice(0, firstMobInFront);
+  const mobsInFrontOfGuard = firstMobInFront === -1 ? [] : mobsByDepth.slice(firstMobInFront);
+
+  for (const mob of mobsBehindGuard) drawMob(mob);
   drawSprite(sprites.guard, guardX, ground, Math.min(160, height * 0.32), true, Math.sin(state.time * 2.4) * -1.2);
+  for (const mob of mobsInFrontOfGuard) drawMob(mob);
   drawGuardHealthBar(width * 0.52, ground + 10);
 
   if (state.archerUnlocked) {
-    drawSprite(sprites.guard, towerX, ground - towerHeight * 0.72, Math.min(104, height * 0.21), true, Math.sin(state.time * 2) * -1);
-    ctx.strokeStyle = '#775033'; ctx.lineWidth = 3;
-    ctx.beginPath(); ctx.arc(towerX - 27, ground - towerHeight * 0.72 - 55, 18, -1.2, 1.2); ctx.stroke();
+    const recoil = state.archerAttackTimer > 0 ? Math.sin((1 - state.archerAttackTimer / 0.24) * Math.PI) * 4 : 0;
+    drawSprite(sprites.archer, towerX + recoil, ground - towerHeight * 0.72, Math.min(132, height * 0.265), false, Math.sin(state.time * 2) * -1);
+  }
+  for (const arrow of state.arrows) {
+    const progress = Math.min(1, 1 - arrow.life / arrow.duration);
+    const target = arrow.target;
+    const targetHeight = (enemyTypes[target?.type] || enemyTypes.orc).height;
+    const targetX = target?.x ?? arrow.fromX - 180;
+    const targetY = ground + 18 + (target?.laneY ?? 0) - targetHeight * 0.58;
+    const x = arrow.fromX + (targetX - arrow.fromX) * progress;
+    const y = arrow.fromY + (targetY - arrow.fromY) * progress - Math.sin(progress * Math.PI) * 18;
+    const angle = Math.atan2(targetY - arrow.fromY, targetX - arrow.fromX);
+    ctx.save();
+    ctx.translate(x, y); ctx.rotate(angle);
+    ctx.strokeStyle = '#6d4327'; ctx.lineWidth = 2.4;
+    ctx.beginPath(); ctx.moveTo(-15, 0); ctx.lineTo(10, 0); ctx.stroke();
+    ctx.fillStyle = '#e5e0d2';
+    ctx.beginPath(); ctx.moveTo(10, 0); ctx.lineTo(3, -4); ctx.lineTo(3, 4); ctx.closePath(); ctx.fill();
+    ctx.restore();
   }
 
   if (state.hitFlash > 0) {
@@ -992,38 +1162,39 @@ function syncUi() {
   ui['mob-count'].textContent = state.phase === 'wave' ? state.waveTotal - state.defeated : 0;
   ui['gate-value'].textContent = `${state.gate}/${state.maxGate}`;
   ui['gate-bar'].style.width = `${state.gate / state.maxGate * 100}%`;
-  ui['guard-health-value'].textContent = `${state.guardHp}/${state.maxGuardHp}`;
+  ui['guard-health-value'].textContent = `${Math.ceil(state.guardHp)}/${state.maxGuardHp}`;
   ui['guard-health-bar'].style.width = `${state.guardHp / state.maxGuardHp * 100}%`;
-  ui['guard-status'].textContent = state.guardHp <= 0 ? 'ПАЛ' : state.attackTimer > 0 ? 'АТАКА' : 'ГОТОВ';
-  const labels = { preparation: 'ПОДГОТОВКА', wave: state.running ? 'ВОЛНА ИДЁТ' : 'ПАУЗА', victory: 'ПОБЕДА', defeat: 'ВОРОТА ПАЛИ', complete: 'РУБЕЖ ЗАЩИЩЁН' };
+  ui['guard-health-bar'].classList.toggle('regenerating', state.regenFlash > 0);
+  ui['guard-status'].textContent = state.guardHp <= 0 ? 'ПАЛ' : state.regenFlash > 0 ? 'ВОССТАНОВЛЕНИЕ' : state.attackTimer > 0 ? 'АТАКА' : 'ГОТОВ';
+  const labels = { preparation: 'ПОДГОТОВКА', wave: state.running ? 'ВОЛНА ИДЁТ' : 'ПАУЗА', victory: 'ПОБЕДА', defeat: 'ОБОРОНА ПРОРВАНА', complete: 'РУБЕЖ ЗАЩИЩЁН' };
   const patrolActive = state.phase !== 'wave' && state.mobs.some((mob) => !mob.dead);
   ui['state-label'].textContent = patrolActive ? 'ФОНОВАЯ СТЫЧКА' : labels[state.phase];
   ui['live-dot'].style.background = (state.phase === 'wave' || patrolActive) && state.running ? '#b65a3c' : '#748c58';
   ui['farm-status'].textContent = `+ ${state.farmLevel} / 3с`;
   ui['guard-level'].textContent = `ур. ${state.guardLevel}`;
-  ui['gate-level'].textContent = `ур. ${state.gateLevel}`;
   ui['spikes-level'].textContent = state.spikesLevel ? `ур. ${state.spikesLevel}` : 'не куплены';
   ui['farm-level'].textContent = `ур. ${state.farmLevel}`;
   const guardPrice = 5 + (state.guardLevel - 1) * 4;
-  const gatePrice = 8 + (state.gateLevel - 1) * 6;
   const spikesPrice = state.spikesLevel === 0 ? 10 : 12 + (state.spikesLevel - 1) * 8;
   const farmPrice = 6 + (state.farmLevel - 1) * 5;
-  const healPrice = Math.ceil((state.maxGuardHp - state.guardHp) / 10);
   ui['guard-cost'].textContent = `${guardPrice} еды · +1 урон, +20 макс. HP`;
-  ui['heal-cost'].textContent = healPrice ? `${healPrice} еды · восстановить полностью` : 'здоровье полное';
-  ui['gate-cost'].textContent = `${gatePrice} монет · +25 прочности`;
   ui['spikes-cost'].textContent = state.spikesLevel === 0
     ? `${spikesPrice} монет · купить, 1 пассивный урон`
     : `${spikesPrice} монет · +1 пассивный урон`;
   ui['farm-cost'].textContent = `${farmPrice} монет · больше еды`;
-  const inBattle = state.phase === 'wave';
-  ui['guard-upgrade'].disabled = inBattle || state.food < guardPrice;
-  ui['heal-guard'].disabled = inBattle || healPrice === 0 || state.food < healPrice;
-  ui['gate-upgrade'].disabled = inBattle || state.coins < gatePrice;
-  ui['spikes-upgrade'].disabled = inBattle || state.coins < spikesPrice;
-  ui['farm-upgrade'].disabled = inBattle || state.coins < farmPrice;
+  ui['guard-upgrade'].disabled = !canUpgrade('guard') || state.food < guardPrice;
+  ui['spikes-upgrade'].disabled = !canUpgrade('spikes') || state.coins < spikesPrice;
+  ui['farm-upgrade'].disabled = !canUpgrade('farm') || state.coins < farmPrice;
+  for (const kind of ['guard', 'spikes', 'farm']) {
+    if (state[`${kind}Level`] >= upgradeLimit(kind)) {
+      ui[`${kind}-cost`].textContent = kind === 'spikes' && state.clearedWave < 3 ? 'Откроются после волны 3' : `Нужно поселение уровня ${state.townLevel + 1}`;
+    }
+  }
   ui['archer-row'].classList.toggle('locked', !state.archerUnlocked);
-  ui['archer-status'].textContent = state.archerUnlocked ? 'ОТКРЫТ' : 'ЗАКРЫТ';
+  ui['town-level'].textContent = `ур. ${state.townLevel}`;
+  ui['town-upgrade'].disabled = !canUpgradeTown();
+  ui['town-cost'].textContent = state.townLevel >= 2 ? 'Башня и лучник открыты · продолжение впереди' : state.clearedWave >= 5 ? 'Улучшить бесплатно · башня + лучник + новые уровни' : 'Победите босса волны 5 · откроет башню и лучника';
+  ui['archer-status'].textContent = !state.archerUnlocked ? 'ПОСЕЛЕНИЕ II' : state.archerAttackTimer > 0 ? 'ВЫСТРЕЛ' : 'В СТРОЮ';
   ui['wave-button'].disabled = state.phase === 'wave' || state.phase === 'complete';
   ui['wave-button'].textContent = state.phase === 'defeat' ? '↻ Восстановить и повторить' : state.phase === 'victory' ? `⚑ Вызвать волну ${state.wave + 1}` : state.phase === 'complete' ? '✓ Пять волн пройдено' : `⚑ Вызвать волну ${state.wave}`;
   const previewWave = state.phase === 'victory' ? state.wave + 1 : state.wave;
@@ -1057,31 +1228,35 @@ ui.pause.onclick = () => {
   ui.pause.textContent = state.running ? 'Ⅱ Пауза' : '▶ Продолжить';
 };
 ui.speed.onclick = () => {
-  state.speed = state.speed === 1 ? 2 : 1;
+  state.speed = state.speed === 1 ? 100 : 1;
   ui.speed.textContent = `⏩ ${state.speed}×`;
 };
+function canUpgradeTown() {
+  return state.phase !== 'wave' && state.townLevel === 1 && state.clearedWave >= 5;
+}
+
+ui['town-upgrade'].onclick = () => {
+  if (!canUpgradeTown()) return;
+  state.townLevel = 2;
+  state.archerUnlocked = true;
+  state.archerCooldown = 1.2;
+  syncUi();
+};
+
 ui['wave-button'].onclick = () => {
   if (state.phase === 'victory') state.wave += 1;
   if (state.phase === 'defeat') state.gate = state.maxGate;
   if (state.phase !== 'complete' && state.phase !== 'wave') startWave();
 };
 ui['guard-upgrade'].onclick = () => {
+  if (!canUpgrade('guard')) return;
   const price = 5 + (state.guardLevel - 1) * 4;
   if (state.food >= price) {
     state.food -= price; state.guardLevel += 1; state.maxGuardHp += 20;
   }
 };
-ui['heal-guard'].onclick = () => {
-  const price = Math.ceil((state.maxGuardHp - state.guardHp) / 10);
-  if (price > 0 && state.food >= price) { state.food -= price; state.guardHp = state.maxGuardHp; }
-};
-ui['gate-upgrade'].onclick = () => {
-  const price = 8 + (state.gateLevel - 1) * 6;
-  if (state.coins >= price) {
-    state.coins -= price; state.gateLevel += 1; state.maxGate += 25; state.gate = state.maxGate;
-  }
-};
 ui['spikes-upgrade'].onclick = () => {
+  if (!canUpgrade('spikes')) return;
   const price = state.spikesLevel === 0 ? 10 : 12 + (state.spikesLevel - 1) * 8;
   if (state.phase !== 'wave' && state.coins >= price) {
     state.coins -= price;
@@ -1089,6 +1264,7 @@ ui['spikes-upgrade'].onclick = () => {
   }
 };
 ui['farm-upgrade'].onclick = () => {
+  if (!canUpgrade('farm')) return;
   const price = 6 + (state.farmLevel - 1) * 5;
   if (state.coins >= price) { state.coins -= price; state.farmLevel += 1; }
 };
@@ -1117,6 +1293,9 @@ Promise.all([
   }),
   ...Object.entries(structureSources).map(async ([name, src]) => {
     structures[name] = await loadImage(src);
+  }),
+  ...Object.entries(resourceSources).map(async ([name, src]) => {
+    resourceIcons[name] = await loadImage(src);
   })
 ]).then(() => {
   ui.loading.classList.add('done');
