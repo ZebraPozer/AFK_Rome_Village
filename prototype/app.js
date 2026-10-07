@@ -3964,6 +3964,12 @@ function recordStat(type, data = {}) {
   if (stats.events.length > STATS_MAX_EVENTS) stats.events.splice(0, stats.events.length - STATS_MAX_EVENTS);
 }
 
+function deviceInfo() {
+  if (typeof navigator === 'undefined') return {};
+  return { ua: navigator.userAgent, screen: typeof screen !== 'undefined' ? `${screen.width}x${screen.height}@${devicePixelRatio || 1}` : '',
+    touch: typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches };
+}
+
 function statsSummary() {
   const waves = stats.events.filter((e) => e.type === 'wave');
   const wins = waves.filter((e) => e.result !== 'defeat');
@@ -3982,7 +3988,8 @@ function statsSummary() {
     afkReturns: aways.length,
     afkHours: Math.round(aways.reduce((sum, e) => sum + e.seconds, 0) / 360) / 10,
     afkFood: aways.reduce((sum, e) => sum + e.food, 0),
-    afkGold: aways.reduce((sum, e) => sum + e.gold, 0)
+    afkGold: aways.reduce((sum, e) => sum + e.gold, 0),
+    errors: stats.events.filter((e) => e.type === 'error').length
   };
 }
 
@@ -4049,7 +4056,8 @@ function syncDevTools() {
     ['Play time', `${sum.playMinutes} min`], ['Waves fought', `${sum.wavesFought} (${sum.wins} won)`],
     ['Defeats', `${sum.defeats} · ${defeatsByWave}`], ['Avg fight', `${sum.avgFightSeconds} s`],
     ['Bosses cleared', bosses], ['Purchases', sum.purchases],
-    ['AFK returns', `${sum.afkReturns} · ${sum.afkHours} h`], ['AFK income', `${formatNumber(sum.afkFood)} food · ${formatNumber(sum.afkGold)} gold`]
+    ['AFK returns', `${sum.afkReturns} · ${sum.afkHours} h`], ['AFK income', `${formatNumber(sum.afkFood)} food · ${formatNumber(sum.afkGold)} gold`],
+    ['Errors', sum.errors ? `<span class="low">${sum.errors}</span>` : '0']
   ].map(([k, v]) => `<span>${k}</span><b>${v}</b>`).join('');
 }
 
@@ -4271,7 +4279,16 @@ document.addEventListener('keydown', (event) => {
 {
   loadStats();
   loadDebugSettings();
-  recordStat('session');
+  recordStat('session', { device: deviceInfo() });
+  // Any crash on a tester's device lands in the stats file (Export JSON).
+  let errorCount = 0;
+  const logError = (message, source) => {
+    if (errorCount++ > 50) return;
+    recordStat('error', { message: String(message).slice(0, 300), source: String(source || '').slice(0, 300) });
+    saveStats();
+  };
+  window.addEventListener('error', (event) => logError(event.message, `${event.filename}:${event.lineno}:${event.colno} ${event.error && event.error.stack ? event.error.stack.split('\n').slice(0, 3).join(' | ') : ''}`));
+  window.addEventListener('unhandledrejection', (event) => logError(event.reason && event.reason.message ? event.reason.message : event.reason, 'promise'));
   const saved = readSave();
   if (saved && saved.version !== SAVE_VERSION) {
     clearSave();
