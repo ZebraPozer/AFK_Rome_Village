@@ -560,6 +560,7 @@ function startWave() {
   state.holdLine = 0;
   prepareHeroesForWave();
   state.hornFx = HORN_TIME;
+  launchFirePots(state.wave >= 6 ? 3 : 2);
   markHint('call');
   if (isBossWave(state.wave)) markHint('boss');
   state.shake = Math.max(state.shake, 0.2);
@@ -1067,6 +1068,8 @@ function castSpell(id, width = 1170) {
     target.knock = boss ? 40 : BASH_KNOCK;
     target.attackCooldown = Math.max(target.attackCooldown, target.stun);
     state.bashFx = 0.4;
+    burst('spark', guardX - 60, 540 * 0.82 - 60, 14, 1.6);
+    burst('dust', target.x, 540 * 0.82 + 20 + (target.laneY ?? 0), 5);
     markHint('bash');
     sfx('bash');
     state.shake = Math.max(state.shake, 0.18);
@@ -1236,7 +1239,10 @@ function updateDefenders(dt, width) {
   }
   for (const arrow of state.arrows) {
     arrow.t += dt;
-    if (arrow.t >= arrow.dur) damageMob(arrow.mob, arrow.damage, 'pierce');
+    if (arrow.t >= arrow.dur) {
+      damageMob(arrow.mob, arrow.damage, 'pierce');
+      burst('spark', arrow.mob.x, 540 * 0.82 - 44 + (arrow.mob.laneY ?? 0), 3, 0.7);
+    }
   }
   state.arrows = state.arrows.filter((arrow) => arrow.t < arrow.dur && !arrow.mob.dead);
 
@@ -1479,6 +1485,7 @@ function tickPresentation(delta) {
   }
   state.towerFx = Math.max(0, state.towerFx - delta);
   state.hornFx = Math.max(0, state.hornFx - delta);
+  tickParticles(Math.min(delta, 0.05));
 }
 
 function update(delta, width, simulationStep = false) {
@@ -1618,11 +1625,17 @@ function update(delta, width, simulationStep = false) {
         mob.charged = true;
         const enraged = traits.includes('enrage') && mob.hp < mob.maxHp / 2;
         hurtGuard((charge ? mob.damage * 2 : mob.damage) * (enraged ? 1.5 : 1), guardX);
+        burst('spark', guardX - 46, 540 * 0.82 - 70, charge ? 9 : 4, charge ? 1.4 : 0.9);
         mob.attackMotion = 0.32;
         mob.attackCooldown = mob.attackRate;
       }
     } else {
       mob.x += mobSpeed * mob.speed * (opening ? 2.5 : 1) * dt;
+      mob.dustTimer = (mob.dustTimer ?? Math.random() * 0.3) - dt;
+      if (mob.dustTimer <= 0 && mob.x > 0) {
+        mob.dustTimer = 0.28;
+        burst('dust', mob.x - 10, 540 * 0.82 + 20 + (mob.laneY ?? 0), 1);
+      }
     }
 
     if (state.spikesLevel > 0 && !mob.dead && mob.x >= guardX - 212 && mob.x <= guardX - 156) {
@@ -1641,6 +1654,7 @@ function update(delta, width, simulationStep = false) {
   if (state.guardHp > 0 && target && state.attackCooldown <= 0) {
     damageMob(target, state.guardLevel * heroDefs[state.frontHero].damageMult * heroPowerMult(state.frontHero) * (1 + gearBonus(state.frontHero, 'weapon')), 'melee');
     sfx('sword');
+    burst('spark', target.x + 24, 540 * 0.82 - 58 + (target.laneY ?? 0) * 0.5, 5);
     state.attackTimer = 0.28;
     state.hitFlash = 0.14;
     state.attackCooldown = guardAttackInterval(state.guardLevel);
@@ -2703,54 +2717,238 @@ function drawFrontHero(width, height, guardX, ground) {
 }
 
 // Between waves the next attackers wait at the forest edge: the threat is always in view.
-function drawLurkingHorde(width, height) {
-  if (state.phase === 'wave' || state.phase === 'complete') return;
-  if (state.phase === 'victory' && state.townLevel < requiredTown(state.wave + 1)) return;
-  const nextWave = state.phase === 'victory' ? state.wave + 1 : state.wave;
-  const plan = buildWavePlan(nextWave);
-  const ground = height * 0.82;
-  // The next wave waits at the very edge of the screen, half hidden in drifting fog.
-  // Real colours (no black silhouettes) so it reads as "orcs waiting", not a bug.
-  plan.forEach((type, i) => {
-    const stats = enemyTypes[type] || enemyTypes.orc;
-    const look = enemyLooks[type] || {};
-    const x = 8 + i * 20 + (stats.isBoss ? 26 : 0);
-    const y = ground + 4 - (i % 2) * 9;
-    const h = Math.min(stats.height, height * (stats.height / 510)) * 0.8;
-    const sway = Math.sin(state.time * 1.4 + i * 1.3) * 3;
-    ctx.save();
-    ctx.filter = `${look.filter || ''} saturate(0.75) brightness(0.92)`.trim();
-    drawSprite(enemySprite(type), x + sway, y, h, false, 0, 0.9, 0, 0);
-    ctx.restore();
-  });
-  drawEdgeFog(height, ground);
+// ---------------------------------------------------------------------------
+// Orc camp at the left edge: cartoon fog banks, torches, the next wave waiting.
+// Same look as the scenery: flat fills, dark ink outlines.
+// ---------------------------------------------------------------------------
+const FOG_FILL = '#eef1e8';
+const FOG_SHADE = '#d9dfd3';
+const FOG_INK = '#9aa596';
+const fogCanvas = { el: null };
+
+function fogPuffs(layer, ground) {
+  const back = layer === 'back';
+  const count = back ? 8 : 7;
+  const puffs = [];
+  for (let i = 0; i < count; i++) {
+    const t = state.time * (back ? 0.25 : 0.35) + i * 1.9;
+    puffs.push({
+      x: (back ? -20 : -30) + i * (back ? 26 : 24) + Math.sin(t) * 6,
+      y: back ? ground - 30 - (i % 3) * 34 + Math.cos(t * 0.7) * 4 : ground + 26 - (i % 2) * 14,
+      r: (back ? 40 : 30) + ((i * 7) % 4) * 7 + Math.sin(t * 1.3) * 3
+    });
+  }
+  return puffs;
 }
 
-// Soft fog banks over the left edge; puffs drift and breathe slowly.
-function drawEdgeFog(height, ground) {
+// Union-outline trick: stroke every circle thick, then fill them all on top.
+function drawFogBank(layer, ground, alpha) {
+  if (typeof document === 'undefined') return;
+  const w = 320; const h = 260;
+  if (!fogCanvas.el) { fogCanvas.el = document.createElement('canvas'); fogCanvas.el.width = w; fogCanvas.el.height = h; }
+  const g = fogCanvas.el.getContext('2d');
+  g.clearRect(0, 0, w, h);
+  const offsetY = ground - 170;
+  const puffs = fogPuffs(layer, ground).map((p) => ({ ...p, x: p.x + 40, y: p.y - offsetY }));
+  g.lineJoin = 'round';
+  g.strokeStyle = FOG_INK; g.lineWidth = 6;
+  for (const p of puffs) { g.beginPath(); g.arc(p.x, p.y, p.r, 0, Math.PI * 2); g.stroke(); }
+  g.fillStyle = FOG_SHADE;
+  for (const p of puffs) { g.beginPath(); g.arc(p.x, p.y, p.r, 0, Math.PI * 2); g.fill(); }
+  g.fillStyle = FOG_FILL;
+  for (const p of puffs) { g.beginPath(); g.arc(p.x - p.r * 0.12, p.y - p.r * 0.14, p.r * 0.84, 0, Math.PI * 2); g.fill(); }
+  g.fillStyle = 'rgba(255, 255, 255, 0.7)';
+  for (const p of puffs) { g.beginPath(); g.arc(p.x - p.r * 0.35, p.y - p.r * 0.4, p.r * 0.28, 0, Math.PI * 2); g.fill(); }
   ctx.save();
-  // Elliptical fog bank: fades out in every direction, no hard edges.
-  ctx.save();
-  ctx.translate(0, ground - 60);
-  ctx.scale(1.35, 1);
-  const wall = ctx.createRadialGradient(0, 0, 0, 0, 0, 175);
-  wall.addColorStop(0, 'rgba(236, 240, 232, 0.6)');
-  wall.addColorStop(0.5, 'rgba(236, 240, 232, 0.3)');
-  wall.addColorStop(1, 'rgba(236, 240, 232, 0)');
-  ctx.fillStyle = wall;
-  ctx.beginPath(); ctx.arc(0, 0, 175, 0, Math.PI * 2); ctx.fill();
+  ctx.globalAlpha = alpha;
+  ctx.drawImage(fogCanvas.el, -40, offsetY);
   ctx.restore();
-  for (let i = 0; i < 9; i++) {
-    const t = state.time * (0.12 + (i % 3) * 0.04) + i * 1.7;
-    const px = 20 + (i * 37) % 170 + Math.sin(t) * 18;
-    const py = ground - 20 - (i * 29) % 150 + Math.cos(t * 0.8) * 6;
-    const r = 46 + (i % 4) * 14 + Math.sin(t * 1.3) * 5;
-    const puff = ctx.createRadialGradient(px, py, 0, px, py, r);
-    const a = 0.32 - (px / 230) * 0.18;
-    puff.addColorStop(0, `rgba(245, 247, 242, ${a})`);
-    puff.addColorStop(1, 'rgba(245, 247, 242, 0)');
-    ctx.fillStyle = puff;
-    ctx.beginPath(); ctx.arc(px, py, r, 0, Math.PI * 2); ctx.fill();
+}
+
+// Cartoon flame: ink-outlined teardrop, orange outside, yellow core, flickering.
+function drawFlame(x, y, scale, seed = 0) {
+  const t = state.time + seed;
+  const flick = 1 + Math.sin(t * 14) * 0.1 + Math.sin(t * 23) * 0.05;
+  const lean = Math.sin(t * 5) * 3 * scale;
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.scale(scale, scale * flick);
+  const tear = (w, hgt) => {
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.bezierCurveTo(w, -hgt * 0.15, w * 0.6, -hgt * 0.7, lean / scale, -hgt);
+    ctx.bezierCurveTo(-w * 0.6, -hgt * 0.7, -w, -hgt * 0.15, 0, 0);
+    ctx.closePath();
+  };
+  tear(14, 34); ctx.fillStyle = '#ff7b2c'; ctx.fill(); ctx.lineWidth = 3 / scale; ctx.strokeStyle = INK; ctx.stroke();
+  tear(8, 22); ctx.fillStyle = '#ffd34d'; ctx.fill();
+  tear(3.5, 11); ctx.fillStyle = '#fff6c8'; ctx.fill();
+  ctx.restore();
+}
+
+const TORCHES = [{ x: 34, h: 74 }, { x: 156, h: 62 }];
+
+function drawTorch(x, ground, h, seed) {
+  ctx.save();
+  ctx.lineCap = 'round';
+  ctx.beginPath(); ctx.moveTo(x, ground + 6); ctx.lineTo(x + 3, ground - h); ctx.strokeStyle = INK; ctx.lineWidth = 9; ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(x, ground + 6); ctx.lineTo(x + 3, ground - h); ctx.strokeStyle = '#8c552c'; ctx.lineWidth = 5; ctx.stroke();
+  ctx.beginPath(); ctx.ellipse(x + 3, ground - h + 2, 8, 5, 0, 0, Math.PI * 2); ctx.fillStyle = '#5b3a22'; ctx.fill(); ctx.lineWidth = 2.5; ctx.strokeStyle = INK; ctx.stroke();
+  ctx.restore();
+  drawFlame(x + 3, ground - h, 0.85, seed);
+}
+
+function drawEnemyCamp(width, height) {
+  const ground = height * 0.82;
+  drawFogBank('back', ground, 0.92);
+  drawTorch(TORCHES[0].x, ground, TORCHES[0].h, 0);
+  const waiting = state.phase !== 'wave' && state.phase !== 'complete'
+    && !(state.phase === 'victory' && state.townLevel < requiredTown(state.wave + 1));
+  if (waiting) {
+    const nextWave = state.phase === 'victory' ? state.wave + 1 : state.wave;
+    buildWavePlan(nextWave).forEach((type, i) => {
+      const stats = enemyTypes[type] || enemyTypes.orc;
+      const look = enemyLooks[type] || {};
+      const x = 10 + i * 20 + (stats.isBoss ? 26 : 0);
+      const y = ground + 4 - (i % 2) * 9;
+      const h = Math.min(stats.height, height * (stats.height / 510)) * 0.8;
+      const sway = Math.sin(state.time * 1.4 + i * 1.3) * 3;
+      ctx.save();
+      if (look.filter) ctx.filter = look.filter;
+      drawSprite(enemySprite(type), x + sway, y, h, false, 0, 1, 0, 0);
+      ctx.restore();
+    });
+  }
+  drawTorch(TORCHES[1].x, ground, TORCHES[1].h, 1.7);
+  drawFogBank('front', ground, 0.95);
+}
+
+// ---------------------------------------------------------------------------
+// Particles (presentation only, real time): embers, sparks, dust, smoke, fire pots.
+// ---------------------------------------------------------------------------
+const MAX_PARTICLES = 240;
+const fx = { particles: [], pots: [], fires: [], emberTimer: 0 };
+
+function addParticle(p) {
+  if (fx.particles.length >= MAX_PARTICLES) fx.particles.shift();
+  fx.particles.push({ vx: 0, vy: 0, age: 0, ...p });
+}
+
+function burst(kind, x, y, count, spread = 1) {
+  if (state.speed > 2) return; // keep 100× clean and fast
+  for (let i = 0; i < count; i++) {
+    const a = Math.random() * Math.PI * 2;
+    const v = (60 + Math.random() * 140) * spread;
+    if (kind === 'spark') addParticle({ kind, x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 40, life: 0.28 + Math.random() * 0.2, size: 3 + Math.random() * 2 });
+    else if (kind === 'dust') addParticle({ kind, x: x + (Math.random() - 0.5) * 20, y, vx: (Math.random() - 0.5) * 30, vy: -10 - Math.random() * 15, life: 0.6, size: 7 + Math.random() * 5 });
+    else if (kind === 'ember') addParticle({ kind, x, y, vx: (Math.random() - 0.5) * 30, vy: -40 - Math.random() * 50, life: 0.9 + Math.random() * 0.7, size: 2 + Math.random() * 2 });
+    else if (kind === 'smoke') addParticle({ kind, x, y, vx: 6 + Math.random() * 10, vy: -18 - Math.random() * 12, life: 1.6, size: 8 + Math.random() * 6 });
+  }
+}
+
+// At the horn, orcs lob burning pots out of the fog; they shatter on the road and burn a while.
+function launchFirePots(count) {
+  if (state.speed > 2 || typeof document === 'undefined') return;
+  for (let i = 0; i < count; i++) {
+    fx.pots.push({ sx: 40, sy: 540 * 0.82 - 90, tx: 250 + i * 85 + Math.random() * 40, t: -(0.25 + i * 0.35), dur: 0.95 + i * 0.1 });
+  }
+}
+
+function tickParticles(dt) {
+  const ground = 540 * 0.82;
+  fx.emberTimer -= dt;
+  if (fx.emberTimer <= 0 && state.speed <= 2) {
+    fx.emberTimer = 0.14;
+    for (const torch of TORCHES) {
+      addParticle({ kind: 'ember', x: torch.x + 3 + (Math.random() - 0.5) * 8, y: ground - torch.h - 18, vx: (Math.random() - 0.3) * 24, vy: -45 - Math.random() * 35, life: 1 + Math.random() * 0.8, size: 2 + Math.random() * 1.6 });
+    }
+    if (Math.random() < 0.3) addParticle({ kind: 'smoke', x: TORCHES[0].x + 3, y: ground - TORCHES[0].h - 30, vx: 8, vy: -20, life: 2, size: 7 });
+  }
+  for (const pot of fx.pots) {
+    pot.t += dt;
+    if (pot.t > 0 && pot.t < pot.dur && Math.random() < 0.7) {
+      const p = potPosition(pot);
+      addParticle({ kind: 'ember', x: p.x, y: p.y, vx: -20 + Math.random() * 10, vy: -10, life: 0.5, size: 2.5 });
+    }
+    if (pot.t >= pot.dur && !pot.done) {
+      pot.done = true;
+      fx.fires.push({ x: pot.tx, y: ground + 22, life: 2.6, max: 2.6 });
+      burst('spark', pot.tx, ground + 14, 10, 1.2);
+      burst('dust', pot.tx, ground + 22, 4);
+      state.shake = Math.max(state.shake, 0.1);
+    }
+  }
+  fx.pots = fx.pots.filter((pot) => !pot.done);
+  for (const fire of fx.fires) {
+    fire.life -= dt;
+    if (Math.random() < 0.5) addParticle({ kind: 'ember', x: fire.x + (Math.random() - 0.5) * 20, y: fire.y - 16, vx: (Math.random() - 0.5) * 20, vy: -50 - Math.random() * 30, life: 0.8, size: 2 });
+    if (Math.random() < 0.08) addParticle({ kind: 'smoke', x: fire.x, y: fire.y - 26, vx: 6, vy: -22, life: 1.8, size: 8 });
+  }
+  fx.fires = fx.fires.filter((fire) => fire.life > 0);
+  for (const p of fx.particles) {
+    p.age += dt;
+    p.x += p.vx * dt; p.y += p.vy * dt;
+    if (p.kind === 'spark') p.vy += 420 * dt;
+    if (p.kind === 'ember') p.vx += Math.sin((p.age + p.x) * 6) * 30 * dt;
+    if (p.kind === 'dust' || p.kind === 'smoke') { p.vx *= 0.96; p.vy *= 0.97; }
+  }
+  fx.particles = fx.particles.filter((p) => p.age < p.life);
+}
+
+function potPosition(pot) {
+  const k = Math.max(0, Math.min(1, pot.t / pot.dur));
+  const ground = 540 * 0.82;
+  return { x: pot.sx + (pot.tx - pot.sx) * k, y: pot.sy + (ground + 14 - pot.sy) * k - Math.sin(k * Math.PI) * 120 };
+}
+
+function drawGroundFires() {
+  for (const fire of fx.fires) {
+    const fade = Math.min(1, fire.life / 0.6);
+    ctx.save();
+    ctx.globalAlpha = 0.5 * fade;
+    ctx.beginPath(); ctx.ellipse(fire.x, fire.y + 4, 26, 7, 0, 0, Math.PI * 2); ctx.fillStyle = '#3a2516'; ctx.fill();
+    ctx.restore();
+    const s = 0.55 * fade + 0.15;
+    drawFlame(fire.x - 10, fire.y, s * 0.8, fire.x);
+    drawFlame(fire.x + 2, fire.y + 2, s, fire.x + 1);
+    drawFlame(fire.x + 13, fire.y, s * 0.7, fire.x + 2);
+  }
+}
+
+function drawFirePots() {
+  for (const pot of fx.pots) {
+    if (pot.t <= 0) continue;
+    const p = potPosition(pot);
+    ctx.save();
+    ctx.beginPath(); ctx.arc(p.x, p.y, 8, 0, Math.PI * 2); ctx.fillStyle = '#6b4a32'; ctx.fill(); ctx.lineWidth = 2.5; ctx.strokeStyle = INK; ctx.stroke();
+    ctx.restore();
+    drawFlame(p.x, p.y - 4, 0.45, pot.tx);
+  }
+}
+
+function drawParticles() {
+  ctx.save();
+  for (const p of fx.particles) {
+    const k = 1 - p.age / p.life;
+    if (p.kind === 'ember') {
+      ctx.globalAlpha = Math.min(1, k * 1.6);
+      ctx.fillStyle = 'rgba(255, 170, 60, 0.35)';
+      ctx.beginPath(); ctx.arc(p.x, p.y, p.size * 2.2, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = k > 0.5 ? '#ffe27a' : '#ff8a3a';
+      ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2); ctx.fill();
+    } else if (p.kind === 'spark') {
+      ctx.globalAlpha = k;
+      ctx.strokeStyle = '#fff3bd'; ctx.lineWidth = p.size * k + 1; ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(p.x - p.vx * 0.03, p.y - p.vy * 0.03); ctx.stroke();
+    } else if (p.kind === 'dust') {
+      ctx.globalAlpha = 0.65 * k;
+      ctx.beginPath(); ctx.arc(p.x, p.y, p.size * (1.6 - k * 0.6), 0, Math.PI * 2);
+      ctx.fillStyle = '#e6cf9f'; ctx.fill(); ctx.lineWidth = 1.5; ctx.strokeStyle = '#b8955f'; ctx.stroke();
+    } else if (p.kind === 'smoke') {
+      ctx.globalAlpha = 0.45 * k;
+      ctx.beginPath(); ctx.arc(p.x, p.y, p.size * (2 - k), 0, Math.PI * 2);
+      ctx.fillStyle = '#cfcbc2'; ctx.fill(); ctx.lineWidth = 2; ctx.strokeStyle = '#9d988d'; ctx.stroke();
+    }
   }
   ctx.restore();
 }
@@ -3268,7 +3466,8 @@ function drawScene(width, height) {
     drawSprite(sprites.spikes, width * 0.435, ground - 16, spikesHeight, false, 0, 1, 0.84, 0.14);
   }
 
-  drawLurkingHorde(width, height);
+  drawEnemyCamp(width, height);
+  drawGroundFires();
   const mobsByDepth = [...state.mobs].sort((a, b) => (a.laneY ?? 0) - (b.laneY ?? 0));
   for (const mob of mobsByDepth) {
     const bob = Math.abs(Math.sin(state.time * 7 + mob.bob)) * -4;
@@ -3308,6 +3507,8 @@ function drawScene(width, height) {
   drawArrows(height);
   drawVolley(width, height);
   drawRocksAndShots(height);
+  drawFirePots();
+  drawParticles();
 
   if (state.hitFlash > 0) {
     ctx.save();
