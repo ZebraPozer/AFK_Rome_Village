@@ -11,7 +11,7 @@ const ui = Object.fromEntries([
   'archer-upgrade','archer-level','archer-cost',
   'catapult-upgrade','catapult-level','catapult-cost','tower-slot',
   'village-stage','town-upgrade','town-level','town-cost','sound-toggle','sound-volume',
-  'hud-pause','hud-sound','hud-wave','hud-speed','hud-upgrade','hud-upgrade-badge','hud-panel',
+  'hud-pause','hud-sound','hud-wave','hud-speed','hud-upgrade','hud-panel',
   'hud-tab-upgrades','hud-tab-heroes','hud-close','hud-upgrades','hud-heroes','hud-lineup','hud-auto-lineup'
 ].map((id) => [id, document.getElementById(id)]));
 
@@ -42,12 +42,12 @@ const enemyTypes = {
 
 // Trait glyphs shown on the wave roster and what they mean (see GAME_DESIGN 13.2).
 const traitInfo = {
-  shield: { glyph: '◐', color: '#a9c6cf', name: 'щит: −50% от стрел' },
-  armor:  { glyph: '▣', color: '#c9c3b5', name: 'броня: −1 к каждому удару, кроме площади' },
-  swarm:  { glyph: '✦', color: '#e6e36a', name: 'стая: проскакивает мимо легионера' },
-  ranged: { glyph: '➶', color: '#c7a6f0', name: 'стреляет в легионера издалека' },
-  charge: { glyph: '»', color: '#f0a160', name: 'наскок: первый удар ×2' },
-  aura:   { glyph: '✚', color: '#9fd0ff', name: 'аура: щиты союзникам каждые 6 с' }
+  shield: { glyph: '◐', color: '#a9c6cf', name: 'shield: −50% from arrows' },
+  armor:  { glyph: '▣', color: '#c9c3b5', name: 'armor: −1 per hit, except area' },
+  swarm:  { glyph: '✦', color: '#e6e36a', name: 'swarm: slips past the frontline' },
+  ranged: { glyph: '➶', color: '#c7a6f0', name: 'shoots the frontline from range' },
+  charge: { glyph: '»', color: '#f0a160', name: 'charge: first hit ×2' },
+  aura:   { glyph: '✚', color: '#9fd0ff', name: 'aura: shields allies every 6 s' }
 };
 
 function traitsOf(type) {
@@ -85,8 +85,8 @@ function buildWavePlan(wave) {
 }
 
 const wavePreviewNames = {
-  orc: 'Орк', orcDual: 'Двойные мечи', orcShield: 'Щитоносец', orcRed: 'Элита', boss: 'Громила',
-  goblin: 'Гоблин', orcArcher: 'Стрелок', boar: 'Всадник', shaman: 'Шаман'
+  orc: 'Orc', orcDual: 'Twin Blades', orcShield: 'Shield Bearer', orcRed: 'Elite', boss: 'Brute',
+  goblin: 'Goblin', orcArcher: 'Orc Archer', boar: 'Boar Rider', shaman: 'Shaman'
 };
 
 function wavePreviewText(wave) {
@@ -229,9 +229,9 @@ const state = {
 
 // Settlement growth is claimed after the bosses of waves 5 and 10.
 const villageStages = {
-  1: 'Лагерь',
-  2: 'Деревня',
-  3: 'Процветающее поселение'
+  1: 'Camp',
+  2: 'Village',
+  3: 'Thriving Town'
 };
 const GROWTH_POP = 0.9;
 const GROWTH_BANNER = 3.2;
@@ -457,7 +457,7 @@ function startWave() {
   state.hornFx = HORN_TIME;
   state.shake = Math.max(state.shake, 0.2);
   playHorn();
-  ui.pause.textContent = 'Ⅱ Пауза';
+  ui.pause.textContent = 'Ⅱ Pause';
 }
 
 // ---------------------------------------------------------------------------
@@ -665,7 +665,7 @@ function finishWave() {
   clearProjectiles();
   applyWaveFatigue();
   if (state.wavesCleared >= HOPLITE_UNLOCK_WAVE) {
-    unlockHero('hoplite', 'ПОПОЛНЕНИЕ', 'Можно поставить на передовую вместо легионера · отдохнувший герой сильнее');
+    unlockHero('hoplite', 'REINFORCEMENTS', 'Can hold the front instead of the Legionary · rested heroes hit harder');
   }
 }
 // The boss-gated town opens new hero slots: tower at II, wall at III.
@@ -680,11 +680,11 @@ function applyUnlocks() {
     state.heroes.archer.unlocked = true;
     state.heroes.catapult.unlocked = true;
     state.heroes.archer.cd = 0;
-    showNotice('ПОСЕЛЕНИЕ II', 'НОВЫЙ ГЕРОЙ · ЛУЧНИК', 'Слот башни: лучник со «Залпом» или катапульта · клавиша 2');
+    showNotice('TOWN II', 'NEW HERO · ARCHER', 'Tower slot: Archer with Volley, or the Catapult · key 2');
   }
   if (state.townLevel >= 3 && !state.heroes.priestess.unlocked) {
     state.supportHero = 'priestess';
-    unlockHero('priestess', 'ПОСЕЛЕНИЕ III', 'Третий слот «Стена» · «Благословение» лечит передовую · клавиша 3');
+    unlockHero('priestess', 'TOWN III', 'Third slot: Wall · Blessing heals the frontline · key 3');
   }
 }
 function showNotice(kicker, title, subtitle) {
@@ -745,20 +745,20 @@ const RESTED_BONUS = 0.25;      // «Свежие силы»: +25% damage for on
 const FATIGUE_PENALTY = 0.15;   // per wave beyond the first in a row
 const FATIGUE_MAX = 3;
 const heroDefs = {
-  legionary: { name: 'Легионер', role: 'front', damageMult: 1, guardTaken: 1,
-    spell: { id: 'shieldBash', name: 'Удар щитом', icon: '⛨', cooldown: 12, hint: 'оглушает и отбрасывает ближайшего врага' } },
-  hoplite: { name: 'Гоплит', role: 'front', damageMult: 0.85, guardTaken: 0.85,
-    spell: { id: 'holdLine', name: 'Удержать строй', icon: '▥', cooldown: 16, hint: '5 с получает на 70% меньше урона' } },
-  archer: { name: 'Лучник', role: 'tower', damageMult: 1,
-    spell: { id: 'volley', name: 'Залп', icon: '➶', cooldown: VOLLEY_COOLDOWN, hint: 'стрелы накрывают всё перед легионером' } },
-  catapult: { name: 'Катапульта', role: 'tower', machine: true, damageMult: 1, spell: null },
-  priestess: { name: 'Жрица', role: 'support', damageMult: 1,
-    spell: { id: 'blessing', name: 'Благословение', icon: '✚', cooldown: 20, hint: 'лечит бойца передовой на 40% HP' } }
+  legionary: { name: 'Legionary', role: 'front', damageMult: 1, guardTaken: 1,
+    spell: { id: 'shieldBash', name: 'Shield Bash', short: 'Bash', icon: '⛨', cooldown: 12, hint: 'stuns and knocks back the nearest enemy' } },
+  hoplite: { name: 'Hoplite', role: 'front', damageMult: 0.85, guardTaken: 0.85,
+    spell: { id: 'holdLine', name: 'Hold the Line', short: 'Hold', icon: '▥', cooldown: 16, hint: 'takes 70% less damage for 5 s' } },
+  archer: { name: 'Archer', role: 'tower', damageMult: 1,
+    spell: { id: 'volley', name: 'Volley', short: 'Volley', icon: '➶', cooldown: VOLLEY_COOLDOWN, hint: 'arrows rain on everything in front of the line' } },
+  catapult: { name: 'Catapult', role: 'tower', machine: true, damageMult: 1, spell: null },
+  priestess: { name: 'Priestess', role: 'support', damageMult: 1,
+    spell: { id: 'blessing', name: 'Blessing', short: 'Bless', icon: '✚', cooldown: 20, hint: 'heals the frontline hero by 40% HP' } }
 };
 const slotDefs = [
-  { role: 'front', name: 'Передовая', key: '1' },
-  { role: 'tower', name: 'Башня', key: '2' },
-  { role: 'support', name: 'Стена', key: '3' }
+  { role: 'front', name: 'Front', key: '1' },
+  { role: 'tower', name: 'Tower', key: '2' },
+  { role: 'support', name: 'Wall', key: '3' }
 ];
 const BASH_STUN = 2.5;
 const BASH_KNOCK = 120;
@@ -807,11 +807,11 @@ function heroPowerMult(id) {
 
 function heroCondition(id) {
   const hero = state.heroes[id];
-  if (heroDefs[id].machine) return { label: 'не устаёт', tone: 'neutral' };
-  if (hero.rested) return { label: `свежие силы +${Math.round(RESTED_BONUS * 100)}%`, tone: 'good' };
-  if (hero.fatigue >= 2) return { label: `устал −${Math.round(FATIGUE_PENALTY * (hero.fatigue - 1) * 100)}%`, tone: 'bad' };
-  if (hero.fatigue === 1 && roleHasBench(heroDefs[id].role)) return { label: 'в строю 1 волну', tone: 'neutral' };
-  return { label: 'в форме', tone: 'neutral' };
+  if (heroDefs[id].machine) return { label: 'never tires', tone: 'neutral' };
+  if (hero.rested) return { label: `rested +${Math.round(RESTED_BONUS * 100)}%`, tone: 'good' };
+  if (hero.fatigue >= 2) return { label: `tired −${Math.round(FATIGUE_PENALTY * (hero.fatigue - 1) * 100)}%`, tone: 'bad' };
+  if (hero.fatigue === 1 && roleHasBench(heroDefs[id].role)) return { label: '1 wave in a row', tone: 'neutral' };
+  return { label: 'fit', tone: 'neutral' };
 }
 
 function frontName() {
@@ -872,19 +872,19 @@ function prepareHeroesForWave() {
 function unlockHero(id, kicker, subtitle) {
   if (state.heroes[id].unlocked) return;
   state.heroes[id].unlocked = true;
-  showNotice(kicker, `НОВЫЙ ГЕРОЙ · ${heroDefs[id].name.toUpperCase()}`, subtitle);
+  showNotice(kicker, `NEW HERO · ${heroDefs[id].name.toUpperCase()}`, subtitle);
 }
 
 function spellBlocked(id) {
   const def = heroDefs[id];
-  if (!def || !def.spell || !state.heroes[id].unlocked) return 'нет';
-  if (!activeHeroes().includes(id)) return 'в резерве';
-  if (!state.running) return 'пауза';
-  if (state.heroes[id].cd > 0) return `${Math.ceil(state.heroes[id].cd)} с`;
-  if (def.spell.id === 'blessing') return state.guardHp > 0 && state.guardHp < state.maxGuardHp ? null : 'HP полное';
-  if (def.spell.id === 'shieldBash') return bashTarget(1170) ? null : 'нет цели';
-  if (def.spell.id === 'volley' && state.volleyFx > 0) return 'летит';
-  return aliveMobs().length ? null : 'нет врагов';
+  if (!def || !def.spell || !state.heroes[id].unlocked) return 'none';
+  if (!activeHeroes().includes(id)) return 'benched';
+  if (!state.running) return 'paused';
+  if (state.heroes[id].cd > 0) return `${Math.ceil(state.heroes[id].cd)} s`;
+  if (def.spell.id === 'blessing') return state.guardHp > 0 && state.guardHp < state.maxGuardHp ? null : 'full HP';
+  if (def.spell.id === 'shieldBash') return bashTarget(1170) ? null : 'no target';
+  if (def.spell.id === 'volley' && state.volleyFx > 0) return 'in flight';
+  return aliveMobs().length ? null : 'no enemies';
 }
 
 function bashTarget(width) {
@@ -1150,7 +1150,7 @@ function resetGame() {
     wavesCleared: 0, villageStage: 1, stageOverride: null, growthFx: 0, growthBanner: 0
   });
   ui.speed.textContent = '⏩ 1×';
-  ui.pause.textContent = 'Ⅱ Пауза';
+  ui.pause.textContent = 'Ⅱ Pause';
 }
 
 function upgradeLimit(kind) {
@@ -2279,6 +2279,11 @@ function drawVillageVillagers(width, ground) {
 
 // Hero (gold-crested centurion) and archer on the tower platform.
 const LOW_HP = 0.35;
+// Canvas panels share the HUD look: one translucent surface, no outlines.
+const HUD_SURFACE = 'rgba(22, 28, 24, 0.72)';
+const HUD_TEXT = '#f4eedb';
+const HUD_MUTED = '#b8b39f';
+const HUD_ACCENT = '#e8bf55';
 
 function heroPosition(width, height) {
   const { towerX, platformY } = towerGeometry(width, height);
@@ -2306,7 +2311,6 @@ function drawTowerDefenders(width, height) {
     const recoil = drawn ? 3 : 0;
     drawSprite(sprites.archer, archerX + recoil, platformY, size * 1.18, false, Math.sin(state.time * 2) * -1);
   }
-  if (state.towerSlot === 'archer') drawSpellBadge('archer', towerX - 92, platformY - size * 0.7);
 }
 
 // Cooldown ring above a hero; pulses when the spell is ready to use.
@@ -2360,7 +2364,6 @@ function drawSupportHero(width, height) {
   ctx.beginPath(); ctx.ellipse(pos.x, pos.y - size - 4, 15, 5, 0, 0, Math.PI * 2);
   ctx.strokeStyle = '#ffe08a'; ctx.lineWidth = 3; ctx.stroke();
   ctx.restore();
-  drawSpellBadge('priestess', pos.x, pos.y - size - 30);
 }
 
 function drawFrontHero(width, height, guardX, ground) {
@@ -2406,7 +2409,6 @@ function drawFrontHero(width, height, guardX, ground) {
     ctx.strokeStyle = '#fff3bd'; ctx.lineWidth = 7 * (1 - p) + 2; ctx.stroke();
     ctx.restore();
   }
-  drawSpellBadge(state.frontHero, guardX, ground - size - 44);
 }
 
 // Between waves the next attackers wait at the forest edge: the threat is always in view.
@@ -2458,11 +2460,11 @@ function drawDangerOverlay(width, height) {
     const p = 1 - state.hornFx / HORN_TIME;
     ctx.save();
     ctx.globalAlpha = Math.min(1, (1 - p) * 2);
-    ctx.font = '900 30px system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.lineWidth = 6; ctx.strokeStyle = INK; ctx.lineJoin = 'round';
-    const text = `ВОЛНА ${state.wave} · ОРКИ ИДУТ!`;
-    ctx.strokeText(text, width / 2, height * 0.3 - p * 16);
-    ctx.fillStyle = '#ffcf4a'; ctx.fillText(text, width / 2, height * 0.3 - p * 16);
+    ctx.font = '700 28px system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    const text = `WAVE ${state.wave} · ORCS INCOMING`;
+    const ty = height * 0.3 - p * 16;
+    roundedRect(width / 2 - 230, ty - 30, 460, 60, HUD_R, HUD_SURFACE);
+    ctx.fillStyle = HUD_ACCENT; ctx.fillText(text, width / 2, ty + 1);
     ctx.restore();
   }
 }
@@ -2673,15 +2675,14 @@ function drawActBanner(width) {
   ctx.globalAlpha = Math.min(1, notice.t / 0.4);
   ctx.translate(width / 2, 190);
   ctx.scale(pop, pop);
-  ctx.beginPath(); ctx.roundRect(-220, -38, 440, 76, 22); fillInk('#2f3a32', 4);
+  roundedRect(-230, -40, 460, 80, HUD_R, HUD_SURFACE);
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-  ctx.font = '900 13px system-ui, sans-serif'; ctx.fillStyle = '#d4b765';
-  ctx.fillText(notice.kicker, 0, -18);
-  ctx.font = '900 24px system-ui, sans-serif';
-  ctx.lineWidth = 6; ctx.strokeStyle = INK; ctx.lineJoin = 'round';
-  ctx.strokeText(notice.title, 0, 4); ctx.fillStyle = '#ffcf4a'; ctx.fillText(notice.title, 0, 4);
-  ctx.font = '700 11px system-ui, sans-serif'; ctx.fillStyle = '#e9e1c8';
-  ctx.fillText(notice.subtitle, 0, 26);
+  ctx.font = '600 11px system-ui, sans-serif'; ctx.fillStyle = HUD_MUTED;
+  ctx.fillText(notice.kicker, 0, -20);
+  ctx.font = '700 22px system-ui, sans-serif'; ctx.fillStyle = HUD_ACCENT;
+  ctx.fillText(notice.title, 0, 2);
+  ctx.font = '500 12px system-ui, sans-serif'; ctx.fillStyle = HUD_TEXT;
+  ctx.fillText(notice.subtitle, 0, 24);
   ctx.restore();
 }
 
@@ -2694,18 +2695,15 @@ function drawGrowthBanner(width) {
   ctx.globalAlpha = alpha;
   ctx.translate(width / 2, 118);
   ctx.scale(pop, pop);
-  ctx.beginPath(); ctx.roundRect(-190, -34, 380, 68, 22); fillInk('#fff4d6', 4);
-  ctx.beginPath(); ctx.roundRect(-182, -26, 364, 10, 5); ctx.fillStyle = '#ffffff99'; ctx.fill();
+  roundedRect(-190, -34, 380, 68, HUD_R, HUD_SURFACE);
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.font = '900 26px system-ui, sans-serif';
-  ctx.lineWidth = 6; ctx.strokeStyle = INK; ctx.lineJoin = 'round';
-  ctx.strokeText('ДЕРЕВНЯ ВЫРОСЛА!', 0, -6);
-  ctx.fillStyle = '#ffcf4a';
-  ctx.fillText('ДЕРЕВНЯ ВЫРОСЛА!', 0, -6);
-  ctx.font = '800 13px system-ui, sans-serif';
-  ctx.fillStyle = '#6b3f22';
-  ctx.fillText(`Ступень ${state.villageStage}: ${villageStages[state.villageStage]}`, 0, 20);
+  ctx.font = '700 22px system-ui, sans-serif';
+  ctx.fillStyle = HUD_ACCENT;
+  ctx.fillText('YOUR VILLAGE GREW!', 0, -7);
+  ctx.font = '500 12px system-ui, sans-serif';
+  ctx.fillStyle = HUD_TEXT;
+  ctx.fillText(`Stage ${state.villageStage}: ${villageStages[state.villageStage]}`, 0, 20);
   ctx.restore();
 }
 
@@ -2749,32 +2747,16 @@ function drawStructure(sprite, x, groundY, height) {
 
 function drawGuardHealthBar(x, y) {
   const width = 104;
-  const height = 15;
+  const height = 14;
   const ratio = Math.max(0, state.guardHp / state.maxGuardHp);
+  const healing = state.regenFlash > 0;
   ctx.save();
-  ctx.shadowColor = '#2d211b55';
-  ctx.shadowBlur = 7;
-  ctx.shadowOffsetY = 2;
-  roundedRect(x - width / 2, y, width, height, height / 2, '#392c28e8');
-  ctx.shadowColor = 'transparent';
-  roundedRect(x - width / 2 + 2, y + 2, width - 4, height - 4, (height - 4) / 2, '#6d5148');
+  roundedRect(x - width / 2, y, width, height, height / 2, HUD_SURFACE);
   if (ratio > 0) {
-    const fillWidth = (width - 4) * ratio;
-    const gradient = ctx.createLinearGradient(x - width / 2, y, x + width / 2, y);
-    const healing = state.regenFlash > 0;
-    gradient.addColorStop(0, healing ? '#268b52' : '#8f322f');
-    gradient.addColorStop(0.7, healing ? '#65d58a' : '#b64c3d');
-    gradient.addColorStop(1, healing ? '#b9f5aa' : '#d08a48');
-    roundedRect(x - width / 2 + 2, y + 2, fillWidth, height - 4, Math.min((height - 4) / 2, fillWidth / 2), gradient);
+    const fill = Math.max(height - 4, (width - 4) * ratio);
+    roundedRect(x - width / 2 + 2, y + 2, fill, height - 4, (height - 4) / 2, healing ? '#5cc47c' : ratio < LOW_HP ? '#e0573f' : '#d8845a');
   }
-  ctx.strokeStyle = state.regenFlash > 0 ? '#b9f5aa' : '#d7aa58';
-  if (state.regenFlash > 0) {
-    ctx.shadowColor = '#65d58a';
-    ctx.shadowBlur = 12;
-  }
-  ctx.lineWidth = 1.5;
-  ctx.beginPath(); ctx.roundRect(x - width / 2, y, width, height, height / 2); ctx.stroke();
-  ctx.fillStyle = '#fff4da';
+  ctx.fillStyle = HUD_TEXT;
   ctx.font = '700 8px system-ui, sans-serif';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
@@ -2785,7 +2767,7 @@ function drawGuardHealthBar(x, y) {
 function drawEnemyHead(sprite, x, y, size, type = 'orc') {
   const elite = type === 'boss' || type === 'orcRed';
   ctx.save();
-  ctx.beginPath(); ctx.arc(x, y, size / 2, 0, Math.PI * 2); ctx.clip();
+  ctx.beginPath(); ctx.roundRect(x - size / 2, y - size / 2, size, size, size * 0.22); ctx.clip();
   ctx.fillStyle = elite ? '#6e3c35' : type === 'orcShield' ? '#657b82' : type === 'orcDual' ? '#887a49' : '#8ea170';
   ctx.fillRect(x - size / 2, y - size / 2, size, size);
   const sourceX = sprite.width * 0.18;
@@ -2794,59 +2776,59 @@ function drawEnemyHead(sprite, x, y, size, type = 'orc') {
   const sourceHeight = sprite.height * 0.38;
   ctx.drawImage(sprite, sourceX, sourceY, sourceWidth, sourceHeight, x - size / 2, y - size / 2, size, size);
   ctx.restore();
-  ctx.strokeStyle = elite ? '#d08a48' : type === 'orcShield' ? '#a9c6cf' : '#d4b765';
-  ctx.lineWidth = elite ? 3 : 2;
-  ctx.beginPath(); ctx.arc(x, y, size / 2, 0, Math.PI * 2); ctx.stroke();
 }
+
+// World units matching the HUD's cqh sizes (the world is 540 high).
+const HUD_M = 540 * 0.04;     // edge margin
+const HUD_T = 540 * 0.125;    // tile size
+const HUD_R = 540 * 0.028;    // corner radius
 
 function drawWaveRoster(width) {
   if (!sprites.orc) return;
-  const plan = state.wavePlan.length ? state.wavePlan : buildWavePlan(state.wave);
+  // During a wave show what is attacking; between waves show what comes next.
+  const shownWave = state.phase === 'victory' && !(state.wave === 5 && state.townLevel < 2) ? state.wave + 1 : state.wave;
+  const plan = state.phase === 'wave' && state.wavePlan.length ? state.wavePlan : buildWavePlan(shownWave);
   const counts = plan.reduce((result, type) => {
     result[type] = (result[type] || 0) + 1;
     return result;
   }, {});
   const entries = Object.entries(counts);
-  const panelWidth = 74 + entries.length * 70;
+  const head = 38;
+  const item = 72;
+  const labelWidth = 64;
+  const panelWidth = 16 + labelWidth + entries.length * item;
   const x = width / 2 - panelWidth / 2;
-  const y = 16;
+  const y = HUD_M;
+  const mid = y + HUD_T / 2;
   ctx.save();
-  ctx.shadowColor = '#26302735';
-  ctx.shadowBlur = 10;
-  ctx.shadowOffsetY = 3;
-  roundedRect(x, y, panelWidth, 62, 27, '#29352eea');
-  ctx.shadowColor = 'transparent';
-  ctx.strokeStyle = '#d4b76588';
-  ctx.lineWidth = 1;
-  ctx.beginPath(); ctx.roundRect(x + 1, y + 1, panelWidth - 2, 60, 26); ctx.stroke();
+  roundedRect(x, y, panelWidth, HUD_T, HUD_R, HUD_SURFACE);
+  ctx.textBaseline = 'middle';
+  ctx.textAlign = 'left';
+  ctx.fillStyle = HUD_MUTED;
+  ctx.font = '600 10px system-ui, sans-serif';
+  ctx.fillText('WAVE', x + 16, mid - 9);
+  ctx.fillStyle = HUD_TEXT;
+  ctx.font = '700 20px system-ui, sans-serif';
+  ctx.fillText(String(shownWave), x + 16, mid + 9);
   entries.forEach(([type, count], index) => {
-    const itemX = x + 28 + index * 70;
+    const itemX = x + 16 + labelWidth + index * item;
     const look = enemyLooks[type];
     ctx.save();
     if (look && look.filter) ctx.filter = look.filter;
-    drawEnemyHead(enemySprite(type), itemX, y + 27, enemyTypes[type]?.isBoss ? 40 : 36, type);
+    drawEnemyHead(enemySprite(type), itemX + head / 2, mid - 4, head, type);
     ctx.restore();
-    traitsOf(type).forEach((trait, i) => {
-      const info = traitInfo[trait];
-      const tx = itemX - 12 + i * 15;
-      const ty = y + 47;
-      ctx.beginPath(); ctx.arc(tx, ty, 7, 0, Math.PI * 2);
-      ctx.fillStyle = '#29352e'; ctx.fill();
-      ctx.strokeStyle = info.color; ctx.lineWidth = 1.5; ctx.stroke();
-      ctx.fillStyle = info.color; ctx.font = '900 9px system-ui, sans-serif';
-      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      ctx.fillText(info.glyph, tx, ty + 0.5);
-    });
-    ctx.fillStyle = type === 'boss' || type === 'orcRed' ? '#ffd79a' : '#fff3d2';
+    ctx.fillStyle = enemyTypes[type]?.isBoss ? HUD_ACCENT : HUD_TEXT;
     ctx.textAlign = 'left';
-    ctx.textBaseline = 'middle';
-    ctx.font = '800 13px system-ui, sans-serif';
-    ctx.fillText(`×${count}`, itemX + 21, y + 27);
+    ctx.font = '700 14px system-ui, sans-serif';
+    ctx.fillText(`×${count}`, itemX + head + 6, mid - 4);
+    // Traits as plain glyphs under the portrait.
+    ctx.font = '700 10px system-ui, sans-serif';
+    ctx.textAlign = 'center';
+    traitsOf(type).forEach((trait, i, list) => {
+      ctx.fillStyle = traitInfo[trait].color;
+      ctx.fillText(traitInfo[trait].glyph, itemX + head / 2 + (i - (list.length - 1) / 2) * 12, mid + head / 2 + 5);
+    });
   });
-  ctx.fillStyle = '#92a087';
-  ctx.font = '700 8px system-ui, sans-serif';
-  ctx.textAlign = 'right';
-  ctx.fillText(`ВОЛНА ${state.wave}`, x + panelWidth - 14, y + 27);
   ctx.restore();
 }
 
@@ -2874,7 +2856,7 @@ function drawFloaters(height) {
       continue;
     }
     const resourceIcon = floater.kind === 'food' ? resourceIcons.food : floater.kind === 'reward' ? resourceIcons.gold : null;
-    const label = floater.kind === 'bash' ? `УДАР ЩИТОМ −${floater.amount}` : floater.kind === 'hold' ? 'СТРОЙ −70% УРОНА' : floater.kind === 'bless' ? `+${floater.amount} ♥` : floater.kind === 'stolen' ? `−${floater.amount} УКРАДЕНО` : floater.kind === 'volley' ? `ЗАЛП −${floater.amount}` : floater.kind === 'food' ? `+${floater.amount}` : floater.kind === 'hurt' ? `−${floater.amount}  ♥` : floater.kind === 'spikes' ? `−${floater.amount}  ⋀` : floater.kind === 'arrow' ? `−${floater.amount}  ➶` : floater.kind === 'reward' ? `ПОБЕДА  +${floater.amount}` : `+${floater.amount}  ☠`;
+    const label = floater.kind === 'bash' ? `BASH −${floater.amount}` : floater.kind === 'hold' ? 'HOLD · −70% DMG' : floater.kind === 'bless' ? `+${floater.amount} ♥` : floater.kind === 'stolen' ? `−${floater.amount} STOLEN` : floater.kind === 'volley' ? `VOLLEY −${floater.amount}` : floater.kind === 'food' ? `+${floater.amount}` : floater.kind === 'hurt' ? `−${floater.amount}  ♥` : floater.kind === 'spikes' ? `−${floater.amount}  ⋀` : floater.kind === 'arrow' ? `−${floater.amount}  ➶` : floater.kind === 'reward' ? `VICTORY  +${floater.amount}` : `+${floater.amount}  ☠`;
     ctx.save();
     ctx.globalAlpha = alpha;
     ctx.translate(floater.x + sway, y);
@@ -2995,25 +2977,26 @@ function syncSpellBar() {
     const keys = { front: '1', tower: '2', support: '3' };
     bar.innerHTML = ids.map((id) => {
       const spell = heroDefs[id].spell;
-      return `<button class="spell-btn slot-${heroDefs[id].role}" data-hero="${id}" title="${heroDefs[id].name}: ${spell.name} — ${spell.hint}"><kbd>${keys[heroDefs[id].role]}</kbd>${spell.icon}<small>${spell.name}</small><i class="cd"></i></button>`;
-    }).join('') + (ids.length ? '<button class="spell-auto" data-auto="1" title="Герои сами применяют спеллы">АВТО</button>' : '');
+      return `<button class="tile tile-label spell" data-hero="${id}" title="${keys[heroDefs[id].role]} · ${heroDefs[id].name}: ${spell.name} — ${spell.hint}"><span>${spell.icon}</span><small>${spell.short}</small><i class="cd"></i></button>`;
+    }).join('') + (ids.length ? '<button class="tile tile-label spell-auto" data-auto="1" title="Heroes cast spells by themselves"><span>⟳</span><small>Auto</small></button>' : '');
   }
   if (typeof bar.querySelectorAll !== 'function') return;
-  for (const button of bar.querySelectorAll('.spell-btn')) {
+  for (const button of bar.querySelectorAll('.spell')) {
     const id = button.dataset.hero;
     const blocked = spellBlocked(id);
     const cd = state.heroes[id].cd;
     const overlay = button.querySelector('.cd');
     overlay.style.display = cd > 0 ? '' : 'none';
-    overlay.style.transform = `scaleY(${cd / heroDefs[id].spell.cooldown})`;
-    overlay.textContent = cd > 0 ? Math.ceil(cd) : '';
+    overlay.style.height = `${cd / heroDefs[id].spell.cooldown * 100}%`;
+    overlay.textContent = '';
+    button.querySelector('small').textContent = cd > 0 ? `${Math.ceil(cd)}s` : heroDefs[id].spell.short;
     button.disabled = Boolean(blocked);
     button.classList.toggle('ready', !blocked);
     button.classList.toggle('rested', state.heroes[id].rested);
     button.classList.toggle('tired', state.heroes[id].fatigue >= 2);
   }
   const auto = bar.querySelector('.spell-auto');
-  if (auto) auto.classList.toggle('on', state.autoSpells);
+  if (auto) auto.classList.toggle('active', state.autoSpells);
 }
 
 let lineupKey = '';
@@ -3028,15 +3011,15 @@ function syncLineup() {
     bench.map((id) => state.heroes[id].rested)]);
   if (key === lineupKey) return;
   lineupKey = key;
-  const unlockText = { tower: 'после улучшения поселения II', support: 'после улучшения поселения III' };
+  const unlockText = { tower: 'unlocks at Town II', support: 'unlocks at Town III' };
   const inWave = state.phase === 'wave';
   ui.lineup.innerHTML = ui['hud-lineup'].innerHTML = parts.map((p) => {
-    if (p.locked) return `<button class="lineup-row" disabled><span><b>${p.slot.key} · ${p.slot.name}</b><small>${unlockText[p.slot.role]}</small></span><em>ЗАКРЫТ</em></button>`;
+    if (p.locked) return `<button class="row" disabled><span><b>${p.slot.name}</b><small>${unlockText[p.slot.role]}</small></span><em>Locked</em></button>`;
     const def = heroDefs[p.id];
     const swap = p.options.length > 1 && !inWave;
-    const spell = def.spell ? `«${def.spell.name}» — ${def.spell.hint}` : 'без спелла · не устаёт';
-    return `<button class="lineup-row" data-role="${p.slot.role}" ${swap ? '' : 'disabled'} title="${swap ? 'Нажми, чтобы поставить другого героя' : ''}"><span><b>${p.slot.key} · ${p.slot.name}: ${def.name}${swap ? ' ⇄' : ''}</b><small>${spell}</small></span><em class="${p.condition.tone}">${p.condition.label.toUpperCase()}</em></button>`;
-  }).join('') + `<p class="lineup-bench">${bench.length ? `Отдыхают: ${bench.map((id) => `${heroDefs[id].name}${state.heroes[id].rested ? ' (свежие силы)' : ''}`).join(', ')}` : 'Запасных героев пока нет — ротация откроется, когда на слот появится замена.'}</p>`;
+    const spell = def.spell ? `${def.spell.name} — ${def.spell.hint}` : 'no spell · never tires';
+    return `<button class="row" data-role="${p.slot.role}" ${swap ? '' : 'disabled'} title="${swap ? 'Tap to swap in another hero' : ''}"><span><b>${p.slot.name} · ${def.name}${swap ? ' ⇄' : ''}</b><small>${spell}</small></span><em class="${p.condition.tone}">${p.condition.label}</em></button>`;
+  }).join('') + `<p class="row-note">${bench.length ? `Resting: ${bench.map((id) => `${heroDefs[id].name}${state.heroes[id].rested ? ' (rested)' : ''}`).join(', ')}` : 'No reserve heroes yet — rotation opens once a slot has a substitute.'}</p>`;
 }
 
 // ---------------------------------------------------------------------------
@@ -3045,12 +3028,12 @@ function syncLineup() {
 // ---------------------------------------------------------------------------
 const hud = { open: false, tab: 'upgrades' };
 const hudUpgrades = [
-  { kind: 'town', icon: '⌂', name: 'Поселение', level: 'town-level', cost: 'town-cost', button: 'town-upgrade' },
-  { kind: 'guard', icon: '⚔', name: 'Передовая', level: 'guard-level', cost: 'guard-cost', button: 'guard-upgrade' },
-  { kind: 'spikes', icon: '⋀', name: 'Шипы', level: 'spikes-level', cost: 'spikes-cost', button: 'spikes-upgrade' },
-  { kind: 'archer', icon: '➶', name: 'Лучник', level: 'archer-level', cost: 'archer-cost', button: 'archer-upgrade', show: () => state.archerUnlocked },
-  { kind: 'catapult', icon: '☄', name: 'Катапульта', level: 'catapult-level', cost: 'catapult-cost', button: 'catapult-upgrade', show: () => state.catapultUnlocked },
-  { kind: 'farm', icon: '✶', name: 'Ферма', level: 'farm-level', cost: 'farm-cost', button: 'farm-upgrade' }
+  { kind: 'town', icon: '⌂', name: 'Town', level: 'town-level', cost: 'town-cost', button: 'town-upgrade' },
+  { kind: 'guard', icon: '⚔', name: 'Frontline', level: 'guard-level', cost: 'guard-cost', button: 'guard-upgrade' },
+  { kind: 'spikes', icon: '⋀', name: 'Spikes', level: 'spikes-level', cost: 'spikes-cost', button: 'spikes-upgrade' },
+  { kind: 'archer', icon: '➶', name: 'Archer', level: 'archer-level', cost: 'archer-cost', button: 'archer-upgrade', show: () => state.archerUnlocked },
+  { kind: 'catapult', icon: '☄', name: 'Catapult', level: 'catapult-level', cost: 'catapult-cost', button: 'catapult-upgrade', show: () => state.catapultUnlocked },
+  { kind: 'farm', icon: '✶', name: 'Farm', level: 'farm-level', cost: 'farm-cost', button: 'farm-upgrade' }
 ];
 let hudUpgradesKey = '';
 
@@ -3071,13 +3054,14 @@ function syncHud() {
 
   // Corner button: upgrades between waves, a lock during combat, a cross when open.
   const affordable = hudUpgrades.filter((row) => (!row.show || row.show()) && !ui[row.button].disabled).length;
-  ui['hud-upgrade'].classList.toggle('locked', inWave);
-  ui['hud-upgrade'].classList.toggle('open', hud.open);
+  ui['hud-upgrade'].classList.toggle('active', hud.open);
   ui['hud-upgrade'].disabled = inWave;
-  ui['hud-upgrade'].innerHTML = inWave
-    ? '<span class="hud-upgrade-icon">🔒</span><small>В БОЮ</small>'
-    : hud.open ? '<span class="hud-upgrade-icon">✕</span><small>ЗАКРЫТЬ</small>'
-    : `<span class="hud-upgrade-icon">⬆</span><small>УЛУЧШЕНИЯ</small>${affordable ? `<i class="hud-badge">${affordable}</i>` : ''}`;
+  const upgradeHtml = inWave ? '<span>🔒</span><small>In battle</small>'
+    : `<span>⬆</span><small>Upgrades</small>${affordable ? `<i class="badge">${affordable}</i>` : ''}`;
+  if (hud.upgradeHtml !== upgradeHtml) {
+    hud.upgradeHtml = upgradeHtml;
+    ui['hud-upgrade'].innerHTML = upgradeHtml;
+  }
 
   // Upgrade rows: rebuilt only when their text or state changes.
   const rows = hudUpgrades.filter((row) => !row.show || row.show()).map((row) => ({
@@ -3086,20 +3070,20 @@ function syncHud() {
   const key = JSON.stringify(rows.map((row) => [row.kind, row.levelText, row.costText, row.disabled]));
   if (key !== hudUpgradesKey) {
     hudUpgradesKey = key;
-    ui['hud-upgrades'].innerHTML = rows.map((row) => `<button class="hud-row" data-upgrade="${row.button}" ${row.disabled ? 'disabled' : ''}><i class="ico">${row.icon}</i><span><b>${row.name}</b><small>${row.costText}</small></span><em>${row.levelText}</em></button>`).join('');
+    ui['hud-upgrades'].innerHTML = rows.map((row) => `<button class="row" data-upgrade="${row.button}" ${row.disabled ? 'disabled' : ''}><i>${row.icon}</i><span><b>${row.name}</b><small>${row.costText}</small></span><em>${row.levelText}</em></button>`).join('');
   }
 
   // Wave button: short labels for the phone.
   const needsTown = state.phase === 'victory' && state.wave === 5 && state.townLevel < 2;
   const left = state.waveTotal - state.defeated;
   ui['hud-wave'].disabled = inWave;
-  ui['hud-wave'].textContent = inWave ? `⚔ Осталось ${left}`
-    : needsTown ? '⌂ Улучши поселение'
-    : state.phase === 'defeat' ? `↻ Ещё раз · волна ${state.wave}`
-    : state.phase === 'victory' ? `⚑ Волна ${state.wave + 1}`
-    : state.phase === 'complete' ? `↻ Волна ${FINAL_WAVE}`
-    : `⚑ Волна ${state.wave}`;
-  ui['hud-wave'].classList.toggle('pulse', !inWave && !needsTown && !hud.open);
+  ui['hud-wave'].textContent = inWave ? `⚔ ${left} left`
+    : needsTown ? '⌂ Upgrade town'
+    : state.phase === 'defeat' ? `↻ Retry wave ${state.wave}`
+    : state.phase === 'victory' ? `⚑ Wave ${state.wave + 1}`
+    : state.phase === 'complete' ? `↻ Wave ${FINAL_WAVE}`
+    : `⚑ Wave ${state.wave}`;
+  ui['hud-wave'].classList.toggle('ready', !inWave && !needsTown && !hud.open);
   ui['hud-speed'].textContent = `${state.speed}×`;
   ui['hud-pause'].textContent = state.running ? 'Ⅱ' : '▶';
   ui['hud-sound'].textContent = sound.enabled ? '🔊' : '🔈';
@@ -3114,72 +3098,72 @@ function syncUi() {
   ui['guard-health-value'].textContent = `${Math.ceil(state.guardHp)}/${state.maxGuardHp}`;
   ui['guard-health-bar'].style.width = `${state.guardHp / state.maxGuardHp * 100}%`;
   ui['guard-health-bar'].classList.toggle('regenerating', state.regenFlash > 0);
-  ui['guard-status'].textContent = state.guardHp <= 0 ? `${frontName().toUpperCase()} ПАЛ` : state.regenFlash > 0 ? 'ВОССТАНОВЛЕНИЕ' : state.attackTimer > 0 ? 'АТАКА' : 'ГОТОВ';
-  const labels = { preparation: 'ПОДГОТОВКА', wave: state.running ? 'ВОЛНА ИДЁТ' : 'ПАУЗА', victory: 'ПОБЕДА', defeat: `${frontName().toUpperCase()} ПАЛ`, complete: 'РУБЕЖ ЗАЩИЩЁН' };
+  ui['guard-status'].textContent = state.guardHp <= 0 ? `${frontName().toUpperCase()} FELL` : state.regenFlash > 0 ? 'RECOVERING' : state.attackTimer > 0 ? 'ATTACKING' : 'READY';
+  const labels = { preparation: 'PREPARING', wave: state.running ? 'WAVE IN PROGRESS' : 'PAUSED', victory: 'VICTORY', defeat: `${frontName().toUpperCase()} FELL`, complete: 'FRONTIER HELD' };
   const patrolActive = state.phase !== 'wave' && state.mobs.some((mob) => !mob.dead);
-  ui['state-label'].textContent = patrolActive ? 'ФОНОВАЯ СТЫЧКА' : labels[state.phase];
+  ui['state-label'].textContent = patrolActive ? 'PATROL SKIRMISH' : labels[state.phase];
   ui['live-dot'].style.background = (state.phase === 'wave' || patrolActive) && state.running ? '#b65a3c' : '#748c58';
-  ui['farm-status'].textContent = `+ ${state.farmLevel} / 3с`;
-  ui['guard-level'].textContent = `ур. ${state.guardLevel}`;
-  ui['spikes-level'].textContent = state.spikesLevel ? `ур. ${state.spikesLevel}` : 'не куплены';
-  ui['farm-level'].textContent = `ур. ${state.farmLevel}`;
+  ui['farm-status'].textContent = `+${state.farmLevel} / 3s`;
+  ui['guard-level'].textContent = `lv ${state.guardLevel}`;
+  ui['spikes-level'].textContent = state.spikesLevel ? `lv ${state.spikesLevel}` : 'not built';
+  ui['farm-level'].textContent = `lv ${state.farmLevel}`;
   const guardPrice = guardUpgradePrice();
   const spikesPrice = state.spikesLevel === 0 ? 10 : 12 + (state.spikesLevel - 1) * 8;
   const farmPrice = 6 + (state.farmLevel - 1) * 5;
-  ui['guard-cost'].textContent = `${guardPrice} еды · +1 урон, +20 макс. HP герою передовой`;
+  ui['guard-cost'].textContent = `${guardPrice} food · +1 damage, +20 max HP`;
   ui['spikes-cost'].textContent = state.spikesLevel === 0
-    ? `${spikesPrice} монет · купить, 1 пассивный урон`
-    : `${spikesPrice} монет · +1 пассивный урон`;
-  ui['farm-cost'].textContent = `${farmPrice} монет · больше еды`;
+    ? `${spikesPrice} gold · build, 1 passive damage`
+    : `${spikesPrice} gold · +1 passive damage`;
+  ui['farm-cost'].textContent = `${farmPrice} gold · more food`;
   const inBattle = state.phase === 'wave';
   ui['guard-upgrade'].disabled = !canUpgrade('guard') || state.food < guardPrice;
   ui['spikes-upgrade'].disabled = !canUpgrade('spikes') || state.coins < spikesPrice;
   ui['farm-upgrade'].disabled = !canUpgrade('farm') || state.coins < farmPrice;
-  ui['village-stage'].textContent = `🏡 Деревня: ${state.villageStage}/3 · ${villageStages[state.villageStage]}${state.stageOverride ? ' (отладка)' : ''}`;
+  ui['village-stage'].textContent = `🏡 Village: ${state.villageStage}/3 · ${villageStages[state.villageStage]}${state.stageOverride ? ' (debug)' : ''}`;
   ui['archer-row'].classList.toggle('locked', !state.archerUnlocked);
-  ui['archer-status'].textContent = !state.archerUnlocked ? 'ЗАКРЫТ' : state.towerSlot === 'archer' ? `УР. ${state.archerLevel}` : 'В РЕЗЕРВЕ';
-  ui['archer-note'].textContent = state.archerUnlocked ? 'стреляет с башни' : 'после улучшения поселения II';
+  ui['archer-status'].textContent = !state.archerUnlocked ? 'LOCKED' : state.towerSlot === 'archer' ? `LV ${state.archerLevel}` : 'BENCHED';
+  ui['archer-note'].textContent = state.archerUnlocked ? 'shoots from the tower' : 'unlocks at Town II';
   syncSpellBar();
   syncLineup();
-  ui['auto-spells'].textContent = `✦ Авто-спеллы: ${state.autoSpells ? 'вкл' : 'выкл'}`;
+  ui['auto-spells'].textContent = `✦ Auto spells: ${state.autoSpells ? 'on' : 'off'}`;
   ui['tower-slot'].style.display = state.catapultUnlocked ? '' : 'none'; // only useful once there is a second option
-  const slotNames = { archer: 'Лучник', catapult: 'Катапульта' };
-  ui['tower-slot'].textContent = state.towerSlot ? `🗼 Слот башни: ${slotNames[state.towerSlot]}${state.catapultUnlocked ? ' ⇄' : ''}` : '🗼 Слот башни: пусто';
+  const slotNames = { archer: 'Archer', catapult: 'Catapult' };
+  ui['tower-slot'].textContent = state.towerSlot ? `🗼 Tower slot: ${slotNames[state.towerSlot]}${state.catapultUnlocked ? ' ⇄' : ''}` : '🗼 Tower slot: empty';
   ui['tower-slot'].disabled = state.phase === 'wave' || !state.catapultUnlocked;
-  ui['tower-slot'].title = state.catapultUnlocked ? 'Сменить защитника на башне (между волнами, бесплатно)' : `Второй вариант откроется после волны ${CATAPULT_UNLOCK_WAVE}`;
-  ui['catapult-level'].textContent = state.catapultUnlocked ? `ур. ${state.catapultLevel}` : 'закрыта';
-  ui['catapult-cost'].textContent = state.catapultUnlocked ? `${catapultPrice()} монет · +2 урона по площади, чаще` : 'после улучшения поселения II';
+  ui['tower-slot'].title = state.catapultUnlocked ? 'Swap the tower defender (between waves, free)' : `Second option unlocks after wave ${CATAPULT_UNLOCK_WAVE}`;
+  ui['catapult-level'].textContent = state.catapultUnlocked ? `lv ${state.catapultLevel}` : 'locked';
+  ui['catapult-cost'].textContent = state.catapultUnlocked ? `${catapultPrice()} gold · +2 area damage, faster` : 'unlocks at Town II';
   ui['catapult-upgrade'].disabled = !canUpgrade('catapult') || !state.catapultUnlocked || state.coins < catapultPrice();
-  ui['archer-level'].textContent = state.archerUnlocked ? `ур. ${state.archerLevel}` : 'закрыт';
-  ui['archer-cost'].textContent = state.archerUnlocked ? `${archerPrice()} монет · +0,75 урона, стреляет чаще` : 'после улучшения поселения II';
+  ui['archer-level'].textContent = state.archerUnlocked ? `lv ${state.archerLevel}` : 'locked';
+  ui['archer-cost'].textContent = state.archerUnlocked ? `${archerPrice()} gold · +0.75 damage, faster` : 'unlocks at Town II';
   ui['archer-upgrade'].disabled = !canUpgrade('archer') || !state.archerUnlocked || state.coins < archerPrice();
   for (const kind of ['guard', 'spikes', 'farm', 'archer', 'catapult']) {
     if (state[`${kind}Level`] >= upgradeLimit(kind)) {
       ui[`${kind}-cost`].textContent = kind === 'spikes' && state.wavesCleared < 3
-        ? 'Откроются после волны 3' : state.townLevel === 3 ? 'Максимальный уровень'
-        : `Нужно поселение уровня ${state.townLevel + 1}`;
+        ? 'Unlocks after wave 3' : state.townLevel === 3 ? 'Max level'
+        : `Needs Town ${state.townLevel + 1}`;
     }
   }
-  ui['town-level'].textContent = `ур. ${state.townLevel}`;
+  ui['town-level'].textContent = `lv ${state.townLevel}`;
   ui['town-upgrade'].disabled = !canUpgradeTown();
-  ui['town-cost'].textContent = state.townLevel === 3 ? 'Поселение полностью развито'
-    : canUpgradeTown() ? 'Улучшить бесплатно · новые постройки и уровни'
-    : `Победите босса волны ${state.townLevel * 5}`;
+  ui['town-cost'].textContent = state.townLevel === 3 ? 'Town fully developed'
+    : canUpgradeTown() ? 'Free upgrade · new buildings and levels'
+    : `Defeat the wave ${state.townLevel * 5} boss`;
   const needsTown = state.phase === 'victory' && state.wave === 5 && state.townLevel < 2;
   ui['wave-button'].disabled = state.phase === 'wave' || needsTown;
-  ui['wave-button'].textContent = state.phase === 'defeat' ? '↻ Повторить волну' : state.phase === 'victory' ? `⚑ Вызвать волну ${state.wave + 1}` : state.phase === 'complete' ? `↻ Ещё раз волну ${FINAL_WAVE} (без награды)` : `⚑ Вызвать волну ${state.wave}`;
-  if (needsTown) ui['wave-button'].textContent = '⌂ Сначала улучшите поселение';
+  ui['wave-button'].textContent = state.phase === 'defeat' ? '↻ Retry wave' : state.phase === 'victory' ? `⚑ Call wave ${state.wave + 1}` : state.phase === 'complete' ? `↻ Replay wave ${FINAL_WAVE} (no reward)` : `⚑ Call wave ${state.wave}`;
+  if (needsTown) ui['wave-button'].textContent = '⌂ Upgrade the town first';
   const previewWave = state.phase === 'victory' ? state.wave + 1 : state.wave;
   const difficulty = getWaveDifficulty(previewWave);
   const locked = Boolean(state.waveDifficulties[previewWave]);
-  ui['wave-difficulty'].textContent = `Волна ${previewWave} · HP ×${difficulty.hp.toFixed(1)} · атака ×${difficulty.damage.toFixed(1)}. ${locked ? 'Сила орков закреплена, в том числе при повторе.' : 'Сила орков закрепится при запуске.'}`;
-  ui['wave-preview'].textContent = `Состав: ${wavePreviewText(previewWave)}`;
+  ui['wave-difficulty'].textContent = `Wave ${previewWave} · HP ×${difficulty.hp.toFixed(1)} · attack ×${difficulty.damage.toFixed(1)}. ${locked ? 'Orc strength is locked, retries included.' : 'Orc strength locks when the wave starts.'}`;
+  ui['wave-preview'].textContent = `Roster: ${wavePreviewText(previewWave)}`;
   const nextBoss = state.wavesCleared < 5 ? 5 : state.wavesCleared < 10 ? 10 : null;
-  ui['boss-progress'].textContent = nextBoss ? `Прогресс до босса: ${Math.min(state.wavesCleared, nextBoss - 1)} / ${nextBoss - 1} волн` : 'Кампания завершена · все боссы побеждены';
+  ui['boss-progress'].textContent = nextBoss ? `Boss progress: ${Math.min(state.wavesCleared, nextBoss - 1)} / ${nextBoss - 1} waves` : 'Campaign complete · all bosses defeated';
   ui['specialization-note'].hidden = state.townLevel < 2;
   if (state.townLevel >= 2) ui['specialization-note'].textContent = state.towerSlot === 'catapult'
-    ? 'Специализация башни: катапульта — урон по группе · нажмите слот, чтобы выбрать лучника'
-    : 'Специализация башни: лучник — точечный урон · нажмите слот, чтобы выбрать катапульту';
+    ? 'Tower: Catapult — area damage · tap the slot to pick the Archer'
+    : 'Tower: Archer — single-target damage · tap the slot to pick the Catapult';
   syncHud();
 }
 
@@ -3206,7 +3190,7 @@ function frame(now) {
 ui.pause.onclick = () => {
   if (state.phase === 'defeat') return;
   state.running = !state.running;
-  ui.pause.textContent = state.running ? 'Ⅱ Пауза' : '▶ Продолжить';
+  ui.pause.textContent = state.running ? 'Ⅱ Pause' : '▶ Resume';
 };
 ui.speed.onclick = () => {
   state.speed = ({ 1: 2, 2: 100, 100: 1 })[state.speed] || 1;
@@ -3304,12 +3288,12 @@ Promise.all([
 ]).then(() => {
   ui.loading.classList.add('done');
 }).catch(() => {
-  ui.loading.textContent = 'Не удалось загрузить игровые ассеты';
+  ui.loading.textContent = 'Could not load game assets';
 });
 
 // Sound controls, button clicks and the audio unlock gesture.
 function syncSoundUi() {
-  ui['sound-toggle'].textContent = sound.enabled ? '🔊 Звук: вкл' : '🔈 Звук: выкл';
+  ui['sound-toggle'].textContent = sound.enabled ? '🔊 Sound: on' : '🔈 Sound: off';
   ui['sound-volume'].value = Math.round(sound.volume * 100);
 }
 ui['sound-toggle'].onclick = () => {
@@ -3366,7 +3350,7 @@ canvas.addEventListener('click', (event) => {
 });
 document.addEventListener('keydown', (event) => {
   if (event.repeat || event.target.closest('button, input, textarea, select, [contenteditable]')) return;
-  if (event.key === 'u' || event.key === 'U' || event.key === 'г' || event.key === 'Г') setHudOpen(!hud.open);
+  if (event.key === 'u' || event.key === 'U') setHudOpen(!hud.open);
   if (event.key === 'Escape') hud.open = false;
   const slot = slotDefs.find((item) => item.key === event.key);
   if (slot) {

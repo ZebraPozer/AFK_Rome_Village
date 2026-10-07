@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="ru">
+<html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -10,139 +10,119 @@
   <main>
     <header>
       <div class="brand">AFK <span>ROME VILLAGE</span></div>
-
+      <p class="tagline">Hold the line. Grow the village.</p>
     </header>
 
-    <section class="intro">
-      <div>
-        <span class="eyebrow">ИГРОВОЙ ПРОТОТИП / 01</span>
-        <h1>Держим рубеж.<br><em>Растим деревню.</em></h1>
-      </div>
-      <p>Орки идут слева. Легионер держит рубеж, а фермер собирает урожай.</p>
-    </section>
-
     <section class="game-layout">
-      <div class="phone-frame" aria-label="Горизонтальный экран телефона, 19.5:9">
-      <div class="game-card">
-        <canvas id="game" aria-label="Игровая сцена: орки бегут к деревне, страж защищается, фермер работает"></canvas>
-        <div id="loading" class="loading">Готовим персонажей…</div>
-        <div class="resources game-resources" aria-label="Ресурсы">
-          <span class="resource-pill resource-food">
-            <img class="resource-icon" src="assets/icons/food.png" alt="">
-            <span class="resource-copy"><small>ЕДА</small><b id="food">0</b></span>
-          </span>
-          <span class="resource-pill resource-gold">
-            <img class="resource-icon" src="assets/icons/gold.png" alt="">
-            <span class="resource-copy"><small>ЗОЛОТО</small><b id="coins">0</b></span>
-          </span>
-        </div>
-        <!-- In-phone HUD: system top-left, wave bottom-left, spells + upgrades bottom-right. -->
-        <div class="hud hud-top-left">
-          <button id="hud-pause" class="hud-icon" aria-label="Пауза">Ⅱ</button>
-          <button id="hud-sound" class="hud-icon" aria-label="Звук">🔊</button>
-        </div>
-        <div class="hud hud-bottom-left">
-          <button id="hud-wave" class="hud-wave">⚑ Волна 1</button>
-          <button id="hud-speed" class="hud-speed">1×</button>
-        </div>
-        <div id="spell-bar" class="spell-bar" aria-label="Спеллы героев"></div>
-        <button id="hud-upgrade" class="hud-upgrade" aria-label="Улучшения"><span class="hud-upgrade-icon">⬆</span><small>УЛУЧШЕНИЯ</small><i id="hud-upgrade-badge" class="hud-badge" hidden>0</i></button>
-        <section id="hud-panel" class="hud-panel" hidden aria-label="Улучшения и герои">
-          <div class="hud-tabs">
-            <button id="hud-tab-upgrades" class="active" data-tab="upgrades">Улучшения</button>
-            <button id="hud-tab-heroes" data-tab="heroes">Герои</button>
-            <button id="hud-close" class="hud-close" aria-label="Закрыть">✕</button>
+      <div class="phone" aria-label="Landscape phone screen, 19.5:9">
+        <div class="game-card">
+          <canvas id="game" aria-label="Game scene: orcs march toward the village, the legionary holds the line, the farmer works"></canvas>
+          <div id="loading" class="loading">Loading characters…</div>
+
+          <!-- HUD: one surface style, rounded squares, shared spacing. -->
+          <div class="hud hud-tl">
+            <button id="hud-pause" class="tile" aria-label="Pause">Ⅱ</button>
+            <button id="hud-sound" class="tile" aria-label="Sound">🔊</button>
           </div>
-          <div id="hud-upgrades" class="hud-list"></div>
-          <div id="hud-heroes" class="hud-list" hidden>
-            <div id="hud-lineup"></div>
-            <button id="hud-auto-lineup" class="hud-row hud-row-plain">⇅ Поставить самых свежих</button>
+
+          <div class="hud hud-tr surface resources" aria-label="Resources">
+            <span><img src="assets/icons/food.png" alt="Food"><b id="food">0</b></span>
+            <span><img src="assets/icons/gold.png" alt="Gold"><b id="coins">0</b></span>
           </div>
-        </section>
+
+          <div class="hud hud-bl">
+            <button id="hud-wave" class="tile tile-wide tile-accent">⚑ Wave 1</button>
+            <button id="hud-speed" class="tile">1×</button>
+          </div>
+
+          <div class="hud hud-br">
+            <div id="spell-bar" class="spell-bar" aria-label="Hero spells"></div>
+            <button id="hud-upgrade" class="tile tile-label" aria-label="Upgrades"><span>⬆</span><small>Upgrades</small></button>
+          </div>
+
+          <section id="hud-panel" class="surface panel" hidden aria-label="Upgrades and heroes">
+            <nav class="tabs">
+              <button id="hud-tab-upgrades" class="active" data-tab="upgrades">Upgrades</button>
+              <button id="hud-tab-heroes" data-tab="heroes">Heroes</button>
+              <button id="hud-close" class="tabs-close" aria-label="Close">✕</button>
+            </nav>
+            <div id="hud-upgrades" class="list"></div>
+            <div id="hud-heroes" class="list" hidden>
+              <div id="hud-lineup"></div>
+              <button id="hud-auto-lineup" class="row row-center">⇅ Field the freshest heroes</button>
+            </div>
+          </section>
+        </div>
       </div>
 
-      </div>
-
-      <aside aria-label="Отладочная панель">
-        <div class="panel-head"><span>ОТЛАДОЧНАЯ ПАНЕЛЬ</span><b>LIVE</b></div>
+      <aside aria-label="Debug panel">
+        <div class="panel-head"><span>DEBUG PANEL</span><b>LIVE</b></div>
         <section class="balance-reminder" aria-labelledby="balance-reminder-title">
-          <div class="balance-reminder-heading">
-            <h2 id="balance-reminder-title">Бот балансировки</h2>
-            <span>ПРОВЕРЯТЬ ПОСЛЕ ИЗМЕНЕНИЙ</span>
-          </div>
-          <p>Добавили врагов, апгрейды или способности? Повторите прогон: бот развивает ферму, ждёт еду, улучшает оборону и проходит 10 небольших волн. Бот применяет спеллы («АВТО») и ставит самых свежих героев. Для волн 1–5 держим 20–50% HP со спеллами и 5–35% без них. Второй акт проверяем со спеллами и ротацией.</p>
-          <label for="balance-bot-command">Запуск в терминале из папки проекта</label>
-          <input id="balance-bot-command" type="text" readonly spellcheck="false" value="node prototype/tools/balance-bot.cjs" aria-describedby="balance-bot-hint">
-          <p id="balance-bot-hint" class="balance-reminder-hint">Команду можно выделить и скопировать. Новые покупки и активные способности нужно добавить в действия бота.</p>
+          <h2 id="balance-reminder-title">Balance bot</h2>
+          <p>Added enemies, upgrades or spells? Re-run the bot: it grows the farm, waits for food, upgrades the defense and plays all 10 waves using spells (AUTO) and fielding the freshest heroes. Waves 1–5 should end at 20–50% HP with spells and 5–35% without. Act II is checked with spells and rotation.</p>
+          <label for="balance-bot-command">Run from the project folder</label>
+          <input id="balance-bot-command" type="text" readonly spellcheck="false" value="node prototype/tools/balance-bot.cjs">
         </section>
         <div class="debug-toolbar">
-        <div class="scene-bar">
-          <span><i id="live-dot"></i><b id="state-label">ВОЛНА ИДЁТ</b></span>
-          <span>ВОЛНА <b id="wave">1</b></span>
-        </div>
+          <div class="scene-bar">
+            <span><i id="live-dot"></i><b id="state-label">WAVE IN PROGRESS</b></span>
+            <span>WAVE <b id="wave">1</b></span>
+          </div>
         </div>
         <div class="debug-grid">
-        <div class="debug-stats">
-        <div class="gate">
-          <div class="guard-health"><span>Легионер</span><strong id="guard-health-value">100/100</strong></div>
-          <div class="bar guard-bar"><i id="guard-health-bar"></i></div>
-        </div>
-        <div class="stat-grid">
-          <div><span>Побеждено</span><strong id="kills">0</strong><small>орков</small></div>
-          <div><span>Осталось</span><strong id="mob-count">0</strong><small>в волне</small></div>
-        </div>
-        </div>
-        <div class="activity">
-          <div><img class="character-icon" src="assets/icons/legionary-head.png" alt=""><span><b>Легионер</b><small>держит рубеж</small></span><em id="guard-status">ГОТОВ</em></div>
-          <div><img class="character-icon" src="assets/icons/farmer-head.png" alt=""><span><b>Фермер</b><small>производит еду</small></span><em id="farm-status">+ 1 / 3с</em></div>
-          <div id="archer-row" class="locked"><img class="character-icon" src="assets/characters/roman-archer-ally-01.png" alt=""><span><b>Лучник</b><small id="archer-note">после улучшения поселения II</small></span><em id="archer-status">ЗАКРЫТ</em></div>
-        </div>
-        <div class="lineup" aria-label="Состав героев">
-          <span class="upgrade-title">СОСТАВ ГЕРОЕВ · МЕЖДУ ВОЛНАМИ</span>
-          <div id="lineup"></div>
-          <button id="auto-lineup" class="quiet">⇅ Поставить самых свежих</button>
-        </div>
-        <div class="upgrades" aria-label="Улучшения">
-          <span class="upgrade-title">ПОСЕЛЕНИЕ И УЛУЧШЕНИЯ</span>
-          <button id="town-upgrade"><b>⌂ Поселение <i id="town-level">ур. 1</i></b><small id="town-cost">Победите босса волны 5</small></button>
-          <button id="guard-upgrade"><b>⚔ Передовая <i id="guard-level">ур. 1</i></b><small id="guard-cost">5 еды · больше урона</small></button>
-          <button id="spikes-upgrade"><b>⋀ Шипы <i id="spikes-level">не куплены</i></b><small id="spikes-cost">10 монет · пассивный урон</small></button>
-          <button id="archer-upgrade"><b>➶ Лучник <i id="archer-level">закрыт</i></b><small id="archer-cost">откроется после волны 1</small></button>
-          <button id="catapult-upgrade"><b>☄ Катапульта <i id="catapult-level">закрыта</i></b><small id="catapult-cost">откроется после волны 5</small></button>
-          <button id="farm-upgrade"><b>✶ Ферма <i id="farm-level">ур. 1</i></b><small id="farm-cost">6 монет · больше еды</small></button>
-        </div>
-        <div class="debug-controls">
-        <button id="pause" class="primary">Ⅱ Пауза</button>
-        <div class="button-row">
-          <button id="wave-button">⚑ Новая волна</button>
-          <button id="speed">⏩ 1×</button>
-        </div>
-        <button id="tower-slot">🗼 Слот башни: пусто</button>
-        <button id="auto-spells">✦ Авто-спеллы: выкл</button>
-        <div class="sound-row">
-          <button id="sound-toggle">🔊 Звук: вкл</button>
-          <input id="sound-volume" type="range" min="0" max="100" value="70" aria-label="Громкость">
-        </div>
-        <button id="village-stage" class="quiet">🏡 Деревня: ступень 1/3</button>
-        <button id="reset" class="quiet">Сбросить прототип</button>
-        </div>
+          <div class="debug-stats">
+            <div class="gate">
+              <div class="guard-health"><span>Frontline</span><strong id="guard-health-value">100/100</strong></div>
+              <div class="bar guard-bar"><i id="guard-health-bar"></i></div>
+            </div>
+            <div class="stat-grid">
+              <div><span>Defeated</span><strong id="kills">0</strong><small>orcs</small></div>
+              <div><span>Left</span><strong id="mob-count">0</strong><small>this wave</small></div>
+            </div>
+          </div>
+          <div class="activity">
+            <div><img class="character-icon" src="assets/icons/legionary-head.png" alt=""><span><b>Frontline</b><small>holds the line</small></span><em id="guard-status">READY</em></div>
+            <div><img class="character-icon" src="assets/icons/farmer-head.png" alt=""><span><b>Farmer</b><small>produces food</small></span><em id="farm-status">+1 / 3s</em></div>
+            <div id="archer-row" class="locked"><img class="character-icon" src="assets/characters/roman-archer-ally-01.png" alt=""><span><b>Archer</b><small id="archer-note">unlocks at Town II</small></span><em id="archer-status">LOCKED</em></div>
+          </div>
+          <div class="lineup" aria-label="Hero lineup">
+            <span class="upgrade-title">HERO LINEUP · BETWEEN WAVES</span>
+            <div id="lineup"></div>
+            <button id="auto-lineup" class="quiet">⇅ Field the freshest heroes</button>
+          </div>
+          <div class="upgrades" aria-label="Upgrades">
+            <span class="upgrade-title">TOWN AND UPGRADES</span>
+            <button id="town-upgrade"><b>⌂ Town <i id="town-level">lv 1</i></b><small id="town-cost">Defeat the wave 5 boss</small></button>
+            <button id="guard-upgrade"><b>⚔ Frontline <i id="guard-level">lv 1</i></b><small id="guard-cost">5 food · +1 damage</small></button>
+            <button id="spikes-upgrade"><b>⋀ Spikes <i id="spikes-level">not built</i></b><small id="spikes-cost">10 gold · passive damage</small></button>
+            <button id="archer-upgrade"><b>➶ Archer <i id="archer-level">locked</i></b><small id="archer-cost">unlocks at Town II</small></button>
+            <button id="catapult-upgrade"><b>☄ Catapult <i id="catapult-level">locked</i></b><small id="catapult-cost">unlocks at Town II</small></button>
+            <button id="farm-upgrade"><b>✶ Farm <i id="farm-level">lv 1</i></b><small id="farm-cost">6 gold · more food</small></button>
+          </div>
+          <div class="debug-controls">
+            <button id="pause" class="primary">Ⅱ Pause</button>
+            <div class="button-row">
+              <button id="wave-button">⚑ Call wave</button>
+              <button id="speed">⏩ 1×</button>
+            </div>
+            <button id="tower-slot">🗼 Tower slot: empty</button>
+            <button id="auto-spells">✦ Auto spells: off</button>
+            <div class="sound-row">
+              <button id="sound-toggle">🔊 Sound: on</button>
+              <input id="sound-volume" type="range" min="0" max="100" value="70" aria-label="Volume">
+            </div>
+            <button id="village-stage" class="quiet">🏡 Village: stage 1/3</button>
+            <button id="reset" class="quiet">Reset prototype</button>
+          </div>
         </div>
         <p id="wave-difficulty" class="note"></p>
-        <p id="wave-preview" class="note wave-preview"></p>
-        <p id="boss-progress" class="note boss-progress"></p>
-        <p id="specialization-note" class="note specialization-note" hidden></p>
-        <p class="note">Старт — один легионер со спеллом «Удар щитом» (клавиша 1). В каждой волне <b>1–5 врагов, одновременно не больше двух</b>. После босса пятой волны улучшите поселение: откроются башня и выбор защитника — <b>лучник по одной цели или катапульта по площади</b>.</p>
-        <p class="note">У каждого героя свой спелл: <b>1</b> — передовая («Удар щитом» легионера или «Удержать строй» гоплита), <b>2</b> — башня («Залп» лучника), <b>3</b> — стена («Благословение» жрицы). Можно нажать кнопку внизу экрана или самого героя.</p>
-        <p class="note"><b>Ротация.</b> Когда на слот есть замена, герой копит усталость: со второй волны подряд −15% урона за волну. Герой, который пропустил волну, выходит со «Свежими силами»: +25% урона и спелл сразу готов. Прокачка принадлежит слоту, поэтому замена ничего не стоит.</p>
-        <p class="note">Каждую волну легионер начинает с полным здоровьем бесплатно. Фермер производит еду; 3 побеждённых патрульных дают 1 монету. Ускорение <b>1× / 2× / 100×</b> влияет на бой и производство. Сохранений и дохода при закрытой игре пока нет.</p>
-        <div class="scene-legend">
-          <span><img src="assets/icons/orc-raider-head.png" alt="">ОРДА</span>
-          <span><img src="assets/icons/legionary-head.png" alt="">РУБЕЖ</span>
-          <span><img src="assets/icons/farmer-head.png" alt="">ДЕРЕВНЯ</span>
-          <span class="boss-legend"><img src="assets/icons/orc-brute-boss-head.png" alt="">БОССЫ · 5 И 10</span>
-        </div>
-        <p class="note">Проверка полного цикла: <b>подготовка → конечная волна → награда → улучшение</b>. На пятой волне приходит громила.
-        </p>
+        <p id="wave-preview" class="note"></p>
+        <p id="boss-progress" class="note"></p>
+        <p id="specialization-note" class="note" hidden></p>
+        <p class="note">Start: one Legionary with Shield Bash (key 1). Each wave has <b>1–5 enemies, at most two at a time</b>. After the wave 5 boss, upgrade the town to unlock the tower: <b>Archer (single target, Volley)</b> or <b>Catapult (area)</b>.</p>
+        <p class="note">Every hero has a spell: <b>1</b> — Front (Legionary: Shield Bash, Hoplite: Hold the Line), <b>2</b> — Tower (Archer: Volley), <b>3</b> — Wall (Priestess: Blessing). Tap the spell button or the hero. <b>U</b> opens upgrades, <b>Esc</b> closes.</p>
+        <p class="note"><b>Rotation.</b> When a slot has a substitute, heroes get tired: −15% damage per wave in a row after the first. A hero who sat out a wave comes back <b>rested</b>: +25% damage and the spell ready. Upgrades belong to the slot, so swapping is free.</p>
+        <p class="note">Each wave starts at full HP for free. The farmer produces food; 3 patrol kills give 1 gold. Speed <b>1× / 2× / 100×</b> affects combat and production. No saves or offline income yet.</p>
       </aside>
     </section>
   </main>
