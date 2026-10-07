@@ -2,11 +2,23 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+  <meta name="theme-color" content="#1d221e">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Rome Village">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="apple-touch-icon" href="assets/icons/app-icon-192.png">
   <title>AFK Rome Village · Prototype</title>
+  <script>
+    // ?debug shows the desktop page (with the debug panel) even on a phone.
+    if (/[?&]debug\b/.test(location.search)) document.documentElement.classList.add('debug');
+  </script>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
+  <div class="rotate" aria-hidden="true"><div><b>⟳</b><p>Rotate your phone to play</p></div></div>
   <main>
     <header>
       <div class="brand">AFK <span>ROME VILLAGE</span></div>
@@ -39,6 +51,19 @@
             <div id="spell-bar" class="spell-bar" aria-label="Hero spells"></div>
             <button id="hud-upgrade" class="tile tile-label" aria-label="Upgrades"><span>⬆</span><small>Upgrades</small></button>
           </div>
+
+          <section id="away" class="away" hidden aria-label="Welcome back">
+            <div class="surface away-card">
+              <small>WELCOME BACK</small>
+              <h2>While you were away <span id="away-time">0m</span></h2>
+              <div class="away-loot">
+                <span><img src="assets/icons/food.png" alt="Food"><b id="away-food">+0</b></span>
+                <span><img src="assets/icons/gold.png" alt="Gold"><b id="away-gold">+0</b></span>
+              </div>
+              <p id="away-cap" hidden>Storage is full after 8 hours — come back sooner to earn more.</p>
+              <button id="away-collect" class="tile tile-wide tile-accent">Collect</button>
+            </div>
+          </section>
 
           <section id="hud-panel" class="surface panel" hidden aria-label="Upgrades and heroes">
             <nav class="tabs">

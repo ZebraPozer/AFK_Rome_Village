@@ -282,3 +282,23 @@ assert.equal(run('state.villageStage'), 3);
 run('upgradeTown()');
 assert.equal(run('state.townLevel'), 3, 'Final town upgrade is idempotent');
 console.log('Hero spells, slots, rotation, damage roles, full campaign, town growth and projectile isolation passed.');
+
+// Save / load and offline income.
+run('resetGame(); state.wave = 5; finishWave(); upgradeTown(); state.wave = 7; finishWave(); state.wave = 8; state.food = 42; state.coins = 17; state.guardLevel = 6; state.maxGuardHp = 200; state.frontHero = "hoplite"; startWave();');
+const saved = JSON.parse(run('JSON.stringify(serializeSave(1000))'));
+assert.equal(saved.phase, 'preparation', 'A wave in progress is saved as its preparation');
+assert.equal(saved.wave, 8);
+run(`resetGame(); applySave(${JSON.stringify(saved)})`);
+assert.equal(run('state.phase'), 'preparation');
+assert.equal(run('state.townLevel'), 2);
+assert.equal(run('state.food'), 42);
+assert.equal(run('state.guardHp'), 200, 'Loaded hero starts at full HP');
+assert.equal(run('state.frontHero'), 'hoplite');
+assert.equal(run('state.heroes.hoplite.unlocked && state.heroes.archer.unlocked'), true);
+assert.equal(run('activeHeroes().join()'), 'hoplite,archer');
+assert.equal(run('applySave({ version: 999 })'), false, 'Unknown save versions are ignored');
+assert.equal(run('offlineIncome(30, 3).food'), 0, 'Short absences pay nothing');
+assert.deepEqual(JSON.parse(run('JSON.stringify(offlineIncome(600, 3))')), { seconds: 600, food: 600, gold: 20 });
+assert.equal(run('offlineIncome(48 * 3600, 1).seconds'), 8 * 3600, 'Offline income is capped at 8 hours');
+assert.equal(run('formatDuration(3 * 3600 + 25 * 60)'), '3h 25m');
+console.log('Save, load and offline income passed.');

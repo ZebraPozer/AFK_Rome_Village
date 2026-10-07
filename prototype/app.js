@@ -12,7 +12,8 @@ const ui = Object.fromEntries([
   'catapult-upgrade','catapult-level','catapult-cost','tower-slot',
   'village-stage','town-upgrade','town-level','town-cost','sound-toggle','sound-volume',
   'hud-pause','hud-sound','hud-wave','hud-speed','hud-upgrade','hud-panel',
-  'hud-tab-upgrades','hud-tab-heroes','hud-close','hud-upgrades','hud-heroes','hud-lineup','hud-auto-lineup'
+  'hud-tab-upgrades','hud-tab-heroes','hud-close',
+  'away','away-time','away-food','away-gold','away-cap','away-collect','hud-upgrades','hud-heroes','hud-lineup','hud-auto-lineup'
 ].map((id) => [id, document.getElementById(id)]));
 
 const sources = {
@@ -3229,7 +3230,7 @@ ui['farm-upgrade'].onclick = () => {
   const price = 6 + (state.farmLevel - 1) * 5;
   if (state.coins >= price) { state.coins -= price; state.farmLevel += 1; }
 };
-ui.reset.onclick = resetGame;
+ui.reset.onclick = () => { resetGame(); clearSave(); };
 ui['archer-upgrade'].onclick = () => {
   if (!canUpgrade('archer')) return;
   const price = archerPrice();
@@ -3264,6 +3265,96 @@ ui['catapult-upgrade'].onclick = () => {
 ui['village-stage'].onclick = () => {
   state.stageOverride = state.villageStage % 3 + 1;
 };
+
+// ---------------------------------------------------------------------------
+// Save / load and offline (AFK) income.
+// Only progress is saved; a wave in progress is restored as its preparation.
+// ---------------------------------------------------------------------------
+const SAVE_KEY = 'afkRomeSave.v1';
+const SAVE_VERSION = 1;
+const OFFLINE_CAP_SECONDS = 8 * 3600;
+const OFFLINE_MIN_SECONDS = 60;
+const OFFLINE_GOLD_EVERY = 30;   // patrols pay about 1 gold per 30 s while you play
+const SAVED_FIELDS = [
+  'townLevel', 'wave', 'phase', 'food', 'coins', 'kills', 'patrolKills',
+  'guardLevel', 'maxGuardHp', 'spikesLevel', 'farmLevel',
+  'archerUnlocked', 'archerLevel', 'catapultUnlocked', 'catapultLevel', 'towerSlot',
+  'wavesCleared', 'waveDifficulties', 'frontHero', 'supportHero', 'autoSpells'
+];
+
+function serializeSave(now = Date.now()) {
+  const data = { version: SAVE_VERSION, savedAt: now };
+  for (const key of SAVED_FIELDS) data[key] = state[key];
+  data.heroes = Object.fromEntries(Object.entries(state.heroes).map(([id, hero]) => [id,
+    { unlocked: hero.unlocked, fatigue: hero.fatigue, rested: hero.rested }]));
+  // A fight cannot be resumed: come back to the same wave, ready to start it.
+  if (data.phase === 'wave') data.phase = state.wave > state.wavesCleared ? 'preparation' : 'victory';
+  return data;
+}
+
+function applySave(data) {
+  if (!data || data.version !== SAVE_VERSION) return false;
+  resetGame();
+  for (const key of SAVED_FIELDS) if (key in data) state[key] = data[key];
+  for (const [id, hero] of Object.entries(data.heroes || {})) {
+    if (state.heroes[id]) Object.assign(state.heroes[id], hero, { cd: 0 });
+  }
+  if (!['preparation', 'victory', 'defeat', 'complete'].includes(state.phase)) state.phase = 'preparation';
+  if (state.phase === 'defeat') state.phase = 'preparation';
+  state.guardHp = state.maxGuardHp;
+  state.villageStage = state.townLevel;
+  state.notice = null;
+  return true;
+}
+
+// Offline income mirrors what the village earns while you watch: the farm's food
+// and the patrol gold. It never buys upgrades or unlocks anything.
+function offlineIncome(seconds, farmLevel) {
+  const capped = Math.max(0, Math.min(seconds, OFFLINE_CAP_SECONDS));
+  if (capped < OFFLINE_MIN_SECONDS) return { seconds: capped, food: 0, gold: 0 };
+  return { seconds: capped, food: Math.floor(capped / 3) * farmLevel, gold: Math.floor(capped / OFFLINE_GOLD_EVERY) };
+}
+
+function formatDuration(seconds) {
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  return h ? `${h}h ${m}m` : `${Math.max(1, m)}m`;
+}
+
+function writeSave() {
+  try { localStorage.setItem(SAVE_KEY, JSON.stringify(serializeSave())); } catch (error) { /* storage is optional */ }
+}
+
+function readSave() {
+  try { return JSON.parse(localStorage.getItem(SAVE_KEY) || 'null'); } catch (error) { return null; }
+}
+
+function clearSave() {
+  try { localStorage.removeItem(SAVE_KEY); } catch (error) { /* optional */ }
+}
+
+const away = { pending: null };
+function showAway(income) {
+  away.pending = income;
+  ui['away-time'].textContent = formatDuration(income.seconds);
+  ui['away-food'].textContent = `+${income.food}`;
+  ui['away-gold'].textContent = `+${income.gold}`;
+  ui['away-cap'].hidden = income.seconds < OFFLINE_CAP_SECONDS;
+  ui.away.hidden = false;
+  state.running = false;
+}
+
+function collectAway() {
+  if (!away.pending) return;
+  state.food += away.pending.food;
+  state.coins += away.pending.gold;
+  away.pending = null;
+  ui.away.hidden = true;
+  state.running = true;
+  sfx('coin');
+  writeSave();
+}
+
 
 Promise.all([
   ...Object.entries(sources).map(async ([name, config]) => {
@@ -3313,6 +3404,15 @@ ui['sound-volume'].oninput = (event) => {
 };
 syncSoundUi();
 document.addEventListener('pointerdown', unlockAudio, true);
+// On phones the first tap also asks for real full screen and landscape lock
+// (Android Chrome; iOS ignores it — use "Add to Home Screen" there).
+document.addEventListener('pointerdown', () => {
+  const phone = matchMedia('(pointer: coarse) and (max-height: 600px)').matches && !document.documentElement.classList.contains('debug');
+  if (!phone || document.fullscreenElement || !document.documentElement.requestFullscreen) return;
+  document.documentElement.requestFullscreen({ navigationUI: 'hide' })
+    .then(() => screen.orientation && screen.orientation.lock && screen.orientation.lock('landscape'))
+    .catch(() => {});
+}, { once: true });
 document.addEventListener('keydown', unlockAudio, true);
 document.addEventListener('click', (event) => {
   const button = event.target.closest && event.target.closest('button');
@@ -3364,5 +3464,18 @@ document.addEventListener('keydown', (event) => {
     if (id && heroDefs[id].spell) castSpell(id);
   }
 });
+
+// Boot: restore progress, pay offline income, then autosave regularly and on exit.
+{
+  const saved = readSave();
+  if (saved && applySave(saved)) {
+    const income = offlineIncome((Date.now() - (saved.savedAt || Date.now())) / 1000, state.farmLevel);
+    if (income.food || income.gold) showAway(income);
+  }
+  ui['away-collect'].onclick = collectAway;
+  setInterval(writeSave, 5000);
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') writeSave(); });
+  window.addEventListener('pagehide', writeSave);
+}
 
 requestAnimationFrame(frame);
