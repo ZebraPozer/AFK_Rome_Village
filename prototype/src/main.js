@@ -45,6 +45,7 @@ Promise.all([
     structures[name] = await loadImage(src);
   }),
   ...Object.entries(resourceSources).map(async ([name, src]) => { resourceIcons[name] = await loadImage(src); }),
+  ...Object.entries(spellIconSources).map(async ([name, src]) => { spellIcons[name] = await loadImage(src); }),
   ...Object.entries(portraitSources).map(async ([name, src]) => { portraits[name] = await loadImage(src); })
 ]).then(() => {
   ui.loading.classList.add('done');

@@ -27,7 +27,7 @@ function drawScene(width, height) {
   village(() => { drawVillageFront(width, ground); drawVillageFields(width, ground); drawVillageVillagers(width, ground); });
   const farmerDirection = Math.cos(state.time * 0.65) < 0;
   // The farmer works among the field beds on the village side, away from the line.
-  const farmerX = width * 0.855 + Math.sin(state.time * 0.65) * Math.min(25, width * 0.02);
+  const farmerX = width * 0.825 + Math.sin(state.time * 0.65) * Math.min(18, width * 0.015);
   const farmerBob = Math.abs(Math.sin(state.time * 2.6)) * -2;
   village(() => drawSprite(sprites.farmer, farmerX, ground - 8, Math.min(134, height * 0.27), farmerDirection, farmerBob));
 

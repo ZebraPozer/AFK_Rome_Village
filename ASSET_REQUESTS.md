@@ -9,15 +9,21 @@
 Hey Codex 👋 — this is the list of art we need rendered (or re-rendered) for the prototype.
 Everything in the game currently works with placeholders, so nothing here is blocking.
 
+> **Mandatory before rendering:** read `skills/afk-rome-art/SKILL.md`. It is the canonical art
+> direction, identifies the finished in-game PNGs that define rendering style, and separates them
+> from Nikita's 3D character-design references in `art/references/`.
+
 **Where to put files:** paths below like `assets/characters/x.png` mean the **source** goes to
 `art/characters/x.png` (full resolution). Then add it to `prototype/tools/build_assets.py`
 and run it — the game loads the web-sized copy from `prototype/assets/`.
 
 ## Style and technical rules (apply to everything)
 
-- **Style:** match the existing cartoon sprites — `assets/characters/orc-raider.png`,
-  `assets/characters/roman-farmer.png`, `assets/icons/orc-raider-head.png`. Thick dark outline,
-  soft cel shading, slightly chibi proportions, warm daylight.
+- **Style:** match the finished production PNGs in `art/characters/`, especially
+  `roman-archer.png` and the finished orcs. They define a hand-painted 2D mobile-game sprite style:
+  thick clean dark-brown outline, warm soft cel shading, subtly faceted painterly highlights,
+  compact slightly chibi proportions, and crisp readable shapes. Nikita's 3D warrior models define
+  character design and equipment only; do not copy their glossy 3D rendering.
 - **Background:** real alpha transparency (RGBA PNG). No checkerboard, no flat colour behind
   the character — the game currently has to chroma-key some files at runtime.
 - **One subject per file**, centred, nothing cropped, a few pixels of empty margin.
@@ -34,15 +40,23 @@ and run it — the game loads the web-sized copy from `prototype/assets/`.
 
 | # | File | What | Placeholder now |
 |---|---|---|---|
-| 1 | `assets/characters/roman-legionary.png` | Legionary, the starting frontline hero: scutum shield + gladius, red crested helmet. Same look as now, but at full resolution. | Small (324×538) cut-out from an old parts sheet, fringe around the edges |
-| 2 | `assets/characters/roman-archer.png` | Archer hero on the tower, drawing a bow. Same look as now. | Cut out of a checkerboard image — edges are rough |
-| 3 | `assets/characters/greek-hoplite.png` | Hoplite, second frontline hero: round bronze shield (aspis), spear, bronze helmet with a tall red crest. Heavier and calmer than the legionary. | Legionary sprite tinted bronze + a crest drawn in code |
-| 4 | `assets/characters/roman-priestess.png` | Priestess, support hero on the wall: white/gold robes, laurel wreath, staff or incense bowl, soft golden glow. | Archer sprite tinted blue + a halo drawn in code |
-| 5 | `assets/ui/spell-shield-bash.png` | Spell icon: shield slam / impact. | Font glyph ⛨ |
-| 6 | `assets/ui/spell-hold-the-line.png` | Spell icon: locked shields / shield wall. | Font glyph ▥ |
-| 7 | `assets/ui/spell-volley.png` | Spell icon: rain of arrows. | Font glyph ➶ |
-| 8 | `assets/ui/spell-blessing.png` | Spell icon: healing light / laurel. | Font glyph ✚ |
+| 1 | `assets/characters/roman-legionary.png` | Legionary, the starting frontline hero: scutum shield + gladius, red crested helmet. | Integrated 7 Oct 2026 |
+| 2 | `assets/characters/roman-archer.png` | Archer hero on the tower, drawing a bow. | Integrated 7 Oct 2026 |
+| 3 | `assets/characters/greek-hoplite.png` | Hoplite, second frontline hero: round bronze shield (aspis), spear, bronze Corinthian helmet with a transverse red-and-black crest. Heavier and calmer than the legionary. | Integrated 7 Oct 2026 |
+| 4 | `assets/characters/roman-priestess.png` | Priestess, support hero on the wall: white/gold robes, laurel wreath, staff and incense bowl, soft golden glow. | Integrated 7 Oct 2026 |
+| 5 | `assets/ui/spell-shield-bash.png` | Spell icon: shield slam / impact. | Integrated 7 Oct 2026 |
+| 6 | `assets/ui/spell-hold-the-line.png` | Spell icon: locked shields / shield wall. | Integrated 7 Oct 2026 |
+| 7 | `assets/ui/spell-volley.png` | Spell icon: rain of arrows. | Integrated 7 Oct 2026 |
+| 8 | `assets/ui/spell-blessing.png` | Spell icon: healing light / laurel. | Integrated 7 Oct 2026 |
 | 9 | `assets/ui/icon-auto.png`, `icon-upgrades.png`, `icon-pause.png`, `icon-play.png`, `icon-sound-on.png`, `icon-sound-off.png`, `icon-lock.png`, `icon-wave.png` (war banner/flag) | Flat UI icons, single light colour (#f4eedb) on transparent, simple silhouettes, readable at 24 px. | Font glyphs and emoji (some show as empty squares on some systems) |
+
+### Village family — integrated 7 Oct 2026
+
+| File | What |
+|---|---|
+| `assets/characters/roman-farmer-woman.png` | Adult farmer woman with a terracotta headscarf, harvest basket and sickle. |
+| `assets/characters/roman-village-girl.png` | Village girl carrying flowers and wheat. Runtime removes the generator's baked checkerboard. |
+| `assets/characters/roman-village-boy.png` | Village boy carrying a wooden toy horse. |
 
 ## Priority 2 — enemy head icons for the wave roster
 

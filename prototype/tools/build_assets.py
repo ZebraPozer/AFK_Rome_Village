@@ -21,7 +21,12 @@ OUT = ROOT / 'prototype' / 'assets'
 ASSETS = [
     ('characters/roman-legionary.png',  'characters/roman-legionary.png',  (512, 512), 'png'),
     ('characters/roman-archer.png',     'characters/roman-archer.png',     (512, 512), 'png'),
+    ('characters/greek-hoplite.png',    'characters/greek-hoplite.png',    (512, 512), 'png'),
+    ('characters/roman-priestess.png',  'characters/roman-priestess.png',  (512, 512), 'png'),
     ('characters/roman-farmer.png',     'characters/roman-farmer.png',     (512, 512), 'png'),
+    ('characters/roman-farmer-woman.png', 'characters/roman-farmer-woman.png', (512, 512), 'png'),
+    ('characters/roman-village-girl.png', 'characters/roman-village-girl.png', (512, 512), 'png'),
+    ('characters/roman-village-boy.png',  'characters/roman-village-boy.png',  (512, 512), 'png'),
     ('characters/orc-raider.png',       'characters/orc-raider.png',       (512, 512), 'png'),
     ('characters/orc-dual-swords.png',  'characters/orc-dual-swords.png',  (512, 512), 'png'),
     ('characters/orc-shield-guard.png', 'characters/orc-shield-guard.png', (512, 512), 'png'),
@@ -37,6 +42,10 @@ ASSETS = [
     ('icons/orc-brute-boss-head.png',   'icons/orc-brute-boss-head.png',   (192, 192), 'png'),
     ('icons/app-icon-192.png',          'icons/app-icon-192.png',          (192, 192), 'png'),
     ('icons/app-icon-512.png',          'icons/app-icon-512.png',          (512, 512), 'png'),
+    ('ui/spell-shield-bash.png',        'ui/spell-shield-bash.png',        (512, 512), 'png'),
+    ('ui/spell-hold-the-line.png',      'ui/spell-hold-the-line.png',      (512, 512), 'png'),
+    ('ui/spell-volley.png',             'ui/spell-volley.png',             (512, 512), 'png'),
+    ('ui/spell-blessing.png',           'ui/spell-blessing.png',           (512, 512), 'png'),
     # Wide backdrop layers span the whole screen: keep them big.
     ('landscape/mountains.png',         'landscape/mountains.png',         (2137, 2137), 'png'),
     ('landscape/hills.png',             'landscape/hills.png',             (1846, 1846), 'png'),

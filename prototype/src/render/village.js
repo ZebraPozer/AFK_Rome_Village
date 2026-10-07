@@ -329,13 +329,14 @@ function drawField(x, y, w, h, crop, introducedAt) {
   });
 }
 
-function drawVillager(x, groundY, height, range, speed, phase) {
-  if (!sprites.farmer) return;
+function drawVillager(spriteName, x, groundY, height, range, speed, phase) {
+  const sprite = sprites[spriteName];
+  if (!sprite) return;
   const t = state.time * speed + phase;
   const vx = x + Math.sin(t) * range;
   const facingLeft = Math.cos(t) < 0;
   const bob = Math.abs(Math.sin(state.time * 5.2 + phase)) * -2;
-  drawSprite(sprites.farmer, vx, groundY, height, facingLeft, bob, 1, 0.6, 0.14);
+  drawSprite(sprite, vx, groundY, height, facingLeft, bob, 1, 0.78, 0.14);
 }
 
 // Background row: windmill and a distant house appear at stage 3.
@@ -382,6 +383,9 @@ function drawVillageFields(width, ground) {
 }
 
 function drawVillageVillagers(width, ground) {
-  if (state.villageStage >= 2) drawVillager(1000, ground + 20, 90, 60, 0.45, 1.3);
-  if (state.villageStage >= 3) drawVillager(1085, ground + 24, 84, 32, 0.7, 4.1);
+  if (state.villageStage >= 2) drawVillager('farmerWoman', 1085, ground + 20, 112, 18, 0.45, 1.3);
+  if (state.villageStage >= 3) {
+    drawVillager('villageGirl', 1140, ground + 24, 70, 16, 0.7, 4.1);
+    drawVillager('villageBoy', 905, ground + 25, 68, 18, 0.76, 2.7);
+  }
 }

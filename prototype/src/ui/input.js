@@ -66,7 +66,13 @@ ui['hud-wave'].onclick = () => {
   hud.open = false;
   ui['wave-button'].onclick();
 };
-ui['hud-upgrade'].onclick = () => setHudOpen(!hud.open);
+ui['hud-upgrade'].onclick = () => {
+  if (!hud.open) {
+    if (hud.tab === 'upgrades' && !hud.villageAffordable && hud.heroAffordable) hud.tab = 'heroes';
+    if (hud.tab === 'heroes' && !hud.heroAffordable && hud.villageAffordable) hud.tab = 'upgrades';
+  }
+  setHudOpen(!hud.open);
+};
 ui['hud-close'].onclick = () => setHudOpen(false);
 ui['hud-tab-upgrades'].onclick = () => { hud.tab = 'upgrades'; };
 ui['hud-tab-heroes'].onclick = () => { hud.tab = 'heroes'; markHint('heroes'); };
@@ -79,6 +85,10 @@ ui['hud-upgrades'].onclick = (event) => {
 };
 ui['hud-lineup'].onclick = (event) => ui.lineup.onclick(event);
 ui['hud-auto-lineup'].onclick = () => { autoLineup(); autoEquip(); };
+ui['hud-training'].onclick = (event) => {
+  const row = event.target.closest && event.target.closest('[data-train]');
+  if (row) trainHero(row.dataset.train);
+};
 ui['hud-gear'].onclick = (event) => {
   const row = event.target.closest && event.target.closest('[data-gear]');
   if (row) cycleGearOwner(Number(row.dataset.gear));

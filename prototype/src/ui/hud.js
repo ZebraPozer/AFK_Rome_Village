@@ -10,7 +10,7 @@ const ui = Object.fromEntries([
   'catapult-upgrade','catapult-level','catapult-cost','tower-slot',
   'village-stage','town-upgrade','town-level','town-cost','sound-toggle','sound-volume',
   'hud-pause','hud-sound','hud-wave','hud-speed','hud-upgrade','hud-panel',
-  'hud-tab-upgrades','hud-tab-heroes','hud-close','hud-gear',
+  'hud-tab-upgrades','hud-tab-heroes','hud-close','hud-training','hud-gear',
   'away','away-time','away-food','away-gold','away-cap','away-collect','hint',
   'trophies','eagles','trophy-pill','eagle-pill',
   'afk-custom','afk-custom-go','afk-efficiency','afk-cap','afk-forecast','stats-summary','stats-export','stats-clear',
@@ -27,7 +27,8 @@ function syncSpellBar() {
     const keys = { front: '1', tower: '2', support: '3' };
     bar.innerHTML = ids.map((id) => {
       const spell = heroDefs[id].spell;
-      return `<button class="tile tile-label spell" data-hero="${id}" title="${keys[heroDefs[id].role]} · ${heroDefs[id].name}: ${spell.name} — ${spell.hint}"><span>${spell.icon}</span><small>${spell.short}</small><i class="cd"></i></button>`;
+      const icon = spellIconSources[spell.id];
+      return `<button class="tile tile-label spell" data-hero="${id}" title="${keys[heroDefs[id].role]} · ${heroDefs[id].name}: ${spell.name} — ${spell.hint}"><img src="${icon}" alt=""><small>${spell.short}</small><i class="cd"></i></button>`;
     }).join('') + (ids.length ? '<button class="tile tile-label spell-auto" data-auto="1" title="Heroes cast spells by themselves"><span>⟳</span><small>Auto</small></button>' : '');
   }
   if (typeof bar.querySelectorAll !== 'function') return;
@@ -86,6 +87,7 @@ const hudUpgrades = [
   { kind: 'farm', icon: '✶', name: 'Farm', level: 'farm-level', cost: 'farm-cost', button: 'farm-upgrade' }
 ];
 let hudUpgradesKey = '';
+let hudTrainingKey = '';
 
 function setHudOpen(open) {
   hud.open = open && state.phase !== 'wave';
@@ -162,31 +164,30 @@ function syncHud() {
   ui['hud-tab-heroes'].classList.toggle('active', hud.tab === 'heroes');
 
   // Corner button: upgrades between waves, a lock during combat, a cross when open.
-  const affordable = hudUpgrades.filter((row) => (!row.show || row.show()) && !ui[row.button].disabled).length
+  const villageAffordable = hudUpgrades.filter((row) => (!row.show || row.show()) && !ui[row.button].disabled).length
     + SYSTEMS.filter((sys) => canUnlockSystem(sys.id)).length
-    + Object.keys(heroDefs).filter((id) => canTrain(id)).length
     + Object.keys(GODS).filter((god) => canOffer(god)).length;
+  const heroAffordable = Object.keys(heroDefs).filter((id) => canTrain(id)).length;
+  const affordable = villageAffordable + heroAffordable;
+  hud.villageAffordable = villageAffordable;
+  hud.heroAffordable = heroAffordable;
+  const tabCount = (count) => count ? ` <span class="tab-count">${count}</span>` : '';
+  ui['hud-tab-upgrades'].innerHTML = `Village${tabCount(villageAffordable)}`;
+  ui['hud-tab-heroes'].innerHTML = `Heroes${tabCount(heroAffordable)}`;
   ui['hud-upgrade'].classList.toggle('active', hud.open);
   ui['hud-upgrade'].disabled = inWave;
   const upgradeHtml = inWave ? '<span>🔒</span><small>In battle</small>'
-    : `<span>⬆</span><small>Upgrades</small>${affordable ? `<i class="badge">${affordable}</i>` : ''}`;
+    : `<span>⬆</span><small>${affordable ? `${affordable} ready` : 'Upgrades'}</small>`;
   if (hud.upgradeHtml !== upgradeHtml) {
     hud.upgradeHtml = upgradeHtml;
     ui['hud-upgrade'].innerHTML = upgradeHtml;
   }
 
-  // Upgrade rows: rebuilt only when their text or state changes.
+  // Village and system rows: rebuilt only when their text or state changes.
   const rows = hudUpgrades.filter((row) => !row.show || row.show()).map((row) => ({
     ...row, levelText: ui[row.level].textContent, costText: ui[row.cost].textContent, disabled: Boolean(ui[row.button].disabled)
   }));
-  // Barracks: one training row per hero. Temple: one offering row per god.
-  if (systemUnlocked('barracks')) {
-    for (const id of Object.keys(heroDefs)) {
-      if (!state.heroes[id].unlocked || heroDefs[id].machine) continue;
-      rows.push({ kind: `train-${id}`, icon: '⚑', name: `Train ${heroDefs[id].name}`, train: id,
-        levelText: `lv ${heroLevel(id)}`, costText: `${formatNumber(trainPrice(id))} food · +6% damage, +5% toughness`, disabled: !canTrain(id) });
-    }
-  }
+  // Temple offerings remain with the settlement upgrades.
   if (systemUnlocked('temple')) {
     for (const [god, def] of Object.entries(GODS)) {
       const sign = god === 'minerva' ? '−' : '+';
@@ -207,6 +208,29 @@ function syncHud() {
     hudUpgradesKey = key;
     const attr = (row) => row.system ? `data-system="${row.system}"` : row.train ? `data-train="${row.train}"` : row.offer ? `data-offer="${row.offer}"` : `data-upgrade="${row.button}"`;
     ui['hud-upgrades'].innerHTML = rows.map((row) => `<button class="row" ${attr(row)} ${row.disabled ? 'disabled' : ''}><i>${row.icon}</i><span><b>${row.name}</b><small>${row.costText}</small></span><em>${row.levelText}</em></button>`).join('');
+  }
+
+  // Barracks training belongs with the heroes, not in the village upgrade list.
+  // Show both levels so the result of the tap is explicit.
+  const training = systemUnlocked('barracks') ? Object.keys(heroDefs)
+    .filter((id) => state.heroes[id].unlocked && !heroDefs[id].machine)
+    .map((id) => ({
+      id,
+      name: heroDefs[id].name,
+      current: heroLevel(id),
+      price: trainPrice(id),
+      disabled: !canTrain(id)
+    })) : [];
+  const trainingKey = JSON.stringify(training);
+  if (trainingKey !== hudTrainingKey) {
+    hudTrainingKey = trainingKey;
+    ui['hud-training'].innerHTML = training.length ? `
+      <p class="list-heading">Hero training</p>
+      <p class="row-note">Permanent levels for each hero · swapping heroes is still free.</p>
+      ${training.map((hero) => `<div class="row training-row">
+        <i>⚑</i><span><b>${hero.name}</b><small>${formatNumber(hero.price)} food · +${Math.round(BARRACKS.damage * 100)}% damage · +${Math.round(BARRACKS.toughness * 100)}% toughness</small></span>
+        <div class="training-action"><em class="level-up">Lv ${hero.current} → ${hero.current + 1}</em><button data-train="${hero.id}" ${hero.disabled ? 'disabled' : ''}>Upgrade</button></div>
+      </div>`).join('')}` : '';
   }
 
   // Wave button: short labels for the phone.

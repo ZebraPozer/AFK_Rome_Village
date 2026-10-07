@@ -11,7 +11,12 @@ const sources = {
   orcRed: { src: 'assets/characters/orc-red-elite.png' },
   boss: { src: 'assets/characters/orc-brute-boss.png' },
   farmer: { src: 'assets/characters/roman-farmer.png' },
+  farmerWoman: { src: 'assets/characters/roman-farmer-woman.png' },
+  villageGirl: { src: 'assets/characters/roman-village-girl.png', background: 'checker' },
+  villageBoy: { src: 'assets/characters/roman-village-boy.png' },
   archer: { src: 'assets/characters/roman-archer.png' },
+  hoplite: { src: 'assets/characters/greek-hoplite.png' },
+  priestess: { src: 'assets/characters/roman-priestess.png' },
   spikes: { src: 'assets/obstacles/palisade.png' }
 };
 
@@ -67,6 +72,13 @@ const structureSources = {
 const structures = {};
 const resourceSources = { food: 'assets/icons/food.png', gold: 'assets/icons/gold.png' };
 const resourceIcons = {};
+const spellIconSources = {
+  shieldBash: 'assets/ui/spell-shield-bash.png',
+  holdLine: 'assets/ui/spell-hold-the-line.png',
+  volley: 'assets/ui/spell-volley.png',
+  blessing: 'assets/ui/spell-blessing.png'
+};
+const spellIcons = {};
 // Cut-out head icons for the wave roster. Only the raider and the boss have
 // real heads so far; other enemies reuse the raider head with a tint until
 // their own heads are rendered (see ASSET_REQUESTS.md).

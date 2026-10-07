@@ -56,7 +56,9 @@ function drawSpellBadge(id, bx, by) {
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
   ctx.font = ready ? '900 16px system-ui, sans-serif' : '800 12px system-ui, sans-serif';
   ctx.fillStyle = ready ? '#5a321a' : '#fff3d2';
-  ctx.fillText(ready ? spell.icon : Math.ceil(cd), 0, 1);
+  const icon = spellIcons[spell.id];
+  if (ready && icon) ctx.drawImage(icon, -12, -12, 24, 24);
+  else ctx.fillText(ready ? spell.icon : Math.ceil(cd), 0, 1);
   ctx.restore();
   if (usable && state.phase === 'wave') {
     ctx.save();
@@ -77,31 +79,18 @@ function drawSupportHero(width, height) {
   if (state.supportHero !== 'priestess') return;
   const pos = supportPosition(width, height);
   const size = Math.min(118, height * 0.23) * ACTOR_SCALE;
-  drawSprite(tinted(sprites.archer, 'hue-rotate(190deg) saturate(0.7) brightness(1.15)'), pos.x, pos.y, size, true, Math.sin(state.time * 1.8) * -1.2);
-  // Halo marks her as a healer until she gets her own sprite.
-  ctx.save();
-  ctx.globalAlpha = 0.75 + Math.sin(state.time * 3) * 0.15;
-  ctx.beginPath(); ctx.ellipse(pos.x, pos.y - size - 4, 15, 5, 0, 0, Math.PI * 2);
-  ctx.strokeStyle = '#ffe08a'; ctx.lineWidth = 3; ctx.stroke();
-  ctx.restore();
+  drawSprite(sprites.priestess, pos.x, pos.y, size, true, Math.sin(state.time * 1.8) * -1.2);
 }
 
 function drawFrontHero(width, height, guardX, ground) {
   const size = Math.min(160, height * 0.32) * ACTOR_SCALE;
   const low = state.phase === 'wave' && state.guardHp > 0 && state.guardHp / state.maxGuardHp < LOW_HP;
-  const base = state.frontHero === 'hoplite' ? tinted(sprites.guard, 'sepia(0.55) saturate(1.5) hue-rotate(-12deg)') : sprites.guard;
+  const base = state.frontHero === 'hoplite' ? sprites.hoplite : sprites.guard;
   const tremble = low ? Math.sin(state.time * 38) * 1.6 : 0;
   const bob = Math.sin(state.time * 2.4) * -1.2;
   drawSprite(base, guardX + tremble, ground, size, true, bob);
   // Low HP: a pulsing red copy on top (cheap, no per-frame filter).
   if (low) drawSprite(tinted(base, 'sepia(1) saturate(6) hue-rotate(-50deg) brightness(0.9)'), guardX + tremble, ground, size, true, bob, 0.25 + 0.3 * Math.abs(Math.sin(state.time * 7)), 0, 0);
-  if (state.frontHero === 'hoplite') {
-    // Tall crest so the hoplite reads differently from the legionary.
-    ctx.save();
-    ctx.beginPath(); ctx.ellipse(guardX + tremble + 4, ground - size * 0.98, 22, 9, -0.2, Math.PI, 0);
-    fillInk('#c0392b', 2.5);
-    ctx.restore();
-  }
   if (state.holdLine > 0) {
     ctx.save();
     ctx.globalAlpha = 0.45 + 0.25 * Math.sin(state.time * 10);

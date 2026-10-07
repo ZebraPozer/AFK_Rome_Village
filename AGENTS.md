@@ -1,6 +1,9 @@
 # AGENTS.md — rules for any coding agent working on AFK Rome Village
 
 Read this first. Latest handoff: `HANDOFF_FOR_CODEX.md`. Art to render: `ASSET_REQUESTS.md`.
+Before generating or editing any game image, **must read and follow**
+`skills/afk-rome-art/SKILL.md`; it defines the canonical PNG references, prompt lock, and asset
+integration workflow.
 The prototype is a **lab for a future Unreal game**: read `docs/UNREAL_PORT.md` before changing
 architecture.
 
@@ -92,6 +95,7 @@ Balance bands enforced by the tests:
   baked (`bgCache`).
 - **Assets:** source art in `art/<category>/`, then `python3 prototype/tools/build_assets.py`;
   runtime sprites are pre-cut; paths are case-sensitive on GitHub Pages; real alpha only.
-  Placeholders are listed in `ASSET_REQUESTS.md`.
+  Placeholders are listed in `ASSET_REQUESTS.md`. The mandatory art direction and reference set is
+  `skills/afk-rome-art/SKILL.md`.
 - **Saves:** bump `SAVE_VERSION` (sim/save.js) whenever economy or progression changes.
 - Commit messages: conventional style (`feat:`, `fix:`, `refactor:`, `docs:`, `balance:`, `perf:`).
