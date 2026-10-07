@@ -2709,24 +2709,49 @@ function drawLurkingHorde(width, height) {
   const nextWave = state.phase === 'victory' ? state.wave + 1 : state.wave;
   const plan = buildWavePlan(nextWave);
   const ground = height * 0.82;
-  ctx.save();
+  // The next wave waits at the very edge of the screen, half hidden in drifting fog.
+  // Real colours (no black silhouettes) so it reads as "orcs waiting", not a bug.
   plan.forEach((type, i) => {
     const stats = enemyTypes[type] || enemyTypes.orc;
-    const x = 70 + i * 30 + (stats.isBoss ? 30 : 0);
-    const y = ground + 6 - (i % 2) * 10;
-    const h = Math.min(stats.height, height * (stats.height / 510)) * 0.82;
-    const sway = Math.sin(state.time * 1.6 + i * 1.3) * 3;
+    const look = enemyLooks[type] || {};
+    const x = 8 + i * 20 + (stats.isBoss ? 26 : 0);
+    const y = ground + 4 - (i % 2) * 9;
+    const h = Math.min(stats.height, height * (stats.height / 510)) * 0.8;
+    const sway = Math.sin(state.time * 1.4 + i * 1.3) * 3;
     ctx.save();
-    ctx.filter = 'brightness(0.18) saturate(0)';
-    drawSprite(enemySprite(type), x + sway, y, h, false, 0, 0.78, 0, 0);
+    ctx.filter = `${look.filter || ''} saturate(0.75) brightness(0.92)`.trim();
+    drawSprite(enemySprite(type), x + sway, y, h, false, 0, 0.9, 0, 0);
     ctx.restore();
-    // Glowing eyes.
-    const blink = Math.sin(state.time * 0.9 + i * 2.1) > -0.92 ? 1 : 0;
-    if (blink) {
-      ctx.fillStyle = stats.isBoss ? '#ff5a3a' : '#ffb347';
-      ctx.beginPath(); ctx.arc(x + sway + 8, y - h * 0.80, 2.2, 0, Math.PI * 2); ctx.arc(x + sway + 15, y - h * 0.80, 2.2, 0, Math.PI * 2); ctx.fill();
-    }
   });
+  drawEdgeFog(height, ground);
+}
+
+// Soft fog banks over the left edge; puffs drift and breathe slowly.
+function drawEdgeFog(height, ground) {
+  ctx.save();
+  // Elliptical fog bank: fades out in every direction, no hard edges.
+  ctx.save();
+  ctx.translate(0, ground - 60);
+  ctx.scale(1.35, 1);
+  const wall = ctx.createRadialGradient(0, 0, 0, 0, 0, 175);
+  wall.addColorStop(0, 'rgba(236, 240, 232, 0.6)');
+  wall.addColorStop(0.5, 'rgba(236, 240, 232, 0.3)');
+  wall.addColorStop(1, 'rgba(236, 240, 232, 0)');
+  ctx.fillStyle = wall;
+  ctx.beginPath(); ctx.arc(0, 0, 175, 0, Math.PI * 2); ctx.fill();
+  ctx.restore();
+  for (let i = 0; i < 9; i++) {
+    const t = state.time * (0.12 + (i % 3) * 0.04) + i * 1.7;
+    const px = 20 + (i * 37) % 170 + Math.sin(t) * 18;
+    const py = ground - 20 - (i * 29) % 150 + Math.cos(t * 0.8) * 6;
+    const r = 46 + (i % 4) * 14 + Math.sin(t * 1.3) * 5;
+    const puff = ctx.createRadialGradient(px, py, 0, px, py, r);
+    const a = 0.32 - (px / 230) * 0.18;
+    puff.addColorStop(0, `rgba(245, 247, 242, ${a})`);
+    puff.addColorStop(1, 'rgba(245, 247, 242, 0)');
+    ctx.fillStyle = puff;
+    ctx.beginPath(); ctx.arc(px, py, r, 0, Math.PI * 2); ctx.fill();
+  }
   ctx.restore();
 }
 
