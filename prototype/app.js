@@ -486,6 +486,9 @@ function loadSprite(config) {
   return new Promise((resolve, reject) => {
     const image = new Image();
     image.onload = () => {
+      // Runtime sprites are pre-cut by tools/build_assets.py: use them as they are.
+      // (No pixel reads, so the game also runs from a double-clicked file:// page.)
+      if (!config.crop && !config.background) { resolve(image); return; }
       const [x, y, width, height] = config.crop || [0, 0, image.naturalWidth, image.naturalHeight];
       const work = document.createElement('canvas');
       work.width = width;
