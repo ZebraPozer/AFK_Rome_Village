@@ -165,6 +165,19 @@ const structureSources = {
 const structures = {};
 const resourceSources = { food: 'assets/icons/food.png', gold: 'assets/icons/gold.png' };
 const resourceIcons = {};
+// Cut-out head icons for the wave roster. Only the raider and the boss have
+// real heads so far; other enemies reuse the raider head with a tint until
+// their own heads are rendered (see ASSET_REQUESTS.md).
+const portraitSources = {
+  orc: 'assets/icons/orc-raider-head.png',
+  boss: 'assets/icons/orc-brute-boss-head.png'
+};
+const portraitTints = {
+  orcRed: 'hue-rotate(-75deg) saturate(1.4)',
+  orcShield: 'saturate(0.55) brightness(0.9)',
+  orcDual: 'hue-rotate(-20deg)'
+};
+const portraits = {};
 const state = {
   townLevel: 1, patrolKills: 0, regenDelay: 0, regenFlash: 0, regenParticleTimer: 0,
   running: true,
@@ -1223,7 +1236,7 @@ function update(delta, width, simulationStep = false) {
   if (nextStage !== state.villageStage) {
     if (nextStage > state.villageStage) {
       state.growthFx = GROWTH_POP;
-      state.growthBanner = GROWTH_BANNER;
+      showNotice('VILLAGE', 'YOUR VILLAGE GREW!', `Stage ${nextStage}: ${villageStages[nextStage]}`);
     }
     state.villageStage = nextStage;
   }
@@ -2460,11 +2473,13 @@ function drawDangerOverlay(width, height) {
     const p = 1 - state.hornFx / HORN_TIME;
     ctx.save();
     ctx.globalAlpha = Math.min(1, (1 - p) * 2);
-    ctx.font = '700 28px system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.font = '700 20px system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     const text = `WAVE ${state.wave} · ORCS INCOMING`;
-    const ty = height * 0.3 - p * 16;
-    roundedRect(width / 2 - 230, ty - 30, 460, 60, HUD_R, HUD_SURFACE);
-    ctx.fillStyle = HUD_ACCENT; ctx.fillText(text, width / 2, ty + 1);
+    const slot = bannerSlot(width);
+    const ty = slot.y - p * 8;
+    const w = ctx.measureText(text).width + 40;
+    roundedRect(slot.x - w / 2, ty - 22, w, 44, HUD_R, BANNER_SURFACE);
+    ctx.fillStyle = HUD_ACCENT; ctx.fillText(text, slot.x, ty + 1);
     ctx.restore();
   }
 }
@@ -2671,40 +2686,35 @@ function drawActBanner(width) {
   if (!notice) return;
   const elapsed = NOTICE_TIME - notice.t;
   const pop = Math.min(1, easeOutBack(Math.min(1, elapsed / 0.45)));
+  const slot = bannerSlot(width);
   ctx.save();
   ctx.globalAlpha = Math.min(1, notice.t / 0.4);
-  ctx.translate(width / 2, 190);
+  ctx.translate(slot.x, slot.y);
   ctx.scale(pop, pop);
-  roundedRect(-230, -40, 460, 80, HUD_R, HUD_SURFACE);
+  // The backing hugs the text: widest line + padding.
+  ctx.font = '700 18px system-ui, sans-serif';
+  const titleWidth = ctx.measureText(notice.title).width;
+  ctx.font = '500 11px system-ui, sans-serif';
+  const subWidth = ctx.measureText(notice.subtitle).width;
+  const w = Math.max(titleWidth, subWidth) + 40;
+  roundedRect(-w / 2, -32, w, 64, HUD_R, BANNER_SURFACE);
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-  ctx.font = '600 11px system-ui, sans-serif'; ctx.fillStyle = HUD_MUTED;
-  ctx.fillText(notice.kicker, 0, -20);
-  ctx.font = '700 22px system-ui, sans-serif'; ctx.fillStyle = HUD_ACCENT;
-  ctx.fillText(notice.title, 0, 2);
-  ctx.font = '500 12px system-ui, sans-serif'; ctx.fillStyle = HUD_TEXT;
-  ctx.fillText(notice.subtitle, 0, 24);
+  ctx.font = '600 9px system-ui, sans-serif'; ctx.fillStyle = HUD_MUTED;
+  ctx.fillText(notice.kicker, 0, -17);
+  ctx.font = '700 18px system-ui, sans-serif'; ctx.fillStyle = HUD_ACCENT;
+  ctx.fillText(notice.title, 0, 1);
+  ctx.font = '500 11px system-ui, sans-serif'; ctx.fillStyle = HUD_TEXT;
+  ctx.fillText(notice.subtitle, 0, 18);
   ctx.restore();
 }
 
-function drawGrowthBanner(width) {
-  if (state.growthBanner <= 0) return;
-  const elapsed = GROWTH_BANNER - state.growthBanner;
-  const pop = Math.min(1, easeOutBack(Math.min(1, elapsed / 0.45)));
-  const alpha = Math.min(1, state.growthBanner / 0.4);
-  ctx.save();
-  ctx.globalAlpha = alpha;
-  ctx.translate(width / 2, 118);
-  ctx.scale(pop, pop);
-  roundedRect(-190, -34, 380, 68, HUD_R, HUD_SURFACE);
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.font = '700 22px system-ui, sans-serif';
-  ctx.fillStyle = HUD_ACCENT;
-  ctx.fillText('YOUR VILLAGE GREW!', 0, -7);
-  ctx.font = '500 12px system-ui, sans-serif';
-  ctx.fillStyle = HUD_TEXT;
-  ctx.fillText(`Stage ${state.villageStage}: ${villageStages[state.villageStage]}`, 0, 20);
-  ctx.restore();
+// One banner position for every message: under the roster with the HUD margin,
+// centred in the area the upgrades panel leaves free.
+const BANNER_SURFACE = 'rgba(22, 28, 24, 0.92)';
+function bannerSlot(width) {
+  const panelLeft = width - HUD_M * 1.6 - width * 0.34;
+  const centre = typeof hud !== 'undefined' && hud.open ? panelLeft / 2 : width / 2;
+  return { x: centre, y: HUD_M + HUD_T + HUD_M + 32 };
 }
 
 function drawForegroundFoliage(width, height) {
@@ -2764,17 +2774,15 @@ function drawGuardHealthBar(x, y) {
   ctx.restore();
 }
 
-function drawEnemyHead(sprite, x, y, size, type = 'orc') {
-  const elite = type === 'boss' || type === 'orcRed';
+// Cut-out head, no frame; placeholder enemies reuse a base head with a tint.
+function drawEnemyHead(type, x, y, size) {
+  const look = enemyLooks[type] || {};
+  const image = portraits[type] || portraits[look.sprite] || portraits.orc;
+  if (!image) return;
   ctx.save();
-  ctx.beginPath(); ctx.roundRect(x - size / 2, y - size / 2, size, size, size * 0.22); ctx.clip();
-  ctx.fillStyle = elite ? '#6e3c35' : type === 'orcShield' ? '#657b82' : type === 'orcDual' ? '#887a49' : '#8ea170';
-  ctx.fillRect(x - size / 2, y - size / 2, size, size);
-  const sourceX = sprite.width * 0.18;
-  const sourceY = sprite.height * 0.01;
-  const sourceWidth = sprite.width * 0.64;
-  const sourceHeight = sprite.height * 0.38;
-  ctx.drawImage(sprite, sourceX, sourceY, sourceWidth, sourceHeight, x - size / 2, y - size / 2, size, size);
+  const filter = portraits[type] ? null : (look.filter || portraitTints[type] || null);
+  if (filter) ctx.filter = filter;
+  ctx.drawImage(image, x - size / 2, y - size / 2, size, size);
   ctx.restore();
 }
 
@@ -2784,7 +2792,7 @@ const HUD_T = 540 * 0.125;    // tile size
 const HUD_R = 540 * 0.028;    // corner radius
 
 function drawWaveRoster(width) {
-  if (!sprites.orc) return;
+  if (!portraits.orc) return;
   // During a wave show what is attacking; between waves show what comes next.
   const shownWave = state.phase === 'victory' && !(state.wave === 5 && state.townLevel < 2) ? state.wave + 1 : state.wave;
   const plan = state.phase === 'wave' && state.wavePlan.length ? state.wavePlan : buildWavePlan(shownWave);
@@ -2793,10 +2801,12 @@ function drawWaveRoster(width) {
     return result;
   }, {});
   const entries = Object.entries(counts);
-  const head = 38;
-  const item = 72;
-  const labelWidth = 64;
-  const panelWidth = 16 + labelWidth + entries.length * item;
+  const pad = 14;
+  const head = 40;
+  const countWidth = 24;
+  const gap = 12;
+  const labelWidth = 40;
+  const panelWidth = pad + labelWidth + entries.length * (head + 4 + countWidth) + (entries.length - 1) * gap + pad;
   const x = width / 2 - panelWidth / 2;
   const y = HUD_M;
   const mid = y + HUD_T / 2;
@@ -2805,30 +2815,26 @@ function drawWaveRoster(width) {
   ctx.textBaseline = 'middle';
   ctx.textAlign = 'left';
   ctx.fillStyle = HUD_MUTED;
-  ctx.font = '600 10px system-ui, sans-serif';
-  ctx.fillText('WAVE', x + 16, mid - 9);
+  ctx.font = '600 9px system-ui, sans-serif';
+  ctx.fillText('WAVE', x + pad, mid - 10);
   ctx.fillStyle = HUD_TEXT;
   ctx.font = '700 20px system-ui, sans-serif';
-  ctx.fillText(String(shownWave), x + 16, mid + 9);
-  entries.forEach(([type, count], index) => {
-    const itemX = x + 16 + labelWidth + index * item;
-    const look = enemyLooks[type];
-    ctx.save();
-    if (look && look.filter) ctx.filter = look.filter;
-    drawEnemyHead(enemySprite(type), itemX + head / 2, mid - 4, head, type);
-    ctx.restore();
+  ctx.fillText(String(shownWave), x + pad, mid + 8);
+  let itemX = x + pad + labelWidth;
+  for (const [type, count] of entries) {
+    drawEnemyHead(type, itemX + head / 2, mid, head);
     ctx.fillStyle = enemyTypes[type]?.isBoss ? HUD_ACCENT : HUD_TEXT;
     ctx.textAlign = 'left';
-    ctx.font = '700 14px system-ui, sans-serif';
-    ctx.fillText(`×${count}`, itemX + head + 6, mid - 4);
-    // Traits as plain glyphs under the portrait.
-    ctx.font = '700 10px system-ui, sans-serif';
-    ctx.textAlign = 'center';
-    traitsOf(type).forEach((trait, i, list) => {
+    ctx.font = '700 13px system-ui, sans-serif';
+    ctx.fillText(`×${count}`, itemX + head + 4, mid - (traitsOf(type).length ? 6 : 0));
+    // Traits as small glyphs next to the count.
+    ctx.font = '700 9px system-ui, sans-serif';
+    traitsOf(type).forEach((trait, i) => {
       ctx.fillStyle = traitInfo[trait].color;
-      ctx.fillText(traitInfo[trait].glyph, itemX + head / 2 + (i - (list.length - 1) / 2) * 12, mid + head / 2 + 5);
+      ctx.fillText(traitInfo[trait].glyph, itemX + head + 4 + i * 11, mid + 9);
     });
-  });
+    itemX += head + 4 + countWidth + gap;
+  }
   ctx.restore();
 }
 
@@ -2963,7 +2969,6 @@ function drawScene(width, height) {
   drawDangerOverlay(width, height);
   drawWaveRoster(width);
   drawFloaters(height);
-  drawGrowthBanner(width);
   drawActBanner(width);
 }
 
@@ -3284,7 +3289,8 @@ Promise.all([
   ...Object.entries(structureSources).map(async ([name, src]) => {
     structures[name] = await loadImage(src);
   }),
-  ...Object.entries(resourceSources).map(async ([name, src]) => { resourceIcons[name] = await loadImage(src); })
+  ...Object.entries(resourceSources).map(async ([name, src]) => { resourceIcons[name] = await loadImage(src); }),
+  ...Object.entries(portraitSources).map(async ([name, src]) => { portraits[name] = await loadImage(src); })
 ]).then(() => {
   ui.loading.classList.add('done');
 }).catch(() => {
