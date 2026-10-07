@@ -6,6 +6,11 @@ committed on `main` in this folder. Your jobs: integrate it into the GitHub repo
 prototype **port-ready for Unreal**. Read `AGENTS.md` first — it has the structure, the checks
 and the architecture rules.
 
+## How this package was made
+
+Nikita zipped the whole `Test1` folder **including the hidden `.git`** (full history). Work from
+that repository; the working tree is clean at the last commit (`git log -1`).
+
 ## 0. Quick start (in order)
 
 1. Read `AGENTS.md`, then this file, then skim `docs/UNREAL_PORT.md`.
@@ -78,8 +83,9 @@ golden files — the tests tell you when they are stale.
 
 ## 4. Known issues / open decisions
 
-- **2D or 3D in Unreal?** Undecided — it decides whether the 2D art in `ASSET_REQUESTS.md` is worth
-  more investment (see `docs/UNREAL_PORT.md` §7).
+- **2D or 3D in Unreal?** Recommended (not yet confirmed by Nikita): 2D characters (Spine-ready),
+  3D modular scene with a fixed side camera and toon shading; first prove it with a small style slice.
+  Details: `docs/UNREAL_PORT.md` §7. Until confirmed, don't order 2D building art.
 - Spell/UI icons are font glyphs/emoji; some render as empty boxes on some systems.
 - Safari/iOS likely ignores canvas filters → tinted placeholder enemies look like plain orcs there.
 - Right after the wave 5 boss, 1–2 h offline lifts the frontline to the act II cap (5→10) —

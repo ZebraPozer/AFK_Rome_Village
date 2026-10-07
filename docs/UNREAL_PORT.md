@@ -91,8 +91,23 @@ The debug panel, cheats UI, tint cache, canvas background baking, phone frame, `
 `build_assets.py`, synthesized sounds. Keep the *ideas* (AFK forecast, jump to wave, stats export)
 as dev tools in Unreal.
 
-## 7. Open decision: 2D or 3D
+## 7. 2D or 3D — recommendation (pending Nikita's final confirmation)
 
-The first design doc describes a 2.5D diorama with cut-away buildings (Fallout Shelter style).
-If the Unreal version is 3D, today's 2D sprites in `ASSET_REQUESTS.md` are prototype placeholders
-only and should not get more investment. Decide before ordering final art.
+Nikita wants **2D characters and animations** and a Fallout-Shelter-like look. Recommended setup
+(Claude, 7 Oct 2026), **not yet confirmed**:
+
+- **Characters, enemies, bosses: 2D**, ideally skeletal 2D (Spine) — characters split into parts
+  (head, torso, arms, weapon, shield) so few animations cover a lot. Unreal has a Spine runtime;
+  flipbooks (Paper2D) are the fallback.
+- **Scene: 3D** with a fixed side camera (orthographic or very narrow FOV), Fallout Shelter style.
+  Reasons: the village must grow to ~200 levels up to a huge castle — a **modular 3D kit** (walls,
+  towers, houses, floors, roofs in 3–4 styles: wood → stone → marble) assembled by code is far cheaper
+  than hundreds of painted 2D states; cut-away interiors with working villagers; camera can zoom out
+  as the city grows; seasons/weather are mostly lighting and materials.
+- **Style glue:** toon shader with dark outlines and the sprites' palette, so 2D and 3D read as one
+  style. Risk to check first.
+- **First Unreal task:** a style slice — one modular 3D building + road + today's legionary and orc
+  sprites, side camera, toon shading — and Nikita judges it before any large art order.
+
+Consequence for art: keep ordering 2D characters (Spine-ready parts preferred); **hold** 2D building /
+village art (ASSET_REQUESTS priority 4) until the slice is approved; UI icons stay 2D.
