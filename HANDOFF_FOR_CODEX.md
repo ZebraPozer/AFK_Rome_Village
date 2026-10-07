@@ -109,10 +109,13 @@ runtime chroma-keying for the legionary/archer is gone. Root `assets/` and
 
 ## 4. Suggested next tasks (Nikita agreed with this direction)
 
-> **Meta loop:** `docs/META_LOOP.md` (Russian) proposes what comes after wave 10 — provinces +
-> Triumph (prestige for laurels → Senate bonuses), hero levels bought with food, village
-> buildings with combat bonuses. Nikita liked the direction; open questions are at the end of
-> that doc. Its "first step" section is the next big feature once he answers them.
+> **Meta loop (decided):** `docs/META_LOOP.md` (Russian). **No resets / no prestige** — like
+> Fallout Shelter the player only goes deeper: endless waves, settlement level 1–200+ (= sum of
+> building levels), visual tiers camp → village → town → city → fortress → castle → capital,
+> each tier gated by a big boss every 10 waves; hero levels for food; buildings as the main
+> gold sink; big-number formatting. Later: several settlements at once — so keep one
+> settlement's data in its own object. The doc's "first step" is the next big feature;
+> open questions for Nikita are at its end.
 
 1. Push + enable Pages, then Nikita playtests on a phone.
 2. First-minute hints (tap Bash when an orc is close, upgrade the frontline with food, …).
