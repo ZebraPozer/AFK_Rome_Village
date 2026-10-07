@@ -91,10 +91,11 @@ The debug panel, cheats UI, tint cache, canvas background baking, phone frame, `
 `build_assets.py`, synthesized sounds. Keep the *ideas* (AFK forecast, jump to wave, stats export)
 as dev tools in Unreal.
 
-## 7. 2D or 3D — recommendation (pending Nikita's final confirmation)
+## 7. 2D characters in a 3D scene — DECIDED (7 Oct 2026)
 
-Nikita wants **2D characters and animations** and a Fallout-Shelter-like look. Recommended setup
-(Claude, 7 Oct 2026), **not yet confirmed**:
+Confirmed by Nikita: **2D characters in a 3D scene**, references **Octopath Traveler (HD-2D)** and
+**Fallout Shelter** (side view, cut-away rooms). The camera angle (strict side view vs. slightly from
+above like Octopath) is chosen on the style slice.
 
 - **Characters, enemies, bosses: 2D**, ideally skeletal 2D (Spine) — characters split into parts
   (head, torso, arms, weapon, shield) so few animations cover a lot. Unreal has a Spine runtime;

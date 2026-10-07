@@ -1,9 +1,10 @@
 # Asset requests — AFK Rome Village
 
-> **Art direction for the Unreal version (recommended, pending confirmation — `docs/UNREAL_PORT.md` §7):**
+> **Art direction for the Unreal version (decided — HD-2D like Octopath Traveler, `docs/UNREAL_PORT.md` §7):**
 > characters stay **2D** (best as Spine-ready parts: head, torso, arms, weapon, shield on separate
 > layers), the scene becomes **3D modular**. So: characters, enemies, bosses, icons — go ahead;
-> **2D buildings / village art (Priority 4) — on hold** until the Unreal style slice is approved.
+> **2D buildings / village art (Priority 4) — cancelled for Unreal**: buildings become a 3D modular kit
+> (order it after the style slice is approved).
 
 Hey Codex 👋 — this is the list of art we need rendered (or re-rendered) for the prototype.
 Everything in the game currently works with placeholders, so nothing here is blocking.
