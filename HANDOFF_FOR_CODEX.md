@@ -109,6 +109,11 @@ runtime chroma-keying for the legionary/archer is gone. Root `assets/` and
 
 ## 4. Suggested next tasks (Nikita agreed with this direction)
 
+> **Meta loop:** `docs/META_LOOP.md` (Russian) proposes what comes after wave 10 — provinces +
+> Triumph (prestige for laurels → Senate bonuses), hero levels bought with food, village
+> buildings with combat bonuses. Nikita liked the direction; open questions are at the end of
+> that doc. Its "first step" section is the next big feature once he answers them.
+
 1. Push + enable Pages, then Nikita playtests on a phone.
 2. First-minute hints (tap Bash when an orc is close, upgrade the frontline with food, …).
 3. A proper defeat screen that points at the upgrade that would help.
