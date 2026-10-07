@@ -113,6 +113,11 @@ runtime chroma-keying for the legionary/archer is gone. Root `assets/` and
 - Balance tuning tip: when measuring a fight, check the phase **every frame** — checking in
   60-frame batches lets post-wave regeneration leak into the result (this bit us once).
 
+- Pre-playtest hardening: debug cheats (`jumpToWave`, `cheat`), `SAVE_VERSION = 2` fresh start,
+  tinted-sprite cache + baked background (big perf win on phones), no-stalemate fix for catapult vs
+  enemy archers (+ regression test), `PLAYTEST.md` for testers. Never use `ctx.filter` per frame —
+  go through `tinted()`.
+
 ## 3. Known issues / open decisions
 - Spell/UI icons are font glyphs/emoji; some render as empty boxes on some systems.
   Real icons are requested in `ASSET_REQUESTS.md` (`assets/ui/…`).
