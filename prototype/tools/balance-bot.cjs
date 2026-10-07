@@ -29,40 +29,46 @@ const attackTrials = parseTrials(process.env.BALANCE_ATK);
 function shop(targetLevel = Infinity) {
   // Prioritize production, then buy defenses and the target guard level.
   for (let round = 0; round < 100; round += 1) {
-    const before = run('JSON.stringify([state.food,state.coins,state.guardLevel,state.gateLevel,state.spikesLevel,state.farmLevel,state.guardHp])');
+    if (run('state.townLevel') >= 2) run("ui['archer-upgrade'].onclick(); ui['catapult-upgrade'].onclick()");
+    const before = run('JSON.stringify([state.food,state.coins,state.guardLevel,state.spikesLevel,state.farmLevel,state.guardHp])');
     run("ui['farm-upgrade'].onclick(); ui['spikes-upgrade'].onclick();");
     if (run('state.guardLevel') < targetLevel) run("ui['guard-upgrade'].onclick()");
-    const after = run('JSON.stringify([state.food,state.coins,state.guardLevel,state.gateLevel,state.spikesLevel,state.farmLevel,state.guardHp])');
+    const after = run('JSON.stringify([state.food,state.coins,state.guardLevel,state.spikesLevel,state.farmLevel,state.guardHp])');
     if (before === after) break;
   }
 }
 
-function play() {
+function play({ waves = 5, buyVolley = false } = {}) {
   run('resetGame()');
   const report = [];
-  for (let wave = 1; wave <= 5; wave += 1) {
+  for (let wave = 1; wave <= waves; wave += 1) {
+    if (wave === 6) run("ui['town-upgrade'].onclick()");
+    if (buyVolley && wave === 4) {
+      run("for (let i = 0; i < 36000 && state.coins < VOLLEY_PRICE; i++) update(1/60, 1170)");
+      run("ui['volley-buy'].onclick()");
+    }
     let preparationTicks = 0;
     shop(wave);
     while (run(`state.guardLevel < ${wave}`) && preparationTicks++ < 18000) {
-      run('update(1/60, 1170)');
+      run('if (state.heroUnlocked && aliveMobs().some(m => m.x > 1170 * .52 - 400 && m.x < 1170 * .52 - 20)) castVolley(); update(1/60, 1170)');
       shop(wave);
     }
     if (preparationTicks >= 18000) throw new Error(`Preparation for wave ${wave} exceeded five minutes`);
-    run(`state.wave = ${wave}; startWave()`);
+    run("ui['wave-button'].onclick()");
     if (Number.isFinite(hpTrials[wave - 1])) run(`state.waveDifficulties[state.wave].hp *= ${hpTrials[wave - 1]}`);
     if (Number.isFinite(attackTrials[wave - 1])) run(`state.waveDifficulties[state.wave].damage *= ${attackTrials[wave - 1]}`);
-    const start = JSON.parse(run('JSON.stringify({hp:state.guardHp,maxHp:state.maxGuardHp,gate:state.gate,maxGate:state.maxGate,guard:state.guardLevel,spikes:state.spikesLevel,gateLevel:state.gateLevel,farm:state.farmLevel,difficulty:state.waveDifficulties[state.wave]})'));
+    const start = JSON.parse(run('JSON.stringify({hp:state.guardHp,maxHp:state.maxGuardHp,guard:state.guardLevel,spikes:state.spikesLevel,farm:state.farmLevel,archer:state.archerLevel,catapult:state.catapultLevel,hasVolley:state.heroUnlocked,difficulty:state.waveDifficulties[state.wave]})'));
     let ticks = 0;
     let peakEnemies = 0;
     let bossSharedField = false;
     while (run('state.phase') === 'wave' && ticks++ < 36000) {
-      run('update(1/60, 1170)');
+      run('if (state.heroUnlocked && aliveMobs().some(m => m.x > 1170 * .52 - 400 && m.x < 1170 * .52 - 20)) castVolley(); update(1/60, 1170)');
       const active = run('state.mobs.filter(mob => !mob.dead).length');
       peakEnemies = Math.max(peakEnemies, active);
-      if (active > 1 && run('state.mobs.some(mob => !mob.dead && mob.type === "boss")')) bossSharedField = true;
+      if (active > 1 && run('state.mobs.some(mob => !mob.dead && enemyTypes[mob.type].isBoss)')) bossSharedField = true;
     }
     if (ticks >= 36000) throw new Error(`Wave ${wave} did not terminate`);
-    const end = JSON.parse(run('JSON.stringify({phase:state.phase,hp:state.guardHp,maxHp:state.maxGuardHp,gate:state.gate,maxGate:state.maxGate,food:state.food,coins:state.coins})'));
+    const end = JSON.parse(run('JSON.stringify({phase:state.phase,hp:state.guardHp,maxHp:state.maxGuardHp,food:state.food,coins:state.coins})'));
     report.push({ wave, ...start, ...end, hpRatio: end.hp / end.maxHp,
       enemies: run('state.waveTotal'), peakEnemies, bossSharedField, preparationSeconds: preparationTicks / 60 });
     if (end.phase === 'defeat') break;
@@ -79,24 +85,24 @@ function idle(seconds) {
       ui['guard-upgrade'].onclick(); ui['spikes-upgrade'].onclick();
     }
   }`);
-  return JSON.parse(run('JSON.stringify({clearedWave:state.clearedWave,guard:state.guardLevel,spikes:state.spikesLevel,gate:state.gateLevel,farm:state.farmLevel,patrolKills:state.patrolKills,coins:state.coins,food:state.food})'));
+  return JSON.parse(run('JSON.stringify({clearedWave:state.wavesCleared,guard:state.guardLevel,spikes:state.spikesLevel,farm:state.farmLevel,patrolKills:state.patrolKills,coins:state.coins,food:state.food})'));
 }
 
 if (require.main === module) {
-  const report = play();
-  console.log('wave | prep seconds | enemies / peak | build (guard/spikes/gate/farm) | enemy HP/ATK | result | guard HP | gate');
+  const report = play({ waves: 10 });
+  console.log('wave | prep seconds | enemies / peak | guard/spikes/farm/archer/catapult | enemy HP/ATK | result | guard HP');
   for (const row of report) {
     console.log([
       String(row.wave).padStart(4),
       row.preparationSeconds.toFixed(1).padStart(12),
       `${row.enemies} / ${row.peakEnemies}`.padStart(14),
-      `${row.guard}/${row.spikes}/${row.gateLevel}/${row.farm}`.padStart(28),
+      `${row.guard}/${row.spikes}/${row.farm}/${row.archer}/${row.catapult}`.padStart(31),
       `${row.difficulty.hp.toFixed(2)}/${row.difficulty.damage.toFixed(2)}`.padStart(12),
       row.phase.padStart(8),
-      `${row.hp}/${row.maxHp} (${Math.round(row.hpRatio * 100)}%)`.padStart(18),
-      `${row.gate}/${row.maxGate}`.padStart(9)
+      `${row.hp}/${row.maxHp} (${Math.round(row.hpRatio * 100)}%)`.padStart(18)
     ].join(' | '));
   }
+  console.log('Optional volley:', JSON.stringify(play({ waves: 10, buyVolley: true }).map(r => ({ wave: r.wave, phase: r.phase, hpRatio: r.hpRatio }))));
   for (const seconds of [120, 600]) console.log(`AFK ${seconds}s: ${JSON.stringify(idle(seconds))}`);
 }
 

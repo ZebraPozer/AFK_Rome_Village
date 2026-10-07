@@ -3,32 +3,67 @@
 const canvas = document.querySelector('#game');
 const ctx = canvas.getContext('2d');
 const ui = Object.fromEntries([
-  'food','coins','wave','kills','mob-count','gate-value','gate-bar','pause','speed',
-  'reset','wave-button','wave-difficulty','state-label','live-dot','guard-status','farm-status','loading',
+  'food','coins','wave','kills','mob-count','pause','speed',
+  'reset','wave-button','wave-difficulty','wave-preview','boss-progress','specialization-note','state-label','live-dot','guard-status','farm-status','loading',
   'guard-upgrade','spikes-upgrade','farm-upgrade','guard-level','spikes-level','farm-level',
-  'guard-cost','spikes-cost','farm-cost','guard-health-value','guard-health-bar','archer-row','archer-status','town-upgrade','town-level','town-cost'
+  'guard-cost','spikes-cost','farm-cost','guard-health-value','guard-health-bar','archer-row','archer-status','archer-note',
+  'hero-row','hero-note','hero-status',
+  'archer-upgrade','archer-level','archer-cost','volley',
+  'catapult-upgrade','catapult-level','catapult-cost','tower-slot',
+  'village-stage','town-upgrade','town-level','town-cost','volley-buy','volley-cost'
 ].map((id) => [id, document.getElementById(id)]));
 
 const sources = {
   guard: { src: 'assets/roman-parts-source.png', crop: [10, 188, 335, 575], background: 'sage' },
-  orc: { src: 'assets/concepts/orc-raider-clean-01.png', crop: [0, 0, 1536, 1024], background: 'cream' },
-  orcDual: { src: 'assets/concepts/orc-dual-swords-01.png', crop: [0, 0, 1254, 1254], background: 'cream' },
-  orcShield: { src: 'assets/concepts/orc-shield-guard-01.png', crop: [0, 0, 1254, 1254], background: 'cream' },
-  orcRed: { src: 'assets/concepts/orc-red-elite-01.png', crop: [0, 0, 1254, 1254], background: 'cream' },
+  orc: { src: 'assets/characters/orc-raider.png', crop: [0, 0, 1039, 966] },
+  orcDual: { src: 'assets/characters/orc-dual-swords.png', crop: [0, 0, 1211, 1066] },
+  orcShield: { src: 'assets/characters/orc-shield-guard.png', crop: [0, 0, 1215, 1174] },
+  orcRed: { src: 'assets/characters/orc-red-elite.png', crop: [0, 0, 1092, 1199] },
   boss: { src: 'assets/concepts/orc-brute-boss-01.png', crop: [0, 0, 1254, 1254] },
-  farmer: { src: 'assets/concepts/roman-farmer-villager-01.png', crop: [165, 55, 770, 930], background: 'cream' },
+  farmer: { src: 'assets/characters/roman-farmer.png', crop: [0, 0, 737, 905] },
   archer: { src: 'assets/characters/roman-archer-ally-01.png', crop: [0, 0, 1312, 1199], background: 'checker' },
-  spikes: { src: 'assets/obstacles/angled-wooden-palisade-mirrored.png', crop: [0, 0, 1536, 1024], background: 'checker' }
+  spikes: { src: 'assets/obstacles/palisade-clean.png', crop: [0, 0, 1391, 879] }
 };
 
 const enemyTypes = {
-  orc:       { hp: 4,  damage: 3,  attackRate: 1.2,  speed: 1,    reward: 2, gateDamage: 12, height: 126, bar: '#8ba45e' },
-  orcDual:   { hp: 3,  damage: 5,  attackRate: 0.9,  speed: 1.15, reward: 3, gateDamage: 10, height: 113.4, bar: '#d28b45' },
-  orcShield: { hp: 8,  damage: 2,  attackRate: 1.4,  speed: 0.8,  reward: 3, gateDamage: 16, height: 132, bar: '#6f8ea2' },
-  orcRed:    { hp: 16, damage: 6,  attackRate: 1.8,  speed: 0.6,  reward: 6, gateDamage: 25, height: 148, bar: '#c6533f' },
-  boss:      { hp: 22, damage: 14, attackRate: 1.45, speed: 0.52, reward: 8, gateDamage: 35, height: 151.2, bar: '#a93336' }
+  orc:       { hp: 4,  damage: 3,  attackRate: 1.2,  speed: 1,    reward: 2, loot: 2, height: 126, bar: '#8ba45e' },
+  orcDual:   { hp: 3,  damage: 5,  attackRate: 0.9,  speed: 1.15, reward: 3, loot: 2, height: 113.4, bar: '#d28b45' },
+  orcShield: { hp: 8,  damage: 2,  attackRate: 1.4,  speed: 0.8,  reward: 3, loot: 3, height: 132, bar: '#6f8ea2', traits: ['shield'] },
+  orcRed:    { hp: 16, damage: 6,  attackRate: 1.8,  speed: 0.6,  reward: 6, loot: 4, height: 148, bar: '#c6533f' },
+  boss:      { hp: 22, damage: 14, attackRate: 1.45, speed: 0.52, reward: 8, loot: 6, height: 151.2, bar: '#a93336', isBoss: true },
+  // Act II (waves 6–10). Placeholder looks reuse the orc sprites, see enemyLooks.
+  goblin:    { hp: 2,  damage: 1,  attackRate: 0.8,  speed: 1.4,  reward: 1, loot: 1,  height: 84,  bar: '#b5c24a', traits: ['swarm'] },
+  orcArcher: { hp: 4,  damage: 3,  attackRate: 2.0,  speed: 1.2,  reward: 3, loot: 2, height: 118, bar: '#9a7bc0', traits: ['ranged'], range: 250 },
+  boar:      { hp: 6,  damage: 5,  attackRate: 1.3,  speed: 1.8,  reward: 4, loot: 4, height: 104, bar: '#8a5a3a', traits: ['charge', 'armor'], armor: 1 },
+  shaman:    { hp: 30, damage: 9, attackRate: 1.6,  speed: 0.45, reward: 15, loot: 5, height: 150, bar: '#7a4fc4', traits: ['aura'], isBoss: true }
 };
-const ORC_MOVEMENT_SPEED_MULTIPLIER = 2.5;
+
+// Trait glyphs shown on the wave roster and what they mean (see GAME_DESIGN 13.2).
+const traitInfo = {
+  shield: { glyph: '◐', color: '#a9c6cf', name: 'щит: −50% от стрел' },
+  armor:  { glyph: '▣', color: '#c9c3b5', name: 'броня: −1 к каждому удару, кроме площади' },
+  swarm:  { glyph: '✦', color: '#e6e36a', name: 'стая: проскакивает мимо легионера' },
+  ranged: { glyph: '➶', color: '#c7a6f0', name: 'стреляет в легионера издалека' },
+  charge: { glyph: '»', color: '#f0a160', name: 'наскок: первый удар ×2' },
+  aura:   { glyph: '✚', color: '#9fd0ff', name: 'аура: щиты союзникам каждые 6 с' }
+};
+
+function traitsOf(type) {
+  return (enemyTypes[type] && enemyTypes[type].traits) || [];
+}
+
+// Placeholder art for act II: tinted orc sprites plus drawn props.
+const enemyLooks = {
+  goblin:    { sprite: 'orc', filter: 'hue-rotate(38deg) saturate(1.3) brightness(1.1)' },
+  orcArcher: { sprite: 'orcDual', filter: 'hue-rotate(-55deg) saturate(0.85)', prop: 'bow' },
+  boar:      { sprite: 'orc', prop: 'boar' },
+  shaman:    { sprite: 'orcRed', filter: 'hue-rotate(245deg) saturate(1.15)', prop: 'staff' }
+};
+
+function enemySprite(type) {
+  const look = enemyLooks[type];
+  return sprites[(look && look.sprite) || type] || sprites.orc;
+}
 
 function buildWavePlan(wave) {
   const plans = {
@@ -36,16 +71,34 @@ function buildWavePlan(wave) {
     2: ['orc', 'orc'],
     3: ['orc', 'orcDual'],
     4: ['orc', 'orc', 'orcDual'],
-    5: ['orc', 'orcDual', 'orcShield', 'boss']
+    5: ['orc', 'orcDual', 'orcShield', 'boss'],
+    // Act II: each wave introduces one trait, wave 9 mixes them, wave 10 is the shaman.
+    6: ['orc', 'goblin', 'goblin', 'goblin'],
+    7: ['orc', 'orcArcher', 'orcShield', 'orcArcher'],
+    8: ['orcDual', 'boar', 'orcShield', 'boar'],
+    9: ['goblin', 'orcShield', 'orcArcher', 'goblin', 'orcRed'],
+    10: ['orcShield', 'orcArcher', 'boar', 'goblin', 'shaman']
   };
-  return [...(plans[wave] || plans[5])];
+  return [...(plans[wave] || plans[FINAL_WAVE])];
+}
+
+const wavePreviewNames = {
+  orc: 'Орк', orcDual: 'Двойные мечи', orcShield: 'Щитоносец', orcRed: 'Элита', boss: 'Громила',
+  goblin: 'Гоблин', orcArcher: 'Стрелок', boar: 'Всадник', shaman: 'Шаман'
+};
+
+function wavePreviewText(wave) {
+  const plan = buildWavePlan(wave);
+  const counts = new Map();
+  for (const type of plan) counts.set(type, (counts.get(type) || 0) + 1);
+  return [...counts].map(([type, count]) => `${count}× ${wavePreviewNames[type] || type}`).join(' · ');
 }
 
 function guardAttackInterval(level) {
   return Math.max(0.4, 0.72 - (level - 1) * 0.06);
 }
 
-function calculateWaveDifficulty(wave, progress) {
+function calculateOpeningDifficulty(wave, progress) {
   // The roster itself becomes more dangerous (more shield units, elites and a
   // boss), so raw stat growth must not also rise monotonically. These factors
   // are calibrated by tools/balance-bot.cjs against a farm/upgrade/play loop.
@@ -59,6 +112,23 @@ function calculateWaveDifficulty(wave, progress) {
     + 0.12 * Math.pow(progress.spikesLevel, 0.75);
   return {
     hp: (1 + 0.3 * step + 0.06 * step * step) * offense * (rosterHpTuning[wave - 1] || 0.5),
+    damage: (1 + 0.12 * step) * Math.pow(progress.maxGuardHp / 100, 0.25)
+  };
+}
+
+
+function calculateWaveDifficulty(wave, progress) {
+  if (wave <= 5) return calculateOpeningDifficulty(wave, progress);
+  // Act II starts a gentler curve while introducing new enemy traits.
+  const step = wave <= 5 ? wave - 1 : (wave - 6) + 2.5;
+  const dpsRatio = progress.guardLevel * 0.72 / guardAttackInterval(progress.guardLevel);
+  // Sublinear adaptation preserves the advantage of investing in combat.
+  // Economy, stored resources and current health never raise difficulty.
+  const offense = 1 + 0.35 * (Math.sqrt(dpsRatio) - 1)
+    + 0.12 * Math.pow(progress.spikesLevel, 0.75)
+    + 0.1 * Math.max(progress.archerLevel || 0, progress.catapultLevel || 0);
+  return {
+    hp: (1 + 0.3 * step + 0.06 * step * step) * offense,
     damage: (1 + 0.12 * step) * Math.pow(progress.maxGuardHp / 100, 0.25)
   };
 }
@@ -86,36 +156,43 @@ const structureSources = {
   guardTower: 'assets/buildings/wooden-guard-tower-room.png'
 };
 const structures = {};
-const resourceSources = {
-  food: 'assets/icons/food.png',
-  gold: 'assets/icons/gold.png'
-};
+const resourceSources = { food: 'assets/icons/food.png', gold: 'assets/icons/gold.png' };
 const resourceIcons = {};
 const state = {
+  townLevel: 1, patrolKills: 0, regenDelay: 0, regenFlash: 0, regenParticleTimer: 0,
   running: true,
   speed: 1,
   wave: 1,
-  clearedWave: 0,
-  patrolKills: 0,
   phase: 'preparation',
-  gate: 100,
-  maxGate: 100,
   guardHp: 100,
   maxGuardHp: 100,
   food: 0,
   coins: 0,
   kills: 0,
   guardLevel: 1,
-  gateLevel: 1,
   spikesLevel: 0,
   farmLevel: 1,
   waveTotal: 0,
   spawned: 0,
   defeated: 0,
-  townLevel: 1, archerUnlocked: false,
-  archerCooldown: 1.2,
-  archerAttackTimer: 0,
+  archerUnlocked: false,
+  archerLevel: 0,
+  archerCooldown: 0,
   arrows: [],
+  volleyCooldown: 0,
+  volleyFx: 0,
+  volleyDamage: 0,
+  shake: 0,
+  towerSlot: null,
+  catapultUnlocked: false,
+  catapultLevel: 0,
+  catapultCooldown: 0,
+  rocks: [],
+  enemyShots: [],
+  dust: [],
+  notice: null,
+  heroUnlocked: false,
+  towerFx: 0,
   wavePlan: [],
   waveDifficulties: {},
   mobs: [],
@@ -126,13 +203,30 @@ const state = {
   attackCooldown: 0,
   attackTimer: 0,
   hitFlash: 0,
-  regenDelay: 0,
-  regenFlash: 0,
-  regenParticleTimer: 0,
   floaters: [],
   time: 0,
-  last: 0
+  last: 0,
+  // Village growth: stage is derived from cleared waves; override is a debug shortcut.
+  wavesCleared: 0,
+  villageStage: 1,
+  stageOverride: null,
+  growthFx: 0,
+  growthBanner: 0
 };
+
+// Settlement growth is claimed after the bosses of waves 5 and 10.
+const villageStages = {
+  1: 'Лагерь',
+  2: 'Деревня',
+  3: 'Процветающее поселение'
+};
+const GROWTH_POP = 0.9;
+const GROWTH_BANNER = 3.2;
+
+function computeVillageStage() {
+  if (state.stageOverride) return state.stageOverride;
+  return state.townLevel;
+}
 
 function removeConnectedBackground(image, type) {
   const { width, height, data } = image;
@@ -304,8 +398,9 @@ function spawnMob(type = 'orc', countsForWave = true) {
   // through the battlefield as one overlapping horizontal line.
   const laneOffsets = [-30, 18, -10, 32, 4, -22, 25];
   const spawnIndex = countsForWave ? state.spawned : state.patrolSpawned;
-  const laneY = type === 'boss' ? 0 : laneOffsets[spawnIndex % laneOffsets.length];
-  const formationX = type === 'boss' ? 0 : (spawnIndex % 4) * 14;
+  const laneY = stats.isBoss ? 0 : laneOffsets[spawnIndex % laneOffsets.length];
+  // Ranged orcs keep wide gaps, so a single catapult rock rarely hits more than one.
+  const formationX = stats.isBoss ? 0 : (spawnIndex % 4) * (traitsOf(type).includes('ranged') ? 45 : 14);
   state.mobs.push({
     x: -70, laneY, formationX, attackMotion: 0,
     bob: Math.random() * Math.PI * 2, hit: 0, dead: false, type,
@@ -315,43 +410,69 @@ function spawnMob(type = 'orc', countsForWave = true) {
     damage: Math.round(stats.damage * difficulty.damage),
     attackRate: stats.attackRate,
     speed: stats.speed,
-    reward: countsForWave ? stats.reward : 0,
-    gateDamage: stats.gateDamage,
-    attackCooldown: Math.random() * 0.35
+    reward: stats.reward,
+    loot: stats.loot,
+    attackCooldown: Math.random() * 0.35,
+    barrier: 0,
+    charged: false,
+    auraTimer: 2.5,
+    auraFx: 0
   });
 }
 
 function startWave() {
-  state.guardHp = state.maxGuardHp;
-  state.regenFlash = 0;
+  if (state.phase === 'wave' || state.phase === 'complete' || (state.wave > 5 && state.townLevel < 2)) return;
+  clearProjectiles();
+  state.attackCooldown = 0;
+  state.attackTimer = 0;
   state.regenDelay = 0;
-  state.regenParticleTimer = 0;
-  state.floaters = state.floaters.filter((floater) => floater.kind !== 'heal');
+  state.regenFlash = 0;
+  state.floaters = state.floaters.filter(floater => floater.kind !== 'heal');
   // Keep the first attempt's stats on retries so upgrades can overcome a defeat.
   state.waveDifficulties[state.wave] = getWaveDifficulty(state.wave);
   state.phase = 'wave';
   state.running = true;
-  state.gate = state.maxGate;
+  state.guardHp = state.maxGuardHp; // always enter a wave at full health
   state.mobs = [];
   state.wavePlan = buildWavePlan(state.wave);
   state.waveTotal = state.wavePlan.length;
   state.spawned = 0;
   state.defeated = 0;
   state.spawnTimer = 0.2;
-  state.attackCooldown = 0;
-  state.attackTimer = 0;
   ui.pause.textContent = 'Ⅱ Пауза';
 }
 
 function finishWave() {
   state.regenDelay = 0.35;
-  state.phase = state.wave === 5 ? 'complete' : 'victory';
+  state.phase = state.wave === FINAL_WAVE ? 'complete' : 'victory';
   state.running = true;
-  const reward = state.wave > state.clearedWave ? 6 + state.wave * 3 : 0;
-  state.clearedWave = Math.max(state.clearedWave, state.wave);
+  const reward = state.wave > state.wavesCleared ? 6 + state.wave * 3 : 0;
+  state.wavesCleared = Math.max(state.wavesCleared, state.wave);
   state.coins += reward;
-  state.floaters.push({ kind: 'reward', amount: reward, x: 585, life: 1.8, duration: 1.8 });
+  if (reward) state.floaters.push({ kind: 'reward', amount: reward, x: 585, life: 1.8, duration: 1.8 });
   state.patrolTimer = 5;
+  clearProjectiles();
+}
+// The boss-gated town grants the tower roles; the spell stays a separate purchase.
+function applyUnlocks() {
+  if (state.townLevel >= 2 && !state.archerUnlocked) {
+    state.archerUnlocked = true;
+    state.archerLevel = 1;
+    state.towerSlot = 'archer';
+    state.catapultUnlocked = true;
+    state.catapultLevel = 1;
+    state.towerFx = TOWER_POP;
+    showNotice('ПОСЕЛЕНИЕ II', 'НОВЫЕ ЗАЩИТНИКИ', 'Выбери лучника или катапульту · впереди второй акт');
+  }
+}
+function showNotice(kicker, title, subtitle) {
+  const notice = { kicker, title, subtitle, t: NOTICE_TIME };
+  if (!state.notice) state.notice = notice;
+  else {
+    let last = state.notice;
+    while (last.next) last = last.next;
+    last.next = notice;
+  }
 }
 
 function failWave() {
@@ -359,31 +480,244 @@ function failWave() {
   state.phase = 'defeat';
   state.running = true;
   state.mobs = [];
+  clearProjectiles();
   state.guardHp = Math.ceil(state.maxGuardHp * 0.3);
+}
+
+function clearProjectiles() {
+  state.arrows = [];
+  state.rocks = [];
+  state.enemyShots = [];
+  state.dust = [];
+  state.volleyFx = 0;
+  state.volleyDamage = 0;
+}
+// ---------------------------------------------------------------------------
+// Archer, hero volley, catapult and unlocks.
+// ---------------------------------------------------------------------------
+const ARCHER_UNLOCK_WAVE = 5;
+const HERO_UNLOCK_WAVE = 3;
+const VOLLEY_PRICE = 20;
+const GUARD_PRICE_BASE = 5;
+const GUARD_PRICE_STEP = 4;
+const TOWER_POP = 0.9;
+const NOTICE_TIME = 3.6;
+const CATAPULT_UNLOCK_WAVE = 5;
+const FINAL_WAVE = 10;
+const CATAPULT_RANGE = 540;
+const CATAPULT_MIN_RANGE = 280; // cannot lob at enemies right under the wall
+const CATAPULT_SPLASH = 62;
+const ARCHER_RANGE = 430;
+const VOLLEY_COOLDOWN = 18;
+const VOLLEY_FALL = 0.75;
+const VOLLEY_ZONE = [-400, -20]; // relative to the legionary
+
+// Legionary upgrades get steeper so food alone cannot outpace the waves.
+function guardUpgradePrice() {
+  return GUARD_PRICE_BASE + (state.guardLevel - 1) * GUARD_PRICE_STEP;
+}
+
+function archerInterval(level) {
+  return Math.max(0.55, 1.3 - (level - 1) * 0.12);
+}
+
+function archerPrice() {
+  return 10 + (state.archerLevel - 1) * 7;
+}
+
+// Shared tower geometry for update() and drawScene() (world is 1170×540).
+function towerGeometry(width, height = 540) {
+  const ground = height * 0.82;
+  const towerX = width * 0.6;
+  const towerHeight = Math.min(300, height * 0.64);
+  const platformY = ground - towerHeight * 0.72;
+  return { ground, towerX, towerHeight, platformY };
+}
+
+function catapultInterval(level) {
+  return Math.max(2.0, 3.4 - (level - 1) * 0.3);
+}
+
+// Fixed upgrade damage keeps small enemy groups relevant at higher difficulties.
+function catapultDamage(level) {
+  return 3 + 2 * (level - 1);
+}
+
+// Faster single-target fire complements the catapult's slower area attacks.
+function archerDamage(level) {
+  return 0.75 * level;
+}
+
+function catapultPrice() {
+  return 12 + (state.catapultLevel - 1) * 8;
+}
+
+// Damage types: melee (legionary), pierce (archer), area (volley, catapult), contact (spikes).
+function effectiveDamage(mob, raw, type) {
+  const stats = enemyTypes[mob.type] || {};
+  let damage = raw;
+  if (type === 'pierce' && traitsOf(mob.type).includes('shield')) damage *= 0.5;
+  if (stats.armor && type !== 'area') damage = Math.max(raw * 0.25, damage - stats.armor);
+  return damage;
+}
+
+function damageMob(mob, raw, type = 'melee') {
+  if (mob.dead) return 0;
+  let damage = effectiveDamage(mob, raw, type);
+  if (mob.barrier > 0) {
+    const absorbed = Math.min(mob.barrier, damage);
+    mob.barrier -= absorbed;
+    damage -= absorbed;
+  }
+  mob.hp -= damage;
+  mob.hit = 0.18;
+  if (mob.hp <= 1e-6) {
+    mob.dead = true;
+    state.kills += 1;
+    if (mob.countsForWave) state.defeated += 1;
+    collectKillReward(mob);
+  }
+  return damage;
+}
+
+// An enemy that slips past the legionary runs into the village and steals coins (then food).
+function stealLoot(mob, width) {
+  let left = mob.loot || 1;
+  const fromCoins = Math.min(state.coins, left);
+  state.coins -= fromCoins;
+  left -= fromCoins;
+  const fromFood = Math.min(state.food, left);
+  state.food -= fromFood;
+  const stolen = fromCoins + fromFood;
+  if (stolen > 0) state.floaters.push({ kind: 'stolen', amount: stolen, x: width * 0.84, life: 1.6, duration: 1.6 });
+}
+
+function aliveMobs() {
+  return state.mobs.filter((mob) => !mob.dead);
+}
+
+function castVolley() {
+  if (!state.running || !state.heroUnlocked || state.volleyCooldown > 0 || state.volleyFx > 0 || aliveMobs().length === 0) return false;
+  const difficulty = state.phase === 'wave' ? getWaveDifficulty(state.wave) : { hp: 1 };
+  state.volleyDamage = Math.ceil(4 * difficulty.hp);
+  state.volleyFx = VOLLEY_FALL;
+  state.volleyCooldown = VOLLEY_COOLDOWN;
+  return true;
+}
+
+function updateDefenders(dt, width) {
+  const guardX = width * 0.52;
+  const { towerX, platformY } = towerGeometry(width);
+  state.archerCooldown = Math.max(0, state.archerCooldown - dt);
+  state.volleyCooldown = Math.max(0, state.volleyCooldown - dt);
+  state.shake = Math.max(0, state.shake - dt);
+
+  // Archer: fires at the foremost enemy in range, damage lands when the arrow arrives.
+  if (state.archerUnlocked && state.towerSlot === 'archer' && state.archerCooldown <= 0) {
+    // Priority: enemy archers first (only our archer outranges them), then the foremost enemy.
+    const inRange = aliveMobs().filter((mob) => mob.x > guardX - ARCHER_RANGE && mob.x < guardX + 8);
+    const ranged = inRange.filter((mob) => traitsOf(mob.type).includes('ranged'));
+    const pool = ranged.length ? ranged : inRange;
+    const target = pool.reduce((lead, mob) => (!lead || mob.x > lead.x ? mob : lead), null);
+    if (target) {
+      state.arrows.push({ sx: towerX - 30, sy: platformY - 62, mob: target, t: 0, dur: 0.42, damage: archerDamage(state.archerLevel) });
+      state.archerCooldown = archerInterval(state.archerLevel);
+    }
+  }
+  for (const arrow of state.arrows) {
+    arrow.t += dt;
+    if (arrow.t >= arrow.dur) damageMob(arrow.mob, arrow.damage, 'pierce');
+  }
+  state.arrows = state.arrows.filter((arrow) => arrow.t < arrow.dur && !arrow.mob.dead);
+
+  // Catapult: lobs a rock at the densest group, splash damage ignores armor.
+  state.catapultCooldown = Math.max(0, state.catapultCooldown - dt);
+  if (state.catapultUnlocked && state.towerSlot === 'catapult' && state.catapultCooldown <= 0) {
+    const inRange = aliveMobs().filter((mob) => mob.x > guardX - CATAPULT_RANGE && mob.x < guardX - CATAPULT_MIN_RANGE);
+    let best = null;
+    let bestScore = -1;
+    for (const mob of inRange) {
+      const score = inRange.filter((other) => Math.abs(other.x - mob.x) <= CATAPULT_SPLASH).length + mob.x / 10000;
+      if (score > bestScore) { best = mob; bestScore = score; }
+    }
+    if (best) {
+      const flight = 0.9;
+      const blocked = best.x >= guardX - 72 - (best.formationX ?? 0) - 1;
+      const lead = blocked ? 0 : (28 + state.wave * 2.5) * best.speed * flight * 0.8;
+      state.rocks.push({ sx: towerX - 34, sy: platformY - 40, tx: Math.min(best.x + lead, guardX - CATAPULT_MIN_RANGE + 40), laneY: best.laneY ?? 0, t: 0, dur: flight, damage: catapultDamage(state.catapultLevel) });
+      state.catapultCooldown = catapultInterval(state.catapultLevel);
+    }
+  }
+  for (const rock of state.rocks) {
+    rock.t += dt;
+    if (rock.t >= rock.dur && !rock.done) {
+      rock.done = true;
+      for (const mob of aliveMobs()) if (Math.abs(mob.x - rock.tx) <= CATAPULT_SPLASH) damageMob(mob, rock.damage, 'area');
+      state.dust.push({ x: rock.tx, laneY: rock.laneY, t: 0 });
+      state.shake = Math.max(state.shake, 0.12);
+    }
+  }
+  state.rocks = state.rocks.filter((rock) => !rock.done);
+  for (const puff of state.dust) puff.t += dt;
+  state.dust = state.dust.filter((puff) => puff.t < 0.6);
+
+  // Enemy arrows from orc archers hit the legionary on arrival.
+  for (const shot of state.enemyShots) {
+    shot.t += dt;
+    if (shot.t >= shot.dur && !shot.done) {
+      shot.done = true;
+      if (state.guardHp > 0) {
+        state.guardHp = Math.max(0, state.guardHp - shot.damage);
+        state.floaters.push({ kind: 'hurt', amount: shot.damage, x: guardX, life: 1.05, duration: 1.05 });
+      }
+    }
+  }
+  state.enemyShots = state.enemyShots.filter((shot) => !shot.done);
+
+  // Hero volley: arrows rain on the zone in front of the legionary, then hit everything there.
+  if (state.volleyFx > 0) {
+    state.volleyFx = Math.max(0, state.volleyFx - dt);
+    if (state.volleyFx === 0) {
+      const [from, to] = VOLLEY_ZONE;
+      for (const mob of aliveMobs()) {
+        if (mob.x >= guardX + from && mob.x <= guardX + to) damageMob(mob, state.volleyDamage, 'area');
+      }
+      state.floaters.push({ kind: 'volley', amount: state.volleyDamage, x: guardX + (from + to) / 2, life: 1.4, duration: 1.4 });
+      state.shake = 0.28;
+    }
+  }
+
 }
 
 function resetGame() {
   Object.assign(state, {
-    running: true, speed: 1, wave: 1, clearedWave: 0, patrolKills: 0, phase: 'preparation', gate: 100, maxGate: 100,
+    townLevel: 1, patrolKills: 0, regenDelay: 0, regenFlash: 0, regenParticleTimer: 0,
+    running: true, speed: 1, wave: 1, phase: 'preparation',
     guardHp: 100, maxGuardHp: 100,
-    food: 0, coins: 0, kills: 0, guardLevel: 1, gateLevel: 1, spikesLevel: 0, farmLevel: 1,
-    waveTotal: 0, spawned: 0, defeated: 0, townLevel: 1, archerUnlocked: false, archerCooldown: 1.2, archerAttackTimer: 0, arrows: [], wavePlan: [], waveDifficulties: {},
+    food: 0, coins: 0, kills: 0, guardLevel: 1, spikesLevel: 0, farmLevel: 1,
+    waveTotal: 0, spawned: 0, defeated: 0, archerUnlocked: false, wavePlan: [], waveDifficulties: {},
+    archerLevel: 0, archerCooldown: 0, arrows: [], volleyCooldown: 0, volleyFx: 0, volleyDamage: 0, shake: 0,
+    towerSlot: null, catapultUnlocked: false, catapultLevel: 0, catapultCooldown: 0, rocks: [], enemyShots: [], dust: [], notice: null, heroUnlocked: false, towerFx: 0,
     mobs: [], spawnTimer: 0.6, patrolTimer: 4, patrolSpawned: 0, foodTimer: 3, attackCooldown: 0, attackTimer: 0,
-    hitFlash: 0, regenDelay: 0, regenFlash: 0, regenParticleTimer: 0, floaters: [], time: 0, last: 0
+    hitFlash: 0, floaters: [], time: 0, last: 0,
+    wavesCleared: 0, villageStage: 1, stageOverride: null, growthFx: 0, growthBanner: 0
   });
   ui.speed.textContent = '⏩ 1×';
   ui.pause.textContent = 'Ⅱ Пауза';
 }
 
 function upgradeLimit(kind) {
-  if (kind === 'spikes') return state.clearedWave < 3 ? 0 : state.townLevel * 2;
+  if (kind === 'spikes') return state.wavesCleared < 3 ? 0 : state.townLevel * 2;
+  if (kind === 'archer' || kind === 'catapult') return state.townLevel < 2 ? 0 : (state.townLevel - 1) * 5;
   return state.townLevel * 5;
 }
 
+
 function canUpgrade(kind) {
-  if (!['guard', 'spikes', 'farm'].includes(kind)) return false;
+  if (!['guard', 'spikes', 'farm', 'archer', 'catapult'].includes(kind)) return false;
   return state.phase !== 'wave' && state[`${kind}Level`] < upgradeLimit(kind);
 }
+
 
 function collectKillReward(mob) {
   let reward = mob.reward;
@@ -395,45 +729,58 @@ function collectKillReward(mob) {
   if (reward > 0) state.floaters.push({ kind: 'kill', amount: reward, x: mob.x, life: 1.35, duration: 1.35 });
 }
 
-function defeatMob(mob) {
-  if (mob.dead) return;
-  mob.dead = true;
-  state.kills += 1;
-  if (mob.countsForWave) state.defeated += 1;
-  collectKillReward(mob);
+function canUpgradeTown() {
+  return state.phase !== 'wave' && state.townLevel < 3 && state.wavesCleared >= state.townLevel * 5;
+}
+
+function upgradeTown() {
+  if (!canUpgradeTown()) return;
+  state.townLevel += 1;
+  applyUnlocks();
+  syncUi();
 }
 
 function update(delta, width, simulationStep = false) {
   if (!state.running) return;
   if (!simulationStep && state.speed > 1) {
     let remaining = delta * state.speed;
-    while (remaining > 0 && state.running) {
+    while (remaining > 1e-9 && state.running) {
       const step = Math.min(remaining, 1 / 60);
       update(step, width, true);
       remaining -= step;
     }
     return;
   }
-  const dt = simulationStep ? delta : delta * state.speed;
+  const dt = delta;
   state.time += dt;
   if (state.phase === 'wave') state.spawnTimer -= dt;
-  const betweenWaves = state.phase === 'preparation' || state.phase === 'victory';
+  const betweenWaves = state.phase !== 'wave';
   if (betweenWaves) state.patrolTimer -= dt;
   state.foodTimer -= dt;
   state.attackCooldown = Math.max(0, state.attackCooldown - dt);
   state.attackTimer = Math.max(0, state.attackTimer - dt);
-  state.archerCooldown = Math.max(0, state.archerCooldown - dt);
-  state.archerAttackTimer = Math.max(0, state.archerAttackTimer - dt);
   state.hitFlash = Math.max(0, state.hitFlash - dt);
+  state.growthFx = Math.max(0, state.growthFx - delta);
+  state.growthBanner = Math.max(0, state.growthBanner - delta);
+  if (state.notice) {
+    state.notice.t -= delta;
+    if (state.notice.t <= 0) state.notice = state.notice.next || null;
+  }
+  state.towerFx = Math.max(0, state.towerFx - delta);
+  const nextStage = computeVillageStage();
+  if (nextStage !== state.villageStage) {
+    if (nextStage > state.villageStage) {
+      state.growthFx = GROWTH_POP;
+      state.growthBanner = GROWTH_BANNER;
+    }
+    state.villageStage = nextStage;
+  }
   for (const floater of state.floaters) floater.life -= dt;
   state.floaters = state.floaters.filter((floater) => floater.life > 0);
-  state.regenDelay = Math.max(0, state.regenDelay - dt);
-  state.regenFlash = Math.max(0, state.regenFlash - dt);
-  state.regenParticleTimer = Math.max(0, state.regenParticleTimer - dt);
 
-  // Small groups keep individual attacks readable; the boss gets a solo entrance.
-  const activeWaveMobs = state.mobs.filter((mob) => mob.countsForWave && !mob.dead).length;
-  const nextIsBoss = state.wavePlan[state.spawned] === 'boss';
+  const opening = state.wave <= 5;
+  const activeWaveMobs = state.mobs.filter(mob => mob.countsForWave && !mob.dead).length;
+  const nextIsBoss = Boolean(enemyTypes[state.wavePlan[state.spawned]]?.isBoss);
   if (state.phase === 'wave' && state.spawned < state.waveTotal && state.spawnTimer <= 0
       && activeWaveMobs < (nextIsBoss ? 1 : 2)) {
     const nextType = state.wavePlan[state.spawned] || 'orc';
@@ -448,6 +795,9 @@ function update(delta, width, simulationStep = false) {
     state.patrolSpawned += 1;
     state.patrolTimer = 8 + Math.random() * 4;
   }
+  state.regenDelay = Math.max(0, state.regenDelay - dt);
+  state.regenFlash = Math.max(0, state.regenFlash - dt);
+  state.regenParticleTimer = Math.max(0, state.regenParticleTimer - dt);
   // Check after spawning: even an approaching patrol interrupts recovery.
   const combatActive = state.phase === 'wave' || state.mobs.some((mob) => !mob.dead);
   if (combatActive) {
@@ -457,14 +807,15 @@ function update(delta, width, simulationStep = false) {
     state.floaters = state.floaters.filter((floater) => floater.kind !== 'heal');
   } else if (state.regenDelay === 0 && state.guardHp < state.maxGuardHp) {
     // Recover only after the entire skirmish ends, in about two seconds.
-    state.guardHp = Math.min(state.maxGuardHp, state.guardHp + state.maxGuardHp * 0.5 * dt);
-    state.regenFlash = 0.25;
+    // Recovery is deliberately calm and readable: a full heal takes about four seconds.
+    state.guardHp = Math.min(state.maxGuardHp, state.guardHp + state.maxGuardHp * 0.25 * dt);
+    state.regenFlash = 0.45;
     if (state.regenParticleTimer === 0) {
       for (const offset of [-32, 0, 32]) {
         state.floaters.push({ kind: 'heal', x: width * 0.52 + offset,
-          offsetY: offset === 0 ? 18 : 0, life: 0.85, duration: 0.85 });
+          offsetY: offset === 0 ? 18 : 0, life: 1.35, duration: 1.35 });
       }
-      state.regenParticleTimer = 0.3;
+      state.regenParticleTimer = 0.55;
     }
   }
   if (state.foodTimer <= 0) {
@@ -475,41 +826,59 @@ function update(delta, width, simulationStep = false) {
 
   const guardX = width * 0.52;
   const mobSpeed = 28 + state.wave * 2.5;
-  const frontline = state.mobs.reduce((lead, mob) => !mob.dead && (!lead || mob.x > lead.x) ? mob : lead, null);
+  // Only blockers (not swarm, not ranged while the legionary stands) fight the legionary in melee.
+  const blocks = (mob) => !traitsOf(mob.type).includes('swarm') && !(traitsOf(mob.type).includes('ranged') && state.guardHp > 0);
+  const frontline = state.mobs.reduce((lead, mob) => !mob.dead && blocks(mob) && (!lead || mob.x > lead.x) ? mob : lead, null);
   for (const mob of state.mobs) {
     mob.hit = Math.max(0, mob.hit - dt);
     mob.attackMotion = Math.max(0, (mob.attackMotion ?? 0) - dt);
     mob.attackCooldown = Math.max(0, mob.attackCooldown - dt);
+    if (mob.dead) continue;
+    const traits = traitsOf(mob.type);
+    if (traits.includes('aura') && !mob.dead) {
+      mob.auraTimer -= dt;
+      mob.auraFx = Math.max(0, mob.auraFx - dt);
+      if (mob.auraTimer <= 0) {
+        const amount = Math.ceil(3 * (mob.countsForWave ? getWaveDifficulty(state.wave).hp : 1));
+        for (const ally of state.mobs) {
+          if (ally !== mob && !ally.dead && Math.abs(ally.x - mob.x) <= 240) ally.barrier = Math.max(ally.barrier || 0, amount);
+        }
+        mob.auraTimer = 6;
+        mob.auraFx = 0.7;
+      }
+    }
+    const rangedNow = !mob.dead && traits.includes('ranged') && state.guardHp > 0;
+    const holdX = guardX - ((enemyTypes[mob.type] || {}).range || 0) - (mob.formationX ?? 0);
     const attackX = guardX - 72 - (mob.formationX ?? 0);
-    const atGuard = state.guardHp > 0 && mob.x >= attackX;
-    if (atGuard) {
+    const atGuard = blocks(mob) && state.guardHp > 0 && mob.x >= attackX;
+    if (rangedNow && mob.x >= holdX) {
+      mob.x = Math.min(mob.x, holdX);
+      if (mob.attackCooldown <= 0) {
+        state.enemyShots.push({ sx: mob.x + 18, laneY: mob.laneY ?? 0, t: 0, dur: 0.55, damage: mob.damage });
+        mob.attackMotion = 0.32;
+        mob.attackCooldown = mob.attackRate;
+      }
+    } else if (atGuard) {
       mob.x = Math.min(mob.x, attackX);
       if (mob === frontline && mob.attackCooldown <= 0) {
-        const damage = mob.damage;
+        const charge = traits.includes('charge') && !mob.charged;
+        mob.charged = true;
+        const damage = charge ? mob.damage * 2 : mob.damage;
         state.guardHp = Math.max(0, state.guardHp - damage);
-        if (!mob.countsForWave) {
-          state.regenDelay = 0.45;
-          state.regenFlash = 0;
-        }
-        if (damage > 0) state.floaters.push({ kind: 'hurt', amount: damage, x: guardX, life: 1.05, duration: 1.05 });
+        state.floaters.push({ kind: 'hurt', amount: damage, x: guardX, life: 1.05, duration: 1.05 });
         mob.attackMotion = 0.32;
         mob.attackCooldown = mob.attackRate;
       }
     } else {
-      mob.x += mobSpeed * mob.speed * ORC_MOVEMENT_SPEED_MULTIPLIER * dt;
+      mob.x += mobSpeed * mob.speed * (opening ? 2.5 : 1) * dt;
     }
 
     if (state.spikesLevel > 0 && !mob.dead && mob.x >= guardX - 212 && mob.x <= guardX - 156) {
       mob.spikesCooldown = Math.max(0, (mob.spikesCooldown ?? 0) - dt);
       if (mob.spikesCooldown <= 0) {
-        const damage = state.spikesLevel;
-        mob.hp -= damage;
-        mob.hit = 0.18;
         mob.spikesCooldown = 0.75;
-        state.floaters.push({ kind: 'spikes', amount: damage, x: mob.x, life: 0.9, duration: 0.9 });
-        if (mob.hp <= 0) {
-          defeatMob(mob);
-        }
+        const dealt = damageMob(mob, state.spikesLevel, 'contact');
+        state.floaters.push({ kind: 'spikes', amount: Math.round(dealt * 10) / 10, x: mob.x, life: 0.9, duration: 0.9 });
       }
     }
   }
@@ -518,59 +887,28 @@ function update(delta, width, simulationStep = false) {
     !mob.dead && mob.x > guardX - 130 && mob.x < guardX - 10 && (!lead || mob.x > lead.x) ? mob : lead
   ), null);
   if (state.guardHp > 0 && target && state.attackCooldown <= 0) {
-    target.hp -= state.guardLevel;
-    target.hit = 0.18;
+    damageMob(target, state.guardLevel, 'melee');
     state.attackTimer = 0.28;
     state.hitFlash = 0.14;
     state.attackCooldown = guardAttackInterval(state.guardLevel);
-    if (target.hp <= 0) {
-      defeatMob(target);
-    }
   }
 
-  // Slow supporting fire keeps the legionary as the primary defender.
-  const archerTarget = state.mobs.reduce((lead, mob) => (
-    !mob.dead && mob.x < guardX - 8 && (!lead || mob.x > lead.x) ? mob : lead
-  ), null);
-  if (state.archerUnlocked && archerTarget && state.archerCooldown <= 0) {
-    const ground = 540 * 0.82;
-    const towerHeight = Math.min(344, 540 * 0.73);
-    state.arrows.push({
-      fromX: width * 0.67 - 38, fromY: ground - towerHeight * 0.72 - 52,
-      target: archerTarget, life: 0.34, duration: 0.34, damage: 1
-    });
-    state.archerCooldown = 3.6;
-    state.archerAttackTimer = 0.24;
-  }
-  for (const arrow of state.arrows) {
-    arrow.life -= dt;
-    if (arrow.life <= 0 && arrow.target && !arrow.target.dead) {
-      arrow.target.hp -= arrow.damage;
-      arrow.target.hit = 0.18;
-      state.floaters.push({ kind: 'arrow', amount: arrow.damage, x: arrow.target.x, life: 0.8, duration: 0.8 });
-      if (arrow.target.hp <= 0) defeatMob(arrow.target);
-    }
-  }
-  state.arrows = state.arrows.filter((arrow) => arrow.life > 0);
+  updateDefenders(dt, width);
 
   state.mobs = state.mobs.filter((mob) => {
     if (mob.dead) return mob.hit > 0;
     if (mob.x > guardX + 8) {
-      if (mob.countsForWave) {
-        state.gate = Math.max(0, state.gate - mob.gateDamage);
-        state.defeated += 1;
-      }
+      // Mark it gone so arrows or rocks already in flight cannot count it twice.
+      mob.dead = true;
+      mob.hit = 0;
+      if (mob.countsForWave) state.defeated += 1;
+      stealLoot(mob, width);
       return false;
     }
     return mob.x < width + 120;
   });
-  if (state.gate <= 0) failWave();
-  else if (state.phase === 'wave' && state.spawned === state.waveTotal && state.defeated === state.waveTotal && state.mobs.length === 0) {
-    // A small wave may not destroy the gate after the guard falls. Letting all
-    // enemies through must not count as a successful defense or award victory.
-    if (state.guardHp <= 0) failWave();
-    else finishWave();
-  }
+  if (state.phase === 'wave' && state.guardHp <= 0) failWave();
+  else if (state.phase === 'wave' && state.spawned === state.waveTotal && state.defeated === state.waveTotal && state.mobs.length === 0) finishWave();
 }
 
 function roundedRect(x, y, width, height, radius, fill) {
@@ -740,6 +1078,314 @@ function drawLandscapeLayers(width, height, ground) {
   drawLandscapeTileStrip(landscapeLayers.treeline, width, ground * 0.84, 0.38, 3.5);
 }
 
+// ---------------------------------------------------------------------------
+// Ground layer: meadow + dirt road. Everything here is static, so it is
+// painted once into an offscreen canvas and reused every frame.
+// ---------------------------------------------------------------------------
+let groundCache = null;
+let groundCacheKey = '';
+
+function makeRng(seed) {
+  let s = seed >>> 0;
+  return () => {
+    s = (s + 0x6d2b79f5) >>> 0;
+    let t = s;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function getRoadGeometry(width, ground) {
+  const top = ground - 44;
+  const bottom = ground + 74;
+  const end = width * 0.64; // ends at the tower so the village side stays grass
+  // Soft, organic edges: two slow waves plus a small irregular wobble.
+  const topEdge = x => top + Math.sin(x * 0.021 + 0.7) * 3.2 + Math.sin(x * 0.067) * 1.4 + Math.sin(x * 0.19 + 2) * 0.6;
+  const bottomEdge = x => bottom + Math.sin(x * 0.017 + 2.1) * 3.6 + Math.sin(x * 0.059 + 1) * 1.6 + Math.sin(x * 0.23) * 0.7;
+  return { top, bottom, end, topEdge, bottomEdge };
+}
+
+function traceRoadShape(g, road, inset = 0) {
+  g.beginPath();
+  g.moveTo(-4, road.topEdge(0) + inset);
+  for (let x = 0; x <= road.end; x += 6) g.lineTo(x, road.topEdge(x) + inset);
+  // Rounded tail that tucks under the farm plot.
+  g.quadraticCurveTo(road.end + 26, (road.top + road.bottom) / 2, road.end, road.bottomEdge(road.end) - inset);
+  for (let x = Math.floor(road.end / 6) * 6; x >= 0; x -= 6) g.lineTo(x, road.bottomEdge(x) - inset);
+  g.lineTo(-4, road.bottomEdge(0) - inset);
+  g.closePath();
+}
+
+function drawGrassClump(g, x, y, size, rng, palette) {
+  const blades = 3 + Math.floor(rng() * 3);
+  const lean = (rng() - 0.5) * 0.6;
+  g.lineJoin = 'round';
+  for (let b = 0; b < blades; b++) {
+    const t = blades === 1 ? 0 : b / (blades - 1) - 0.5;
+    const h = size * (0.65 + rng() * 0.55) * (1 - Math.abs(t) * 0.45);
+    const baseX = x + t * size * 0.55;
+    const tipX = baseX + (t * 0.9 + lean) * size * 0.75;
+    const tipY = y - h;
+    const w = size * 0.13;
+    g.beginPath();
+    g.moveTo(baseX - w, y);
+    g.quadraticCurveTo(baseX - w * 0.4 + (tipX - baseX) * 0.25, y - h * 0.55, tipX, tipY);
+    g.quadraticCurveTo(baseX + w * 0.6 + (tipX - baseX) * 0.35, y - h * 0.5, baseX + w, y);
+    g.closePath();
+    g.fillStyle = b % 2 ? palette.mid : palette.dark;
+    g.fill();
+    g.strokeStyle = palette.outline;
+    g.lineWidth = Math.max(0.8, size * 0.06);
+    g.stroke();
+  }
+  // A single highlight blade keeps the clump readable against the meadow.
+  g.beginPath();
+  g.moveTo(x - size * 0.05, y - 0.5);
+  g.quadraticCurveTo(x + lean * size * 0.3, y - size * 0.5, x + lean * size * 0.6 + size * 0.06, y - size * 0.85);
+  g.strokeStyle = palette.light;
+  g.lineWidth = Math.max(0.8, size * 0.07);
+  g.stroke();
+}
+
+function paintGroundLayer(g, width, height, ground) {
+  const rng = makeRng(1337);
+  const road = getRoadGeometry(width, ground);
+  const meadowTop = x => ground * 0.79 + Math.sin(x * 0.006 + 1.2) * 4 + Math.sin(x * 0.017) * 2;
+
+  // 1. Far meadow ridge that tucks the treeline in.
+  // Its top sits just above the base of the tree strip so no sky gap shows through.
+  const farTop = x => ground * 0.732 + Math.sin(x * 0.009 + 0.4) * 2.5 + Math.sin(x * 0.031) * 1.2;
+  const farMeadow = g.createLinearGradient(0, ground * 0.72, 0, ground * 0.8);
+  farMeadow.addColorStop(0, '#6f9446');
+  farMeadow.addColorStop(0.25, '#7ea452');
+  farMeadow.addColorStop(1, '#88af5a');
+  g.fillStyle = farMeadow;
+  g.beginPath();
+  g.moveTo(0, farTop(0));
+  for (let x = 0; x <= width; x += 10) g.lineTo(x, farTop(x));
+  g.lineTo(width, height); g.lineTo(0, height); g.closePath();
+  g.fill();
+  if (landscapeLayers.grass) {
+    const farPattern = g.createPattern(landscapeLayers.grass, 'repeat');
+    if (farPattern) {
+      farPattern.setTransform(new DOMMatrix().scale(0.12, 0.08));
+      g.save();
+      g.clip();
+      g.globalCompositeOperation = 'soft-light';
+      g.globalAlpha = 0.6;
+      g.fillStyle = farPattern;
+      g.fillRect(0, ground * 0.7, width, ground * 0.12);
+      g.restore();
+    }
+  }
+  // Small bushes hide the seam between the tree strip and the meadow.
+  for (let x = -6; x < width + 6; x += 9 + rng() * 14) {
+    const y = farTop(x) + 1;
+    const r = 3 + rng() * 4;
+    g.fillStyle = rng() > 0.5 ? '#5f8a3e' : '#6c9645';
+    g.beginPath(); g.ellipse(x, y, r * 1.4, r, 0, Math.PI, 0); g.fill();
+  }
+
+  // 2. Main meadow with a gentle wavy horizon instead of a ruler-straight edge.
+  const meadow = g.createLinearGradient(0, ground * 0.77, 0, height);
+  meadow.addColorStop(0, '#96bd5e');
+  meadow.addColorStop(0.35, '#8db657');
+  meadow.addColorStop(0.75, '#7ca64b');
+  meadow.addColorStop(1, '#68903f');
+  g.fillStyle = meadow;
+  g.beginPath();
+  g.moveTo(0, meadowTop(0));
+  for (let x = 0; x <= width; x += 10) g.lineTo(x, meadowTop(x));
+  g.lineTo(width, height); g.lineTo(0, height); g.closePath();
+  g.fill();
+  g.save();
+  g.clip();
+
+  // Painted grass texture, blended so it adds detail but keeps the cartoon palette.
+  if (landscapeLayers.grass) {
+    const pattern = g.createPattern(landscapeLayers.grass, 'repeat');
+    if (pattern) {
+      pattern.setTransform(new DOMMatrix().translate(0, ground * 0.79).scale(0.2));
+      g.globalCompositeOperation = 'soft-light';
+      g.globalAlpha = 0.85;
+      g.fillStyle = pattern;
+      g.fillRect(0, ground * 0.7, width, height);
+      g.globalCompositeOperation = 'source-over';
+      g.globalAlpha = 1;
+    }
+  }
+
+  // Sunlit patches and soft cloud shadows break up the flat green.
+  for (let i = 0; i < 9; i++) {
+    const x = rng() * width;
+    const y = ground * 0.82 + rng() * (height - ground * 0.82);
+    const rx = 60 + rng() * 110;
+    const sunny = i % 3 !== 0;
+    const patch = g.createRadialGradient(x, y, 0, x, y, rx);
+    patch.addColorStop(0, sunny ? 'rgba(214, 236, 140, 0.22)' : 'rgba(54, 92, 40, 0.16)');
+    patch.addColorStop(1, 'rgba(0, 0, 0, 0)');
+    g.fillStyle = patch;
+    g.save();
+    g.translate(x, y); g.scale(1, 0.28); g.translate(-x, -y);
+    g.fillRect(x - rx, y - rx, rx * 2, rx * 2);
+    g.restore();
+  }
+
+  // Soft shading right under the horizon so the meadow reads as a separate plane.
+  const horizonShade = g.createLinearGradient(0, ground * 0.78, 0, ground * 0.86);
+  horizonShade.addColorStop(0, 'rgba(60, 96, 44, 0.28)');
+  horizonShade.addColorStop(1, 'rgba(60, 96, 44, 0)');
+  g.fillStyle = horizonShade;
+  g.fillRect(0, ground * 0.77, width, ground * 0.1);
+  g.restore();
+
+  // Rim light along the meadow horizon.
+  g.beginPath();
+  g.moveTo(0, meadowTop(0));
+  for (let x = 0; x <= width; x += 10) g.lineTo(x, meadowTop(x));
+  g.strokeStyle = 'rgba(196, 224, 140, 0.45)';
+  g.lineWidth = 1.5;
+  g.stroke();
+
+  // 3. Dirt road.
+  g.save();
+  traceRoadShape(g, road);
+  // Contact shadow so the road sits slightly lower than the grass.
+  g.shadowColor = 'rgba(52, 64, 30, 0.35)';
+  g.shadowBlur = 6;
+  g.shadowOffsetY = -2;
+  const dirt = g.createLinearGradient(0, road.top, 0, road.bottom);
+  dirt.addColorStop(0, '#c9a467');
+  dirt.addColorStop(0.18, '#ddbf84');
+  dirt.addColorStop(0.55, '#e6cc93');
+  dirt.addColorStop(0.85, '#d9b97c');
+  dirt.addColorStop(1, '#c39e63');
+  g.fillStyle = dirt;
+  g.fill();
+  g.shadowColor = 'transparent';
+  g.clip();
+
+  // Inner edge darkening, like packed dirt meeting the turf.
+  g.strokeStyle = 'rgba(140, 104, 58, 0.45)';
+  g.lineWidth = 7;
+  traceRoadShape(g, road);
+  g.stroke();
+
+  // Large mottled dirt patches.
+  for (let i = 0; i < road.end / 28; i++) {
+    const x = rng() * road.end;
+    const y = road.top + 8 + rng() * (road.bottom - road.top - 16);
+    const rx = 14 + rng() * 34;
+    const light = rng() > 0.45;
+    g.fillStyle = light ? 'rgba(246, 226, 172, 0.28)' : 'rgba(176, 136, 82, 0.10)';
+    g.beginPath(); g.ellipse(x, y, rx, rx * (0.22 + rng() * 0.12), (rng() - 0.5) * 0.2, 0, Math.PI * 2); g.fill();
+  }
+
+  // Two worn cart ruts running toward the gate.
+  for (const [k, phase] of [[0.36, 0.4], [0.7, 2.2]]) {
+    const ry = x => road.top + (road.bottom - road.top) * k + Math.sin(x * 0.013 + phase) * 2.2;
+    // A horizontal gradient fades the rut in and out so it reads as wear, not a stripe.
+    const fade = (r, gC, bC, maxA) => {
+      const grad = g.createLinearGradient(0, 0, road.end, 0);
+      for (let i = 0; i <= 10; i++) grad.addColorStop(i / 10, `rgba(${r}, ${gC}, ${bC}, ${(maxA * (0.25 + rng() * 0.75)).toFixed(3)})`);
+      return grad;
+    };
+    const rutPath = dy => {
+      g.beginPath();
+      for (let x = 0; x <= road.end; x += 6) x === 0 ? g.moveTo(x, ry(x) + dy) : g.lineTo(x, ry(x) + dy);
+    };
+    rutPath(0); g.strokeStyle = fade(150, 110, 60, 0.22); g.lineWidth = 8; g.stroke();
+    rutPath(-0.5); g.strokeStyle = fade(140, 100, 54, 0.18); g.lineWidth = 3; g.stroke();
+    rutPath(4.5); g.strokeStyle = fade(252, 238, 196, 0.5); g.lineWidth = 1.4; g.stroke();
+  }
+
+  // Fine grit.
+  for (let i = 0; i < road.end / 3; i++) {
+    const x = rng() * road.end;
+    const y = road.top + 4 + rng() * (road.bottom - road.top - 8);
+    g.fillStyle = rng() > 0.5 ? 'rgba(150, 112, 64, 0.35)' : 'rgba(255, 244, 210, 0.5)';
+    g.fillRect(x, y, 1 + rng() * 1.4, 1);
+  }
+
+  // Cartoon pebbles with outline, highlight and a tiny shadow.
+  for (let i = 0; i < road.end / 22; i++) {
+    const x = rng() * road.end;
+    const nearEdge = rng() < 0.55;
+    const y = nearEdge
+      ? (rng() < 0.5 ? road.topEdge(x) + 6 + rng() * 8 : road.bottomEdge(x) - 6 - rng() * 8)
+      : road.top + 14 + rng() * (road.bottom - road.top - 28);
+    const r = 1.6 + rng() * (nearEdge ? 3.2 : 2);
+    g.fillStyle = 'rgba(110, 82, 46, 0.35)';
+    g.beginPath(); g.ellipse(x + 1, y + r * 0.55, r * 1.25, r * 0.5, 0, 0, Math.PI * 2); g.fill();
+    g.fillStyle = ['#b7ab8c', '#c9bb98', '#a59a7e', '#d3c5a1'][i % 4];
+    g.strokeStyle = '#7d6a4c';
+    g.lineWidth = 0.9;
+    g.beginPath(); g.ellipse(x, y, r * 1.2, r * 0.8, (rng() - 0.5) * 0.6, 0, Math.PI * 2); g.fill(); g.stroke();
+    g.fillStyle = 'rgba(255, 250, 230, 0.75)';
+    g.beginPath(); g.ellipse(x - r * 0.35, y - r * 0.3, r * 0.45, r * 0.22, -0.3, 0, Math.PI * 2); g.fill();
+  }
+  g.restore();
+
+  // 4. Grass spilling over both road edges hides the hard border.
+  const edgePalette = { dark: '#5f8a3c', mid: '#76a347', light: '#b5d77a', outline: '#3f6029' };
+  const edgeFringe = (edge, offset, minSize, spread) => {
+    for (let x = -4; x < road.end - 4; ) {
+      // Occasional bare gaps and bigger clumps keep the fringe from looking like a fence.
+      if (rng() < 0.12) { x += 14 + rng() * 26; continue; }
+      const big = rng() < 0.18;
+      const size = minSize + rng() * spread + (big ? spread : 0);
+      drawGrassClump(g, x, edge(x) + offset + rng() * 3, size, rng, edgePalette);
+      x += (big ? 10 : 5) + rng() * 10;
+    }
+  };
+  edgeFringe(road.topEdge, 3, 4, 5);
+  edgeFringe(road.bottomEdge, 6, 7, 7);
+
+  // 5. Meadow tufts and a few tiny flowers, larger toward the viewer.
+  const fieldTop = ground * 0.8;
+  const onRoad = (x, y) => x < road.end + 30 && y > road.topEdge(x) - 4 && y < road.bottomEdge(x) + 14;
+  const tuftPalette = { dark: '#5d873a', mid: '#6f9c43', light: '#a9cf6e', outline: '#44652c' };
+  for (let i = 0; i < 70; i++) {
+    const x = rng() * width;
+    const y = fieldTop + Math.pow(rng(), 0.8) * (height - fieldTop);
+    if (onRoad(x, y)) continue;
+    const depth = (y - fieldTop) / (height - fieldTop);
+    drawGrassClump(g, x, y, 4 + depth * 11 + rng() * 3, rng, tuftPalette);
+  }
+  const flowerColors = ['#fff6dc', '#f7d65a', '#f2a7b5'];
+  for (let i = 0; i < 26; i++) {
+    const x = rng() * width;
+    const y = fieldTop + 6 + rng() * (height - fieldTop - 6);
+    if (onRoad(x, y)) continue;
+    const r = 1.2 + (y - fieldTop) / (height - fieldTop) * 1.6;
+    g.fillStyle = '#4f7432';
+    g.fillRect(x - 0.4, y, 0.8, r * 2.4);
+    g.fillStyle = flowerColors[i % flowerColors.length];
+    g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.fill();
+    g.fillStyle = '#d99a2b';
+    g.beginPath(); g.arc(x, y, r * 0.38, 0, Math.PI * 2); g.fill();
+  }
+}
+
+function drawGroundLayer(width, height, ground) {
+  const key = `${canvas.width}x${canvas.height}:${landscapeLayers.grass ? 1 : 0}`;
+  if (!groundCache || groundCacheKey !== key) {
+    groundCache = groundCache || document.createElement('canvas');
+    groundCache.width = canvas.width;
+    groundCache.height = canvas.height;
+    const g = groundCache.getContext('2d');
+    g.setTransform(canvas.width / width, 0, 0, canvas.height / height, 0, 0);
+    g.clearRect(0, 0, width, height);
+    paintGroundLayer(g, width, height, ground);
+    groundCacheKey = key;
+  }
+  ctx.save();
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.drawImage(groundCache, 0, 0);
+  ctx.restore();
+}
+
 function drawBackground(width, height) {
   const ground = height * 0.82;
   const sky = ctx.createLinearGradient(0, 0, 0, ground);
@@ -751,144 +1397,716 @@ function drawBackground(width, height) {
   drawSkyLayers(width, height);
   drawLandscapeLayers(width, height, ground);
 
-  // Layered meadow silhouettes replace the old flat green slab.
-  ctx.fillStyle = '#8eaa70';
-  ctx.beginPath();
-  ctx.moveTo(0, ground * 0.74);
-  ctx.bezierCurveTo(width * 0.18, ground * 0.68, width * 0.28, ground * 0.80, width * 0.46, ground * 0.73);
-  ctx.bezierCurveTo(width * 0.64, ground * 0.66, width * 0.82, ground * 0.78, width, ground * 0.70);
-  ctx.lineTo(width, height); ctx.lineTo(0, height); ctx.closePath(); ctx.fill();
+  drawGroundLayer(width, height, ground);
 
-  const meadow = ctx.createLinearGradient(0, ground * 0.72, 0, height);
-  meadow.addColorStop(0, '#8eab6d');
-  meadow.addColorStop(0.48, '#9dbb73');
-  meadow.addColorStop(1, '#76935c');
-  ctx.fillStyle = meadow;
-  ctx.beginPath();
-  ctx.moveTo(0, ground * 0.79);
-  ctx.lineTo(width, ground * 0.79);
-  ctx.lineTo(width, height); ctx.lineTo(0, height); ctx.closePath(); ctx.fill();
+  // The farm and buildings are drawn by drawVillage*() so they can grow by stage.
+}
 
-  // The painted grass tile adds soft detail while the gradient keeps depth readable.
-  if (landscapeLayers.grass) {
-    const grassPattern = ctx.createPattern(landscapeLayers.grass, 'repeat');
-    if (grassPattern) {
-      grassPattern.setTransform(new DOMMatrix().scale(0.18));
-      ctx.save();
-      ctx.globalAlpha = 0.42;
-      ctx.fillStyle = grassPattern;
-      ctx.beginPath();
-      ctx.moveTo(0, ground * 0.79);
-      ctx.lineTo(width, ground * 0.79);
-      ctx.lineTo(width, height); ctx.lineTo(0, height); ctx.closePath(); ctx.fill();
-      ctx.restore();
-    }
-  }
+// ---------------------------------------------------------------------------
+// Village growth — hyper-casual style matched to the character sheets:
+// chunky rounded shapes, thick dark-brown outline, flat fills with one
+// light and one shade tone, warm saturated palette.
+// ---------------------------------------------------------------------------
+const INK = '#3a2516';
 
-  // A level sand road runs from the left edge to the gate at a constant width.
-  const roadTop = ground - 44;
-  const roadBottom = ground + 74;
-  const roadEnd = width * 0.72;
-  const edgeOffset = x => Math.sin(x * 0.045) * 1.6 + Math.sin(x * 0.113) * 0.7;
-  const traceRoadEdge = y => {
-    ctx.moveTo(0, y + edgeOffset(0));
-    for (let x = 8; x < roadEnd; x += 8) ctx.lineTo(x, y + edgeOffset(x));
-    ctx.lineTo(roadEnd, y + edgeOffset(roadEnd));
-  };
-  ctx.save();
-  ctx.beginPath();
-  traceRoadEdge(roadTop);
-  ctx.lineTo(roadEnd, roadBottom + edgeOffset(roadEnd));
-  for (let x = Math.floor(roadEnd / 8) * 8; x >= 0; x -= 8) {
-    ctx.lineTo(x, roadBottom + edgeOffset(x));
-  }
-  ctx.closePath();
-  ctx.fillStyle = '#dbc48a';
+function strokeInk(width = 3) {
+  ctx.lineJoin = 'round';
+  ctx.lineCap = 'round';
+  ctx.strokeStyle = INK;
+  ctx.lineWidth = width;
+  ctx.stroke();
+}
+
+function fillInk(fill, width = 3) {
+  ctx.fillStyle = fill;
   ctx.fill();
-  ctx.strokeStyle = '#8b8653';
-  ctx.lineWidth = 5;
-  ctx.stroke();
+  strokeInk(width);
+}
 
-  // Thin warm seams follow the softly irregular sand edges without perspective.
-  ctx.lineWidth = 2;
-  ctx.strokeStyle = '#f1dda4';
-  ctx.beginPath();
-  traceRoadEdge(roadTop + 3);
-  traceRoadEdge(roadBottom - 3);
-  ctx.stroke();
+function easeOutBack(t) {
+  const c1 = 1.9;
+  const c3 = c1 + 1;
+  return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2);
+}
 
-  // Fixed speckles and pebbles keep the road textured without animation flicker.
-  for (let i = 0; i < roadEnd / 6; i++) {
-    const x = (i * 73 + 19) % roadEnd;
-    const y = roadTop + 9 + (i * 37) % (roadBottom - roadTop - 18);
-    ctx.fillStyle = i % 3 === 0 ? '#b49b6355' : '#f5e2ad88';
-    ctx.beginPath();
-    ctx.ellipse(x, y, 0.8 + i % 3 * 0.45, 0.6, 0, 0, Math.PI * 2);
-    ctx.fill();
-  }
-  for (let i = 0; i < roadEnd / 30; i++) {
-    const x = i * 30 + 13;
-    const lower = i % 2 === 0;
-    const edgeY = (lower ? roadBottom : roadTop) + edgeOffset(x);
-    const y = edgeY + (lower ? 5 : -5);
-    ctx.fillStyle = '#666c4666';
-    ctx.beginPath(); ctx.ellipse(x + 1, y + 2, 5, 1.8, 0, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = ['#b1aa88', '#c6bd97', '#9f9c7e'][i % 3];
-    ctx.beginPath(); ctx.ellipse(x, y, 3 + i % 3, 2 + i % 2, -0.2, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = '#e5dab3';
-    ctx.fillRect(x - 1, y - 1, 2.5, 1);
-    if (i % 3 === 0) {
-      ctx.strokeStyle = '#687c47';
-      ctx.lineWidth = 1.5;
-      ctx.beginPath();
-      ctx.moveTo(x + 10, y + 2); ctx.lineTo(x + 7, y - 4);
-      ctx.moveTo(x + 10, y + 2); ctx.lineTo(x + 11, y - 6);
-      ctx.moveTo(x + 10, y + 2); ctx.lineTo(x + 15, y - 2);
-      ctx.stroke();
-    }
-  }
+// Elements introduced by the current stage pop in with a bounce.
+function growthScale(introducedAt) {
+  if (introducedAt !== state.villageStage || state.growthFx <= 0) return 1;
+  return Math.max(0.01, easeOutBack(1 - state.growthFx / GROWTH_POP));
+}
+
+function placed(x, baseY, scale, introducedAt, draw) {
+  const pop = growthScale(introducedAt);
+  ctx.save();
+  ctx.translate(x, baseY);
+  ctx.scale(scale * pop, scale * (pop < 1 ? Math.min(1.12, pop * 1.06) : 1));
+  draw();
   ctx.restore();
+}
 
-  // Deterministic grass tufts add texture without flicker or visual noise.
-  ctx.strokeStyle = '#566f4a88';
-  ctx.lineWidth = 1.4;
-  for (let i = 0; i < 14; i++) {
-    const x = (i * 97 + 31) % width;
-    const y = ground * 0.78 + ((i * 43) % Math.max(1, height - ground * 0.78));
-    if (x < roadEnd + 6 && y >= roadTop && y <= roadBottom + 10) continue;
-    const blade = 4 + (i % 4);
+function drawWarmWindow(x, y, w, h) {
+  ctx.beginPath(); ctx.roundRect(x, y, w, h, [w / 2, w / 2, 3, 3]);
+  fillInk('#ffd56e', 2.5);
+  ctx.fillStyle = '#ffeeb0';
+  ctx.beginPath(); ctx.roundRect(x + 3, y + 4, w * 0.35, h * 0.45, 3); ctx.fill();
+  ctx.beginPath(); ctx.moveTo(x + w / 2, y + 2); ctx.lineTo(x + w / 2, y + h); strokeInk(2);
+}
+
+function drawTileRoof(halfBottom, halfTop, height, color, shade, light) {
+  ctx.beginPath();
+  ctx.moveTo(-halfBottom, 0);
+  ctx.lineTo(-halfTop, -height);
+  ctx.quadraticCurveTo(0, -height - 8, halfTop, -height);
+  ctx.lineTo(halfBottom, 0);
+  ctx.quadraticCurveTo(0, 6, -halfBottom, 0);
+  fillInk(color);
+  ctx.save();
+  ctx.clip();
+  ctx.strokeStyle = shade;
+  ctx.lineWidth = 2.5;
+  for (let row = 1; row < 4; row++) {
+    const y = -height * row / 4;
     ctx.beginPath();
-    ctx.moveTo(x, y); ctx.quadraticCurveTo(x - 2, y - blade * 0.65, x - 4, y - blade);
-    ctx.moveTo(x, y); ctx.quadraticCurveTo(x + 1, y - blade * 0.8, x + 3, y - blade * 1.2);
-    ctx.moveTo(x, y); ctx.quadraticCurveTo(x + 3, y - blade * 0.5, x + 6, y - blade * 0.75);
+    for (let x = -halfBottom; x < halfBottom; x += 14) {
+      ctx.moveTo(x, y); ctx.quadraticCurveTo(x + 7, y + 6, x + 14, y);
+    }
     ctx.stroke();
   }
-
-  // Farm plot and crops.
-  roundedRect(width * 0.70, ground - 10, width * 0.29, height - ground + 35, 8, '#846543');
-  ctx.strokeStyle = '#c89b49';
-  ctx.lineWidth = 4;
-  for (let row = 0; row < 5; row++) {
-    const y = ground + 2 + row * 14;
-    ctx.beginPath(); ctx.moveTo(width * 0.71, y); ctx.lineTo(width * 0.98, y - 8); ctx.stroke();
-  }
-
-  if (state.townLevel >= 2) {
-    roundedRect(width * 0.735, ground * 0.56, width * 0.08, ground * 0.27, 3, '#dfc99f');
-    ctx.fillStyle = '#a75538';
-    ctx.beginPath();
-    ctx.moveTo(width * 0.72, ground * 0.58); ctx.lineTo(width * 0.775, ground * 0.44);
-    ctx.lineTo(width * 0.83, ground * 0.58); ctx.closePath(); ctx.fill();
-    roundedRect(width * 0.76, ground * 0.69, width * 0.025, ground * 0.14, 2, '#74513d');
-  }
-  // Farmhouse.
-  roundedRect(width * 0.83, ground * 0.47, width * 0.13, ground * 0.36, 3, '#e6d5af');
-  ctx.fillStyle = '#b86542';
+  ctx.fillStyle = light;
+  ctx.fillRect(-halfBottom, -height - 10, halfBottom * 2, 9);
+  ctx.restore();
   ctx.beginPath();
-  ctx.moveTo(width * 0.81, ground * 0.49); ctx.lineTo(width * 0.895, ground * 0.33);
-  ctx.lineTo(width * 0.98, ground * 0.49); ctx.closePath(); ctx.fill();
-  roundedRect(width * 0.87, ground * 0.63, width * 0.045, ground * 0.20, 2, '#74513d');
+  ctx.moveTo(-halfBottom, 0);
+  ctx.lineTo(-halfTop, -height);
+  ctx.quadraticCurveTo(0, -height - 8, halfTop, -height);
+  ctx.lineTo(halfBottom, 0);
+  ctx.quadraticCurveTo(0, 6, -halfBottom, 0);
+  strokeInk(3);
+}
 
+function drawSmoke(x, y) {
+  for (let i = 0; i < 3; i++) {
+    const phase = (state.time * 0.45 + i / 3) % 1;
+    ctx.globalAlpha = 0.65 * (1 - phase);
+    ctx.fillStyle = '#f6f1e6';
+    ctx.beginPath();
+    ctx.arc(x + Math.sin(phase * 5 + i) * 5, y - phase * 46, 5 + phase * 9, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+}
+
+// Stage 1 — plank hut on a stone footing with a layered thatch roof.
+function drawHut() {
+  // Woodpile leaning on the right wall.
+  for (const [lx, ly] of [[48, -7], [61, -7], [74, -7], [54.5, -18], [67.5, -18], [61, -29]]) {
+    ctx.beginPath(); ctx.arc(lx, ly, 5.5, 0, Math.PI * 2); fillInk('#e3b77a', 2);
+    ctx.beginPath(); ctx.arc(lx, ly, 2.2, 0, Math.PI * 2); ctx.strokeStyle = '#b07a43'; ctx.lineWidth = 1.2; ctx.stroke();
+  }
+  // Plank walls.
+  ctx.beginPath(); ctx.roundRect(-50, -66, 100, 58, 5); fillInk('#cf8f4e');
+  ctx.save();
+  ctx.beginPath(); ctx.roundRect(-50, -66, 100, 58, 5); ctx.clip();
+  ctx.fillStyle = '#b07038'; ctx.fillRect(28, -66, 22, 58);
+  ctx.strokeStyle = '#a2652f'; ctx.lineWidth = 2;
+  ctx.beginPath();
+  for (const py of [-52, -38, -24]) { ctx.moveTo(-50, py); ctx.lineTo(50, py); }
+  ctx.stroke();
+  ctx.fillStyle = '#e2a865';
+  ctx.fillRect(-48, -64, 76, 4);
+  ctx.restore();
+  ctx.beginPath(); ctx.roundRect(-50, -66, 100, 58, 5); strokeInk(3);
+  // Corner posts.
+  for (const px of [-50, 46]) { ctx.beginPath(); ctx.roundRect(px - 2, -68, 8, 62, 3); fillInk('#8c552c', 2.5); }
+  // Stone footing.
+  ctx.beginPath(); ctx.roundRect(-56, -12, 112, 14, 6); fillInk('#b9ad97');
+  ctx.fillStyle = '#d6ccb6';
+  for (const sx of [-44, -18, 10, 36]) { ctx.beginPath(); ctx.ellipse(sx, -7, 9, 3, 0, 0, Math.PI * 2); ctx.fill(); }
+  ctx.strokeStyle = '#8f846f'; ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  for (const sx of [-31, -4, 23]) { ctx.moveTo(sx, -11); ctx.lineTo(sx, 1); }
+  ctx.stroke();
+  // Door with frame, planks and a step.
+  ctx.beginPath(); ctx.roundRect(-17, -50, 34, 40, [17, 17, 0, 0]); fillInk('#8c552c', 2.5);
+  ctx.beginPath(); ctx.roundRect(-13, -46, 26, 36, [13, 13, 0, 0]); fillInk('#6e3f22', 2);
+  ctx.strokeStyle = '#5a321a'; ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.moveTo(-4, -44); ctx.lineTo(-4, -10); ctx.moveTo(5, -44); ctx.lineTo(5, -10); ctx.stroke();
+  ctx.beginPath(); ctx.arc(8, -26, 2, 0, Math.PI * 2); ctx.fillStyle = '#f0c35a'; ctx.fill();
+  ctx.beginPath(); ctx.roundRect(-20, -4, 40, 6, 3); fillInk('#a79a82', 2);
+  // Window with shutters.
+  ctx.beginPath(); ctx.roundRect(-46, -56, 7, 22, 2); fillInk('#5f8a3e', 2);
+  ctx.beginPath(); ctx.roundRect(-23, -56, 7, 22, 2); fillInk('#5f8a3e', 2);
+  drawWarmWindow(-39, -56, 16, 22);
+  // Layered thatch: back mass, scalloped fringe, highlight strands.
+  ctx.beginPath();
+  ctx.moveTo(-70, -56);
+  ctx.quadraticCurveTo(-38, -112, 0, -124);
+  ctx.quadraticCurveTo(38, -112, 70, -56);
+  ctx.quadraticCurveTo(0, -66, -70, -56);
+  fillInk('#e2ad48');
+  ctx.save();
+  ctx.clip();
+  ctx.fillStyle = '#c99436';
+  ctx.beginPath(); ctx.moveTo(20, -120); ctx.quadraticCurveTo(48, -100, 72, -56); ctx.lineTo(30, -60); ctx.closePath(); ctx.fill();
+  ctx.strokeStyle = '#b5832e'; ctx.lineWidth = 2;
+  ctx.beginPath();
+  for (const t of [-0.75, -0.5, -0.25, 0, 0.25, 0.5, 0.75]) { ctx.moveTo(t * 34, -114 + Math.abs(t) * 34); ctx.lineTo(t * 76, -60); }
+  ctx.stroke();
+  ctx.strokeStyle = '#f7d77f'; ctx.lineWidth = 2;
+  ctx.beginPath();
+  for (const t of [-0.62, -0.37, -0.12]) { ctx.moveTo(t * 30, -108 + Math.abs(t) * 30); ctx.lineTo(t * 54, -82); }
+  ctx.stroke();
+  ctx.restore();
+  // Scalloped eave fringe.
+  ctx.beginPath();
+  ctx.moveTo(-72, -58);
+  for (let x = -72; x < 72; x += 12) ctx.quadraticCurveTo(x + 6, -46, x + 12, -58 + (x > -10 && x < 10 ? 0 : 0));
+  ctx.quadraticCurveTo(0, -68, -72, -58);
+  fillInk('#d49b3c', 2.5);
+  // Ridge binding.
+  ctx.beginPath(); ctx.ellipse(0, -122, 12, 5, 0, 0, Math.PI * 2); fillInk('#b5832e', 2.5);
+  ctx.fillStyle = '#fbe6a4';
+  ctx.beginPath(); ctx.ellipse(-22, -98, 13, 4.5, -0.55, 0, Math.PI * 2); ctx.fill();
+  drawSmoke(26, -128);
+}
+
+// Stage 2 — plastered farmhouse with timber frame and tile roof.
+function drawHouse() {
+  ctx.beginPath(); ctx.roundRect(-58, -78, 116, 78, 5); fillInk('#f3e0b8');
+  ctx.fillStyle = '#dcc196'; ctx.fillRect(34, -75, 21, 72);
+  ctx.strokeStyle = '#7b4a2b'; ctx.lineWidth = 4;
+  ctx.beginPath();
+  ctx.moveTo(-56, -40); ctx.lineTo(56, -40);
+  ctx.moveTo(-30, -76); ctx.lineTo(-30, -2);
+  ctx.moveTo(30, -76); ctx.lineTo(30, -2);
+  ctx.stroke();
+  ctx.beginPath(); ctx.roundRect(-58, -78, 116, 78, 5); strokeInk(3);
+  ctx.beginPath(); ctx.roundRect(-14, -38, 28, 38, [14, 14, 0, 0]); fillInk('#7a4425');
+  drawWarmWindow(-50, -70, 16, 22);
+  drawWarmWindow(36, -70, 16, 22);
+  drawWarmWindow(-8, -72, 16, 22);
+  // Chimney sits behind the roof line.
+  ctx.beginPath(); ctx.roundRect(28, -130, 16, 34, 3); fillInk('#a59584');
+  drawSmoke(36, -136);
+  ctx.save(); ctx.translate(0, -74); drawTileRoof(72, 46, 46, '#d35a34', '#a8402a', '#ee7b47'); ctx.restore();
+  // Flower box.
+  ctx.beginPath(); ctx.roundRect(-54, -48, 24, 7, 3); fillInk('#8a5430', 2);
+  for (const [fx, c] of [[-50, '#e2574c'], [-43, '#ffd56e'], [-36, '#e2574c']]) {
+    ctx.beginPath(); ctx.arc(fx, -51, 3, 0, Math.PI * 2); ctx.fillStyle = c; ctx.fill();
+  }
+}
+
+// Stage 3 — two-storey Roman villa with columns and banner.
+function drawVilla() {
+  ctx.beginPath(); ctx.roundRect(-80, -128, 160, 128, 6); fillInk('#f7ead0');
+  ctx.fillStyle = '#e2cfa8'; ctx.fillRect(52, -125, 25, 122);
+  ctx.beginPath(); ctx.roundRect(-80, -128, 160, 128, 6); strokeInk(3);
+  // Floor ledge.
+  ctx.beginPath(); ctx.roundRect(-86, -68, 172, 12, 4); fillInk('#c9b28a');
+  // Ground floor colonnade.
+  for (const cx of [-58, -22, 22, 58]) {
+    ctx.beginPath(); ctx.roundRect(cx - 7, -56, 14, 56, 3); fillInk('#ffffff', 2.5);
+    ctx.beginPath(); ctx.roundRect(cx - 10, -60, 20, 6, 2); fillInk('#e9dcc2', 2);
+  }
+  ctx.beginPath(); ctx.roundRect(-12, -46, 24, 46, [12, 12, 0, 0]); fillInk('#7a4425');
+  // Upper windows.
+  for (const wx of [-62, -28, 6, 40]) drawWarmWindow(wx, -112, 18, 26);
+  ctx.beginPath(); ctx.roundRect(-36, -152, 14, 28, 3); fillInk('#a59584');
+  drawSmoke(-29, -156);
+  ctx.save(); ctx.translate(0, -124); drawTileRoof(96, 64, 44, '#d35a34', '#a8402a', '#ee7b47'); ctx.restore();
+  // Pediment emblem.
+  ctx.beginPath(); ctx.arc(0, -146, 9, 0, Math.PI * 2); fillInk('#f0c35a', 2.5);
+  // Hanging banner.
+  const sway = Math.sin(state.time * 1.6) * 2;
+  ctx.beginPath();
+  ctx.moveTo(66, -122); ctx.lineTo(88, -122); ctx.lineTo(88 + sway, -70); ctx.lineTo(77 + sway, -78); ctx.lineTo(66 + sway, -70);
+  ctx.closePath(); fillInk('#c23b32', 2.5);
+  ctx.beginPath(); ctx.arc(77 + sway * 0.5, -102, 6, 0, Math.PI * 2); fillInk('#f0c35a', 2);
+}
+
+function drawWindmill() {
+  ctx.beginPath();
+  ctx.moveTo(-26, 0); ctx.lineTo(-15, -118); ctx.lineTo(15, -118); ctx.lineTo(26, 0);
+  ctx.quadraticCurveTo(0, 5, -26, 0);
+  fillInk('#ece0c6');
+  ctx.fillStyle = '#d6c6a3';
+  ctx.beginPath(); ctx.moveTo(10, -116); ctx.lineTo(23, -3); ctx.lineTo(13, -2); ctx.lineTo(4, -116); ctx.fill();
+  ctx.beginPath(); ctx.roundRect(-8, -30, 16, 30, [8, 8, 0, 0]); fillInk('#7a4425', 2.5);
+  drawWarmWindow(-6, -78, 12, 15);
+  ctx.beginPath(); ctx.moveTo(-22, -114); ctx.quadraticCurveTo(0, -150, 22, -114); ctx.closePath(); fillInk('#d35a34');
+  // Rotating sails.
+  ctx.save();
+  ctx.translate(0, -122);
+  ctx.rotate(state.time * 0.9);
+  for (let i = 0; i < 4; i++) {
+    ctx.rotate(Math.PI / 2);
+    ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(0, -72); strokeInk(4);
+    ctx.beginPath(); ctx.roundRect(2, -72, 18, 56, 3); fillInk('#fbf3df', 2.5);
+    ctx.strokeStyle = '#c9b28a'; ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    for (let y = -62; y < -18; y += 11) { ctx.moveTo(4, y); ctx.lineTo(18, y); }
+    ctx.stroke();
+  }
+  ctx.restore();
+  ctx.beginPath(); ctx.arc(0, -122, 6, 0, Math.PI * 2); fillInk('#7b4a2b', 2.5);
+}
+
+function drawHaystack() {
+  ctx.beginPath();
+  ctx.moveTo(-30, 0); ctx.quadraticCurveTo(-32, -40, 0, -46); ctx.quadraticCurveTo(32, -40, 30, 0);
+  ctx.quadraticCurveTo(0, 5, -30, 0);
+  fillInk('#efc04f');
+  ctx.strokeStyle = '#c4912f'; ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(-18, -30); ctx.lineTo(-10, -14); ctx.moveTo(4, -38); ctx.lineTo(8, -20); ctx.moveTo(18, -24); ctx.lineTo(22, -8);
+  ctx.stroke();
+  ctx.fillStyle = '#fbe08c';
+  ctx.beginPath(); ctx.ellipse(-8, -34, 9, 4, -0.4, 0, Math.PI * 2); ctx.fill();
+}
+
+function drawCow(phase = 0) {
+  const chew = Math.sin(state.time * 3 + phase) * 1.2;
+  for (const lx of [-16, -6, 10, 18]) { ctx.beginPath(); ctx.roundRect(lx - 3, -14, 6, 14, 2); fillInk('#fbf7ef', 2.5); }
+  ctx.beginPath(); ctx.ellipse(0, -24, 26, 15, 0, 0, Math.PI * 2); fillInk('#fbf7ef');
+  ctx.save();
+  ctx.beginPath(); ctx.ellipse(0, -24, 26, 15, 0, 0, Math.PI * 2); ctx.clip();
+  ctx.fillStyle = INK;
+  ctx.beginPath(); ctx.ellipse(6, -30, 9, 6, 0.3, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(-12, -18, 6, 5, -0.2, 0, Math.PI * 2); ctx.fill();
+  ctx.restore();
+  ctx.beginPath(); ctx.moveTo(25, -28); ctx.quadraticCurveTo(34, -22 + chew, 31, -12); strokeInk(2.5);
+  // Head faces the village (left side of the cow).
+  ctx.save(); ctx.translate(-26, -30 + chew * 0.4);
+  ctx.beginPath(); ctx.ellipse(0, 0, 12, 10, 0, 0, Math.PI * 2); fillInk('#fbf7ef');
+  ctx.beginPath(); ctx.ellipse(-4, 5, 8, 5, 0, 0, Math.PI * 2); fillInk('#f2a7a0', 2);
+  ctx.beginPath(); ctx.moveTo(-4, -9); ctx.lineTo(-7, -15); ctx.moveTo(5, -9); ctx.lineTo(8, -15); strokeInk(2.5);
+  ctx.fillStyle = INK; ctx.beginPath(); ctx.arc(-2, -2, 1.8, 0, Math.PI * 2); ctx.fill();
+  ctx.restore();
+}
+
+function drawFence(x1, x2, y) {
+  ctx.beginPath();
+  ctx.roundRect(x1, y - 22, x2 - x1, 5, 2);
+  ctx.roundRect(x1, y - 12, x2 - x1, 5, 2);
+  fillInk('#c58a4f', 2);
+  for (let x = x1 + 4; x <= x2 - 4; x += 28) {
+    ctx.beginPath(); ctx.roundRect(x - 3.5, y - 30, 7, 30, [3.5, 3.5, 1, 1]); fillInk('#b57843', 2.5);
+  }
+}
+
+// One tilled bed. `crop` picks what grows on it.
+function drawField(x, y, w, h, crop, introducedAt) {
+  drawShadow(x, y + h / 2 + 2, w * 1.05, 0.14);
+  placed(x, y, 1, introducedAt, () => {
+    // Soil body with a sunlit top lip and darker front face.
+    ctx.beginPath(); ctx.roundRect(-w / 2, -h / 2, w, h, 10); fillInk('#8f5d36');
+    ctx.save();
+    ctx.beginPath(); ctx.roundRect(-w / 2, -h / 2, w, h, 10); ctx.clip();
+    ctx.fillStyle = '#a8703f'; ctx.fillRect(-w / 2, -h / 2, w, 5);
+    ctx.fillStyle = '#74462a'; ctx.fillRect(-w / 2, h / 2 - 6, w, 6);
+    const rows = 2;
+    for (let r = 0; r < rows; r++) {
+      const fy = -h / 2 + (r + 1) * h / (rows + 1);
+      ctx.strokeStyle = '#6b4024'; ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.moveTo(-w / 2 + 8, fy + 1); ctx.lineTo(w / 2 - 8, fy + 1); ctx.stroke();
+      ctx.strokeStyle = '#b07a48'; ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.moveTo(-w / 2 + 8, fy + 4); ctx.lineTo(w / 2 - 8, fy + 4); ctx.stroke();
+    }
+    ctx.restore();
+    ctx.beginPath(); ctx.roundRect(-w / 2, -h / 2, w, h, 10); strokeInk(3);
+    // Little corner pegs with a string line.
+    for (const px of [-w / 2 + 3, w / 2 - 3]) {
+      ctx.beginPath(); ctx.roundRect(px - 2.5, -h / 2 - 12, 5, 16, 2); fillInk('#c58a4f', 2);
+    }
+
+    // Crops along both furrows; back row first so the front one overlaps it.
+    for (let r = 0; r < 2; r++) {
+      const by = -h / 2 + (r + 1) * h / 3 + 1;
+      const step = crop === 'wheat' ? 10 : crop === 'carrot' ? 15 : 19;
+      for (let tx = -w / 2 + 12 + (r ? step / 2 : 0); tx < w / 2 - 8; tx += step) {
+        const sway = Math.sin(state.time * 1.8 + tx * 0.2 + r) * 1.6;
+        if (crop === 'wheat') {
+          ctx.beginPath(); ctx.moveTo(tx, by); ctx.quadraticCurveTo(tx + sway * 0.4, by - 10, tx + sway, by - 18); strokeInk(1.6);
+          ctx.beginPath(); ctx.moveTo(tx, by - 6); ctx.lineTo(tx - 4, by - 11); ctx.strokeStyle = '#7a9a3a'; ctx.lineWidth = 1.5; ctx.stroke();
+          ctx.beginPath(); ctx.ellipse(tx + sway, by - 22, 3.6, 7, sway * 0.08, 0, Math.PI * 2);
+          fillInk(r ? '#f6cf55' : '#e9b740', 1.6);
+          ctx.strokeStyle = '#c4912f'; ctx.lineWidth = 1;
+          ctx.beginPath(); ctx.moveTo(tx + sway - 2, by - 22); ctx.lineTo(tx + sway + 2, by - 24); ctx.moveTo(tx + sway - 2, by - 18); ctx.lineTo(tx + sway + 2, by - 20); ctx.stroke();
+        } else if (crop === 'cabbage') {
+          ctx.beginPath(); ctx.ellipse(tx, by - 6, 8.5, 7, 0, 0, Math.PI * 2); fillInk('#6fa84a', 2);
+          ctx.beginPath(); ctx.ellipse(tx, by - 7, 5, 4.5, 0, 0, Math.PI * 2); fillInk('#a8d877', 1.5);
+          ctx.beginPath(); ctx.moveTo(tx - 7, by - 4); ctx.quadraticCurveTo(tx - 12, by - 12, tx - 4, by - 13); strokeInk(1.5);
+          ctx.fillStyle = '#d6f0a8'; ctx.beginPath(); ctx.ellipse(tx - 2, by - 9, 2, 1.2, -0.4, 0, Math.PI * 2); ctx.fill();
+        } else if (crop === 'carrot') {
+          ctx.beginPath(); ctx.moveTo(tx - 4.5, by - 3); ctx.quadraticCurveTo(tx, by - 7, tx + 4.5, by - 3); ctx.lineTo(tx, by + 4); ctx.closePath(); fillInk('#ef8a32', 1.5);
+          for (const a of [-0.5, 0, 0.5]) {
+            ctx.beginPath(); ctx.moveTo(tx, by - 2);
+            ctx.quadraticCurveTo(tx + a * 6 + sway * 0.3, by - 9, tx + a * 9 + sway, by - 15);
+            ctx.strokeStyle = '#4f8a32'; ctx.lineWidth = 2.6; ctx.lineCap = 'round'; ctx.stroke();
+            ctx.strokeStyle = '#7fbf4c'; ctx.lineWidth = 1.2; ctx.stroke();
+          }
+        } else {
+          // Pumpkins with a curly vine.
+          ctx.beginPath(); ctx.moveTo(tx - 12, by - 2); ctx.quadraticCurveTo(tx - 6, by - 10, tx, by - 4); ctx.strokeStyle = '#4f8a32'; ctx.lineWidth = 2; ctx.stroke();
+          ctx.beginPath(); ctx.ellipse(tx, by - 6, 8, 6.5, 0, 0, Math.PI * 2); fillInk('#ee9a3a', 2);
+          ctx.strokeStyle = '#c96f22'; ctx.lineWidth = 1.4;
+          ctx.beginPath(); ctx.ellipse(tx, by - 6, 3.5, 6, 0, 0, Math.PI * 2); ctx.stroke();
+          ctx.beginPath(); ctx.roundRect(tx - 1.5, by - 15, 3, 5, 1); fillInk('#6b8a32', 1.4);
+          ctx.fillStyle = '#ffc77a'; ctx.beginPath(); ctx.ellipse(tx - 3, by - 9, 2.4, 1.4, -0.4, 0, Math.PI * 2); ctx.fill();
+        }
+      }
+    }
+  });
+}
+
+function drawVillager(x, groundY, height, range, speed, phase) {
+  if (!sprites.farmer) return;
+  const t = state.time * speed + phase;
+  const vx = x + Math.sin(t) * range;
+  const facingLeft = Math.cos(t) < 0;
+  const bob = Math.abs(Math.sin(state.time * 5.2 + phase)) * -2;
+  drawSprite(sprites.farmer, vx, groundY, height, facingLeft, bob, 1, 0.6, 0.14);
+}
+
+// Background row: windmill and a distant house appear at stage 3.
+function drawVillageBack(width, ground) {
+  const stage = state.villageStage;
+  if (stage >= 3) {
+    placed(1140, ground - 50, 0.95, 3, drawWindmill);
+    placed(872, ground - 64, 0.7, 3, drawHouse);
+  }
+}
+
+// Main row: the home grows hut → farmhouse → villa; extras join per stage.
+function drawVillageFront(width, ground) {
+  const stage = state.villageStage;
+  const homeX = 1010;
+  // The opening is an open field. The first house appears with settlement II.
+  if (stage >= 2) {
+    drawShadow(homeX, ground - 4, stage >= 3 ? 260 : 230, 0.2);
+    if (stage === 2) placed(homeX, ground - 6, 1.6, 2, drawHouse);
+    if (stage >= 3) placed(homeX - 10, ground - 6, 1.35, 3, drawVilla);
+  }
+  if (stage >= 2) {
+    drawFence(845, 1165, ground + 6);
+    placed(870, ground + 4, 1.1, 2, drawHaystack);
+    placed(1132, ground + 10, 1.1, 2, () => drawCow(0));
+  }
+  if (stage >= 3) placed(952, ground + 12, 0.95, 3, () => drawCow(1.7));
+}
+
+// Crop beds grow with the farm level (1 → 4 beds in a 2×2 plot), independent of stage.
+const fieldBeds = [
+  { dx: -76, dy: 34, crop: 'wheat' },
+  { dx: 76, dy: 34, crop: 'cabbage' },
+  { dx: -76, dy: 68, crop: 'carrot' },
+  { dx: 76, dy: 68, crop: 'pumpkin' }
+];
+function drawVillageFields(width, ground) {
+  const patches = Math.min(fieldBeds.length, state.farmLevel);
+  for (let i = 0; i < patches; i++) {
+    const bed = fieldBeds[i];
+    drawField(1000 + bed.dx, ground + bed.dy, 140, 26, bed.crop, null);
+  }
+}
+
+function drawVillageVillagers(width, ground) {
+  if (state.villageStage >= 2) drawVillager(1000, ground + 20, 90, 60, 0.45, 1.3);
+  if (state.villageStage >= 3) drawVillager(1085, ground + 24, 84, 32, 0.7, 4.1);
+}
+
+// Hero (gold-crested centurion) and archer on the tower platform.
+function heroPosition(width, height) {
+  const { towerX, platformY, ground } = towerGeometry(width, height);
+  return { x: state.towerSlot ? towerX + 34 : towerX + 6, y: state.archerUnlocked ? platformY : ground };
+}
+
+function drawBow(x, y, drawn) {
+  ctx.beginPath(); ctx.arc(x, y, 20, -1.25, 1.25); strokeInk(4.5);
+  ctx.beginPath(); ctx.arc(x, y, 20, -1.25, 1.25); ctx.strokeStyle = '#a8693a'; ctx.lineWidth = 2.5; ctx.stroke();
+  const pull = drawn ? 9 : 0;
+  ctx.beginPath();
+  ctx.moveTo(x + 20 * Math.cos(-1.25), y + 20 * Math.sin(-1.25));
+  ctx.lineTo(x + 6 - pull, y);
+  ctx.lineTo(x + 20 * Math.cos(1.25), y + 20 * Math.sin(1.25));
+  ctx.strokeStyle = '#f3ead2'; ctx.lineWidth = 1.5; ctx.stroke();
+}
+
+function drawTowerDefenders(width, height) {
+  const { towerX, platformY } = towerGeometry(width, height);
+  const size = Math.min(104, height * 0.21);
+  if (state.towerSlot === 'catapult') drawCatapult(towerX - 30, platformY);
+  if (state.towerSlot === 'archer') {
+    const archerX = towerX - 24;
+    const drawn = state.archerCooldown > archerInterval(state.archerLevel) - 0.18;
+    const recoil = drawn ? 3 : 0;
+    drawSprite(sprites.archer, archerX + recoil, platformY, size * 1.18, false, Math.sin(state.time * 2) * -1);
+  }
+  if (!state.heroUnlocked) return;
+  // Hero: the legionary sprite with a golden aura reads as an officer.
+  const hero = heroPosition(width, height);
+  const ready = state.volleyCooldown <= 0;
+  ctx.save();
+  // A golden aura marks the hero without recolouring the sprite.
+  ctx.filter = 'drop-shadow(0 0 2px #ffd34d) drop-shadow(0 0 5px #ffc22e)';
+  drawSprite(sprites.guard, hero.x, hero.y, size * 1.08, true, Math.sin(state.time * 1.7) * -1.2);
+  ctx.restore();
+  // Ability badge above the hero.
+  const bx = hero.x;
+  const by = hero.y - size * 1.08 - 26;
+  const pulse = ready ? 1 + Math.sin(state.time * 6) * 0.08 : 1;
+  ctx.save();
+  ctx.translate(bx, by);
+  ctx.scale(pulse, pulse);
+  ctx.beginPath(); ctx.arc(0, 0, 17, 0, Math.PI * 2); fillInk(ready ? '#ffcf4a' : '#5b4a3c', 3);
+  if (!ready) {
+    const progress = 1 - state.volleyCooldown / VOLLEY_COOLDOWN;
+    ctx.beginPath(); ctx.moveTo(0, 0); ctx.arc(0, 0, 14, -Math.PI / 2, -Math.PI / 2 + progress * Math.PI * 2); ctx.closePath();
+    ctx.fillStyle = '#c9a34488'; ctx.fill();
+  }
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.font = ready ? '900 16px system-ui, sans-serif' : '800 12px system-ui, sans-serif';
+  ctx.fillStyle = ready ? '#5a321a' : '#fff3d2';
+  ctx.fillText(ready ? '➶' : Math.ceil(state.volleyCooldown), 0, 1);
+  ctx.restore();
+  if (ready && aliveMobs().length) {
+    ctx.save();
+    ctx.font = '900 10px system-ui, sans-serif'; ctx.textAlign = 'center';
+    ctx.lineWidth = 3.5; ctx.strokeStyle = INK; ctx.lineJoin = 'round';
+    ctx.strokeText('ЗАЛП!', bx, by - 26); ctx.fillStyle = '#ffcf4a'; ctx.fillText('ЗАЛП!', bx, by - 26);
+    ctx.restore();
+  }
+}
+
+function drawArrowShape(x, y, angle, length = 24) {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.rotate(angle);
+  ctx.beginPath(); ctx.moveTo(-length / 2, 0); ctx.lineTo(length / 2, 0); strokeInk(3.5);
+  ctx.beginPath(); ctx.moveTo(-length / 2, 0); ctx.lineTo(length / 2, 0); ctx.strokeStyle = '#c58a4f'; ctx.lineWidth = 1.6; ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(length / 2 + 6, 0); ctx.lineTo(length / 2 - 2, -4); ctx.lineTo(length / 2 - 2, 4); ctx.closePath();
+  fillInk('#d9d4c7', 1.5);
+  ctx.beginPath(); ctx.moveTo(-length / 2, 0); ctx.lineTo(-length / 2 - 5, -4); ctx.lineTo(-length / 2 + 3, 0); ctx.lineTo(-length / 2 - 5, 4); ctx.closePath();
+  fillInk('#e2574c', 1.2);
+  ctx.restore();
+}
+
+function arrowTarget(mob, height) {
+  return { x: mob.x, y: height * 0.82 + 18 + (mob.laneY ?? 0) - 62 };
+}
+
+function drawArrows(height) {
+  for (const arrow of state.arrows) {
+    const p = Math.min(1, arrow.t / arrow.dur);
+    const target = arrowTarget(arrow.mob, height);
+    const arc = 70;
+    const x = arrow.sx + (target.x - arrow.sx) * p;
+    const y = arrow.sy + (target.y - arrow.sy) * p - Math.sin(p * Math.PI) * arc;
+    const dx = target.x - arrow.sx;
+    const dy = target.y - arrow.sy - Math.cos(p * Math.PI) * Math.PI * arc;
+    drawArrowShape(x, y, Math.atan2(dy, dx));
+  }
+}
+
+function drawVolley(width, height) {
+  if (state.volleyFx <= 0) return;
+  const guardX = width * 0.52;
+  const [from, to] = VOLLEY_ZONE;
+  const elapsed = VOLLEY_FALL - state.volleyFx;
+  const groundY = height * 0.82 + 20;
+  // Danger zone marker on the road.
+  ctx.save();
+  ctx.globalAlpha = 0.25 + 0.15 * Math.sin(elapsed * 30);
+  ctx.beginPath(); ctx.ellipse(guardX + (from + to) / 2, groundY + 6, (to - from) / 2, 26, 0, 0, Math.PI * 2);
+  ctx.fillStyle = '#ffcf4a'; ctx.fill();
+  ctx.restore();
+  for (let i = 0; i < 26; i++) {
+    const delay = (i % 7) * 0.035;
+    const p = Math.max(0, Math.min(1, (elapsed - delay) / (VOLLEY_FALL - 0.26)));
+    if (p <= 0) continue;
+    const x = guardX + from + ((i * 53) % (to - from)) + (1 - p) * 60;
+    const endY = groundY - 10 + (i % 4) * 10;
+    const y = -30 - (i % 5) * 26 + (endY + 30 + (i % 5) * 26) * p;
+    drawArrowShape(x, y, Math.PI * 0.5 + 0.35, 26);
+  }
+}
+
+function drawBoar(x, groundY, scale, phase) {
+  const trot = Math.sin(state.time * 14 + phase) * 3;
+  ctx.save();
+  ctx.translate(x, groundY);
+  ctx.scale(scale, scale);
+  for (const [lx, off] of [[-22, 0], [-10, Math.PI], [12, Math.PI], [24, 0]]) {
+    ctx.beginPath(); ctx.roundRect(lx - 4, -18 + Math.sin(state.time * 14 + phase + off) * 2, 8, 18, 3); fillInk('#5e3b25', 2.5);
+  }
+  ctx.beginPath(); ctx.ellipse(0, -30 + trot * 0.3, 38, 20, 0, 0, Math.PI * 2); fillInk('#8a5a3a');
+  ctx.fillStyle = '#6e4529';
+  ctx.beginPath(); ctx.moveTo(-26, -46); ctx.lineTo(-14, -54); ctx.lineTo(-2, -48); ctx.lineTo(10, -55); ctx.lineTo(20, -47); ctx.lineTo(26, -40); ctx.lineTo(-30, -38); ctx.fill();
+  // Head faces right (towards the village).
+  ctx.save(); ctx.translate(38, -30 + trot * 0.3);
+  ctx.beginPath(); ctx.ellipse(0, 0, 16, 13, 0.2, 0, Math.PI * 2); fillInk('#8a5a3a');
+  ctx.beginPath(); ctx.ellipse(13, 4, 7, 6, 0, 0, Math.PI * 2); fillInk('#c98f76', 2);
+  ctx.beginPath(); ctx.moveTo(8, 8); ctx.quadraticCurveTo(16, 2, 14, -8); strokeInk(4);
+  ctx.beginPath(); ctx.moveTo(8, 8); ctx.quadraticCurveTo(16, 2, 14, -8); ctx.strokeStyle = '#fff4dc'; ctx.lineWidth = 2; ctx.stroke();
+  ctx.fillStyle = INK; ctx.beginPath(); ctx.arc(2, -4, 2, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.moveTo(-8, -10); ctx.lineTo(-4, -20); ctx.lineTo(0, -10); fillInk('#6e4529', 2);
+  ctx.restore();
+  ctx.restore();
+}
+
+function drawEnemy(mob, x, groundY, height, bob, opacity, shadowScale) {
+  const look = enemyLooks[mob.type] || {};
+  const sprite = enemySprite(mob.type);
+  if (look.prop === 'boar') {
+    drawShadow(x, groundY + 2, 96, 0.14);
+    ctx.save(); ctx.globalAlpha = opacity;
+    drawBoar(x, groundY + bob * 0.5, 1, mob.bob);
+    ctx.restore();
+    // Rider sits on the boar's back.
+    ctx.save(); if (look.filter) ctx.filter = look.filter;
+    drawSprite(sprite, x - 4, groundY - 36 + bob, height * 0.78, false, 0, opacity, 0, 0);
+    ctx.restore();
+  } else {
+    ctx.save();
+    if (look.filter) ctx.filter = look.filter;
+    drawSprite(sprite, x, groundY, height, false, bob, opacity, shadowScale, 0.11);
+    ctx.restore();
+  }
+  ctx.save();
+  ctx.globalAlpha = opacity;
+  if (look.prop === 'bow') {
+    const drawn = mob.attackMotion > 0;
+    drawBow(x + 26, groundY - height * 0.52 + bob, drawn);
+  }
+  if (look.prop === 'staff') {
+    const sx = x + 34;
+    const sy = groundY + bob;
+    ctx.beginPath(); ctx.moveTo(sx, sy - 6); ctx.lineTo(sx + 6, sy - height * 0.95); strokeInk(5);
+    ctx.beginPath(); ctx.moveTo(sx, sy - 6); ctx.lineTo(sx + 6, sy - height * 0.95); ctx.strokeStyle = '#8c552c'; ctx.lineWidth = 3; ctx.stroke();
+    const glow = 0.6 + Math.sin(state.time * 5) * 0.2 + mob.auraFx;
+    ctx.save(); ctx.shadowColor = '#7fc4ff'; ctx.shadowBlur = 14 * glow;
+    ctx.beginPath(); ctx.arc(sx + 6, sy - height * 0.95 - 8, 9, 0, Math.PI * 2); fillInk('#9fd0ff', 2.5);
+    ctx.restore();
+  }
+  // Shaman pulse and barrier bubbles.
+  if (mob.auraFx > 0) {
+    const p = 1 - mob.auraFx / 0.7;
+    ctx.globalAlpha = opacity * (1 - p) * 0.7;
+    ctx.beginPath(); ctx.ellipse(x, groundY - height * 0.5, 40 + p * 200, 20 + p * 60, 0, 0, Math.PI * 2);
+    ctx.strokeStyle = '#9fd0ff'; ctx.lineWidth = 4; ctx.stroke();
+  }
+  if (mob.barrier > 0 && !mob.dead) {
+    ctx.globalAlpha = opacity * (0.35 + Math.sin(state.time * 4 + mob.bob) * 0.08);
+    ctx.beginPath(); ctx.ellipse(x, groundY - height * 0.5, height * 0.42, height * 0.56, 0, 0, Math.PI * 2);
+    ctx.fillStyle = '#7fc4ff55'; ctx.fill();
+    ctx.strokeStyle = '#bfe4ff'; ctx.lineWidth = 2.5; ctx.stroke();
+  }
+  ctx.restore();
+}
+
+function drawCatapult(x, baseY) {
+  const recoil = state.catapultCooldown > catapultInterval(state.catapultLevel) - 0.35;
+  const loaded = state.catapultCooldown < 0.6;
+  ctx.save();
+  ctx.translate(x, baseY);
+  // Frame and wheels.
+  ctx.beginPath(); ctx.roundRect(-34, -22, 68, 12, 4); fillInk('#a8693a');
+  for (const wx of [-22, 22]) {
+    ctx.beginPath(); ctx.arc(wx, -8, 10, 0, Math.PI * 2); fillInk('#7b4a2b');
+    ctx.beginPath(); ctx.arc(wx, -8, 3, 0, Math.PI * 2); fillInk('#d9b07a', 1.5);
+  }
+  ctx.beginPath(); ctx.moveTo(-6, -22); ctx.lineTo(4, -58); ctx.lineTo(14, -22); ctx.closePath(); fillInk('#b77a43');
+  // Throwing arm: upright right after a shot, pulled back while reloading.
+  const angle = recoil ? -0.25 : loaded ? -1.25 : -1.25 + (1 - state.catapultCooldown / catapultInterval(state.catapultLevel)) * 0.2;
+  ctx.save();
+  ctx.translate(4, -50);
+  ctx.rotate(angle);
+  ctx.beginPath(); ctx.roundRect(-4, -58, 8, 66, 3); fillInk('#c58a4f', 2.5);
+  ctx.beginPath(); ctx.arc(0, -60, 9, 0, Math.PI); fillInk('#7b4a2b', 2.5);
+  if (!recoil) { ctx.beginPath(); ctx.arc(0, -64, 7, 0, Math.PI * 2); fillInk('#9a9488', 2.5); }
+  ctx.restore();
+  ctx.restore();
+}
+
+function drawRocksAndShots(height) {
+  const ground = height * 0.82;
+  for (const rock of state.rocks) {
+    const p = Math.min(1, rock.t / rock.dur);
+    const ty = ground + 18 + rock.laneY - 30;
+    const x = rock.sx + (rock.tx - rock.sx) * p;
+    const y = rock.sy + (ty - rock.sy) * p - Math.sin(p * Math.PI) * 150;
+    ctx.save(); ctx.translate(x, y); ctx.rotate(state.time * 8);
+    ctx.beginPath(); ctx.ellipse(0, 0, 10, 8, 0.3, 0, Math.PI * 2); fillInk('#9a9488', 2.5);
+    ctx.fillStyle = '#c4beb0'; ctx.beginPath(); ctx.ellipse(-3, -3, 4, 3, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
+  }
+  for (const puff of state.dust) {
+    const p = puff.t / 0.6;
+    ctx.save();
+    ctx.globalAlpha = 0.7 * (1 - p);
+    for (let i = 0; i < 6; i++) {
+      const a = i / 6 * Math.PI * 2;
+      ctx.beginPath();
+      ctx.arc(puff.x + Math.cos(a) * (14 + p * 46), ground + 18 + puff.laneY - 14 + Math.sin(a) * (6 + p * 14) - p * 10, 9 + p * 10, 0, Math.PI * 2);
+      ctx.fillStyle = '#e8dcc0'; ctx.fill();
+    }
+    ctx.restore();
+  }
+  for (const shot of state.enemyShots) {
+    const p = Math.min(1, shot.t / shot.dur);
+    const sy = ground + 18 + shot.laneY - 64;
+    const tx = 1170 * 0.52 - 10;
+    const ty = ground - 80;
+    const x = shot.sx + (tx - shot.sx) * p;
+    const y = sy + (ty - sy) * p - Math.sin(p * Math.PI) * 40;
+    const dy = (ty - sy) - Math.cos(p * Math.PI) * Math.PI * 40;
+    drawArrowShape(x, y, Math.atan2(dy, tx - shot.sx), 20);
+  }
+}
+
+function drawActBanner(width) {
+  const notice = state.notice;
+  if (!notice) return;
+  const elapsed = NOTICE_TIME - notice.t;
+  const pop = Math.min(1, easeOutBack(Math.min(1, elapsed / 0.45)));
+  ctx.save();
+  ctx.globalAlpha = Math.min(1, notice.t / 0.4);
+  ctx.translate(width / 2, 190);
+  ctx.scale(pop, pop);
+  ctx.beginPath(); ctx.roundRect(-220, -38, 440, 76, 22); fillInk('#2f3a32', 4);
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.font = '900 13px system-ui, sans-serif'; ctx.fillStyle = '#d4b765';
+  ctx.fillText(notice.kicker, 0, -18);
+  ctx.font = '900 24px system-ui, sans-serif';
+  ctx.lineWidth = 6; ctx.strokeStyle = INK; ctx.lineJoin = 'round';
+  ctx.strokeText(notice.title, 0, 4); ctx.fillStyle = '#ffcf4a'; ctx.fillText(notice.title, 0, 4);
+  ctx.font = '700 11px system-ui, sans-serif'; ctx.fillStyle = '#e9e1c8';
+  ctx.fillText(notice.subtitle, 0, 26);
+  ctx.restore();
+}
+
+function drawGrowthBanner(width) {
+  if (state.growthBanner <= 0) return;
+  const elapsed = GROWTH_BANNER - state.growthBanner;
+  const pop = Math.min(1, easeOutBack(Math.min(1, elapsed / 0.45)));
+  const alpha = Math.min(1, state.growthBanner / 0.4);
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  ctx.translate(width / 2, 118);
+  ctx.scale(pop, pop);
+  ctx.beginPath(); ctx.roundRect(-190, -34, 380, 68, 22); fillInk('#fff4d6', 4);
+  ctx.beginPath(); ctx.roundRect(-182, -26, 364, 10, 5); ctx.fillStyle = '#ffffff99'; ctx.fill();
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.font = '900 26px system-ui, sans-serif';
+  ctx.lineWidth = 6; ctx.strokeStyle = INK; ctx.lineJoin = 'round';
+  ctx.strokeText('ДЕРЕВНЯ ВЫРОСЛА!', 0, -6);
+  ctx.fillStyle = '#ffcf4a';
+  ctx.fillText('ДЕРЕВНЯ ВЫРОСЛА!', 0, -6);
+  ctx.font = '800 13px system-ui, sans-serif';
+  ctx.fillStyle = '#6b3f22';
+  ctx.fillText(`Ступень ${state.villageStage}: ${villageStages[state.villageStage]}`, 0, 20);
+  ctx.restore();
 }
 
 function drawForegroundFoliage(width, height) {
@@ -989,21 +2207,36 @@ function drawWaveRoster(width) {
     return result;
   }, {});
   const entries = Object.entries(counts);
-  const panelWidth = 66 + entries.length * 62;
+  const panelWidth = 74 + entries.length * 70;
   const x = width / 2 - panelWidth / 2;
   const y = 16;
   ctx.save();
   ctx.shadowColor = '#26302735';
   ctx.shadowBlur = 10;
   ctx.shadowOffsetY = 3;
-  roundedRect(x, y, panelWidth, 54, 27, '#29352eea');
+  roundedRect(x, y, panelWidth, 62, 27, '#29352eea');
   ctx.shadowColor = 'transparent';
   ctx.strokeStyle = '#d4b76588';
   ctx.lineWidth = 1;
-  ctx.beginPath(); ctx.roundRect(x + 1, y + 1, panelWidth - 2, 52, 26); ctx.stroke();
+  ctx.beginPath(); ctx.roundRect(x + 1, y + 1, panelWidth - 2, 60, 26); ctx.stroke();
   entries.forEach(([type, count], index) => {
-    const itemX = x + 28 + index * 62;
-    drawEnemyHead(sprites[type] || sprites.orc, itemX, y + 27, type === 'boss' ? 40 : 36, type);
+    const itemX = x + 28 + index * 70;
+    const look = enemyLooks[type];
+    ctx.save();
+    if (look && look.filter) ctx.filter = look.filter;
+    drawEnemyHead(enemySprite(type), itemX, y + 27, enemyTypes[type]?.isBoss ? 40 : 36, type);
+    ctx.restore();
+    traitsOf(type).forEach((trait, i) => {
+      const info = traitInfo[trait];
+      const tx = itemX - 12 + i * 15;
+      const ty = y + 47;
+      ctx.beginPath(); ctx.arc(tx, ty, 7, 0, Math.PI * 2);
+      ctx.fillStyle = '#29352e'; ctx.fill();
+      ctx.strokeStyle = info.color; ctx.lineWidth = 1.5; ctx.stroke();
+      ctx.fillStyle = info.color; ctx.font = '900 9px system-ui, sans-serif';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(info.glyph, tx, ty + 0.5);
+    });
     ctx.fillStyle = type === 'boss' || type === 'orcRed' ? '#ffd79a' : '#fff3d2';
     ctx.textAlign = 'left';
     ctx.textBaseline = 'middle';
@@ -1041,7 +2274,7 @@ function drawFloaters(height) {
       continue;
     }
     const resourceIcon = floater.kind === 'food' ? resourceIcons.food : floater.kind === 'reward' ? resourceIcons.gold : null;
-    const label = floater.kind === 'food' ? `+${floater.amount}` : floater.kind === 'hurt' ? `−${floater.amount}  ♥` : floater.kind === 'spikes' ? `−${floater.amount}  ⋀` : floater.kind === 'arrow' ? `−${floater.amount}  ➶` : floater.kind === 'reward' ? `ПОБЕДА  +${floater.amount}` : `+${floater.amount}  ☠`;
+    const label = floater.kind === 'stolen' ? `−${floater.amount} УКРАДЕНО` : floater.kind === 'volley' ? `ЗАЛП −${floater.amount}` : floater.kind === 'food' ? `+${floater.amount}` : floater.kind === 'hurt' ? `−${floater.amount}  ♥` : floater.kind === 'spikes' ? `−${floater.amount}  ⋀` : floater.kind === 'arrow' ? `−${floater.amount}  ➶` : floater.kind === 'reward' ? `ПОБЕДА  +${floater.amount}` : `+${floater.amount}  ☠`;
     ctx.save();
     ctx.globalAlpha = alpha;
     ctx.translate(floater.x + sway, y);
@@ -1064,13 +2297,28 @@ function drawFloaters(height) {
 function drawScene(width, height) {
   drawBackground(width, height);
   drawForegroundFoliage(width, height);
-  if (!sprites.guard || !sprites.archer || !sprites.orc || !sprites.orcDual || !sprites.orcShield || !sprites.orcRed || !sprites.boss || !sprites.farmer || !structures.guardTower) return;
+  if (!sprites.guard || !sprites.orc || !sprites.orcDual || !sprites.orcShield || !sprites.orcRed || !sprites.boss || !sprites.farmer || !structures.guardTower) return;
+  const towerBuilt = state.archerUnlocked;
   const ground = height * 0.82;
-  const towerX = width * 0.67;
-  const towerHeight = Math.min(344, height * 0.73);
-  if (state.townLevel >= 2) drawStructure(structures.guardTower, towerX, ground + 8, towerHeight);
+  // The tower stands right behind the legionary so the village gets the right third of the screen.
+  const towerX = width * 0.6;
+  const towerHeight = Math.min(300, height * 0.64);
+  drawVillageBack(width, ground);
+  if (towerBuilt) {
+    const pop = state.towerFx > 0 ? Math.max(0.01, easeOutBack(1 - state.towerFx / TOWER_POP)) : 1;
+    ctx.save();
+    ctx.translate(towerX, ground + 8);
+    ctx.scale(pop, pop);
+    ctx.translate(-towerX, -(ground + 8));
+    drawStructure(structures.guardTower, towerX, ground + 8, towerHeight);
+    ctx.restore();
+  }
+  drawVillageFront(width, ground);
+  drawVillageFields(width, ground);
+  drawVillageVillagers(width, ground);
   const farmerDirection = Math.cos(state.time * 0.65) < 0;
-  const farmerX = towerX + Math.sin(state.time * 0.65) * Math.min(25, width * 0.03);
+  // The farmer works among the field beds on the village side, away from the line.
+  const farmerX = width * 0.855 + Math.sin(state.time * 0.65) * Math.min(25, width * 0.02);
   const farmerBob = Math.abs(Math.sin(state.time * 2.6)) * -2;
   drawSprite(sprites.farmer, farmerX, ground - 8, Math.min(134, height * 0.27), farmerDirection, farmerBob);
 
@@ -1079,7 +2327,8 @@ function drawScene(width, height) {
     drawSprite(sprites.spikes, width * 0.435, ground - 16, spikesHeight, false, 0, 1, 0.84, 0.14);
   }
 
-  const drawMob = (mob) => {
+  const mobsByDepth = [...state.mobs].sort((a, b) => (a.laneY ?? 0) - (b.laneY ?? 0));
+  for (const mob of mobsByDepth) {
     const bob = Math.abs(Math.sin(state.time * 7 + mob.bob)) * -4;
     const mobGround = ground + 18 + (mob.laneY ?? 0);
     const attackProgress = mob.attackMotion > 0 ? 1 - mob.attackMotion / 0.32 : 0;
@@ -1091,54 +2340,31 @@ function drawScene(width, height) {
     // standard orc, while the boss is 20% above it.
     const classHeight = typeStats.height;
     const mobHeight = Math.min(classHeight, height * (classHeight / 510));
-    const mobSprite = sprites[mob.type] || sprites.orc;
+
     const shadowScale = Math.max(0.42, Math.min(0.58, 0.42 + (mobHeight - 112) / 480));
-    drawSprite(mobSprite, drawX, mobGround, mobHeight, false, bob, opacity, shadowScale, 0.11);
+    drawEnemy(mob, drawX, mobGround, mobHeight, bob, opacity, shadowScale);
     if (!mob.dead) {
       const barWidth = Math.round(Math.max(48, Math.min(72, 48 + (mobHeight - 112) * 0.31)));
       roundedRect(drawX - barWidth / 2, mobGround - mobHeight - 18, barWidth, 6, 3, '#443d36aa');
-      roundedRect(drawX - barWidth / 2, mobGround - mobHeight - 18, barWidth * mob.hp / mob.maxHp, 6, 3, typeStats.bar);
+      roundedRect(drawX - barWidth / 2, mobGround - mobHeight - 18, barWidth * Math.max(0, mob.hp) / mob.maxHp, 6, 3, typeStats.bar);
+      if (mob.barrier > 0) roundedRect(drawX - barWidth / 2, mobGround - mobHeight - 25, barWidth * Math.min(1, mob.barrier / mob.maxHp), 4, 2, '#7fc4ff');
       ctx.strokeStyle = '#2c241f';
       ctx.lineWidth = 1.5;
       ctx.beginPath();
       ctx.roundRect(drawX - barWidth / 2, mobGround - mobHeight - 18, barWidth, 6, 3);
       ctx.stroke();
     }
-  };
+  }
 
   const attackProgress = state.attackTimer > 0 ? Math.sin((1 - state.attackTimer / 0.28) * Math.PI) : 0;
   const guardX = width * 0.52 - attackProgress * 15;
-  const mobsByDepth = [...state.mobs].sort((a, b) => (a.laneY ?? 0) - (b.laneY ?? 0));
-  const firstMobInFront = mobsByDepth.findIndex((mob) => ground + 18 + (mob.laneY ?? 0) > ground);
-  const mobsBehindGuard = firstMobInFront === -1 ? mobsByDepth : mobsByDepth.slice(0, firstMobInFront);
-  const mobsInFrontOfGuard = firstMobInFront === -1 ? [] : mobsByDepth.slice(firstMobInFront);
-
-  for (const mob of mobsBehindGuard) drawMob(mob);
   drawSprite(sprites.guard, guardX, ground, Math.min(160, height * 0.32), true, Math.sin(state.time * 2.4) * -1.2);
-  for (const mob of mobsInFrontOfGuard) drawMob(mob);
   drawGuardHealthBar(width * 0.52, ground + 10);
 
-  if (state.archerUnlocked) {
-    const recoil = state.archerAttackTimer > 0 ? Math.sin((1 - state.archerAttackTimer / 0.24) * Math.PI) * 4 : 0;
-    drawSprite(sprites.archer, towerX + recoil, ground - towerHeight * 0.72, Math.min(132, height * 0.265), false, Math.sin(state.time * 2) * -1);
-  }
-  for (const arrow of state.arrows) {
-    const progress = Math.min(1, 1 - arrow.life / arrow.duration);
-    const target = arrow.target;
-    const targetHeight = (enemyTypes[target?.type] || enemyTypes.orc).height;
-    const targetX = target?.x ?? arrow.fromX - 180;
-    const targetY = ground + 18 + (target?.laneY ?? 0) - targetHeight * 0.58;
-    const x = arrow.fromX + (targetX - arrow.fromX) * progress;
-    const y = arrow.fromY + (targetY - arrow.fromY) * progress - Math.sin(progress * Math.PI) * 18;
-    const angle = Math.atan2(targetY - arrow.fromY, targetX - arrow.fromX);
-    ctx.save();
-    ctx.translate(x, y); ctx.rotate(angle);
-    ctx.strokeStyle = '#6d4327'; ctx.lineWidth = 2.4;
-    ctx.beginPath(); ctx.moveTo(-15, 0); ctx.lineTo(10, 0); ctx.stroke();
-    ctx.fillStyle = '#e5e0d2';
-    ctx.beginPath(); ctx.moveTo(10, 0); ctx.lineTo(3, -4); ctx.lineTo(3, 4); ctx.closePath(); ctx.fill();
-    ctx.restore();
-  }
+  if ((towerBuilt || state.heroUnlocked) && state.towerFx <= 0) drawTowerDefenders(width, height);
+  drawArrows(height);
+  drawVolley(width, height);
+  drawRocksAndShots(height);
 
   if (state.hitFlash > 0) {
     ctx.save();
@@ -1152,6 +2378,8 @@ function drawScene(width, height) {
   }
   drawWaveRoster(width);
   drawFloaters(height);
+  drawGrowthBanner(width);
+  drawActBanner(width);
 }
 
 function syncUi() {
@@ -1160,13 +2388,11 @@ function syncUi() {
   ui.wave.textContent = state.wave;
   ui.kills.textContent = state.kills;
   ui['mob-count'].textContent = state.phase === 'wave' ? state.waveTotal - state.defeated : 0;
-  ui['gate-value'].textContent = `${state.gate}/${state.maxGate}`;
-  ui['gate-bar'].style.width = `${state.gate / state.maxGate * 100}%`;
   ui['guard-health-value'].textContent = `${Math.ceil(state.guardHp)}/${state.maxGuardHp}`;
   ui['guard-health-bar'].style.width = `${state.guardHp / state.maxGuardHp * 100}%`;
   ui['guard-health-bar'].classList.toggle('regenerating', state.regenFlash > 0);
   ui['guard-status'].textContent = state.guardHp <= 0 ? 'ПАЛ' : state.regenFlash > 0 ? 'ВОССТАНОВЛЕНИЕ' : state.attackTimer > 0 ? 'АТАКА' : 'ГОТОВ';
-  const labels = { preparation: 'ПОДГОТОВКА', wave: state.running ? 'ВОЛНА ИДЁТ' : 'ПАУЗА', victory: 'ПОБЕДА', defeat: 'ОБОРОНА ПРОРВАНА', complete: 'РУБЕЖ ЗАЩИЩЁН' };
+  const labels = { preparation: 'ПОДГОТОВКА', wave: state.running ? 'ВОЛНА ИДЁТ' : 'ПАУЗА', victory: 'ПОБЕДА', defeat: 'ЛЕГИОНЕР ПАЛ', complete: 'РУБЕЖ ЗАЩИЩЁН' };
   const patrolActive = state.phase !== 'wave' && state.mobs.some((mob) => !mob.dead);
   ui['state-label'].textContent = patrolActive ? 'ФОНОВАЯ СТЫЧКА' : labels[state.phase];
   ui['live-dot'].style.background = (state.phase === 'wave' || patrolActive) && state.running ? '#b65a3c' : '#748c58';
@@ -1174,7 +2400,7 @@ function syncUi() {
   ui['guard-level'].textContent = `ур. ${state.guardLevel}`;
   ui['spikes-level'].textContent = state.spikesLevel ? `ур. ${state.spikesLevel}` : 'не куплены';
   ui['farm-level'].textContent = `ур. ${state.farmLevel}`;
-  const guardPrice = 5 + (state.guardLevel - 1) * 4;
+  const guardPrice = guardUpgradePrice();
   const spikesPrice = state.spikesLevel === 0 ? 10 : 12 + (state.spikesLevel - 1) * 8;
   const farmPrice = 6 + (state.farmLevel - 1) * 5;
   ui['guard-cost'].textContent = `${guardPrice} еды · +1 урон, +20 макс. HP`;
@@ -1182,25 +2408,63 @@ function syncUi() {
     ? `${spikesPrice} монет · купить, 1 пассивный урон`
     : `${spikesPrice} монет · +1 пассивный урон`;
   ui['farm-cost'].textContent = `${farmPrice} монет · больше еды`;
+  const inBattle = state.phase === 'wave';
   ui['guard-upgrade'].disabled = !canUpgrade('guard') || state.food < guardPrice;
   ui['spikes-upgrade'].disabled = !canUpgrade('spikes') || state.coins < spikesPrice;
   ui['farm-upgrade'].disabled = !canUpgrade('farm') || state.coins < farmPrice;
-  for (const kind of ['guard', 'spikes', 'farm']) {
+  ui['village-stage'].textContent = `🏡 Деревня: ${state.villageStage}/3 · ${villageStages[state.villageStage]}${state.stageOverride ? ' (отладка)' : ''}`;
+  ui['archer-row'].classList.toggle('locked', !state.archerUnlocked);
+  ui['archer-status'].textContent = !state.archerUnlocked ? 'ЗАКРЫТ' : state.towerSlot === 'archer' ? `УР. ${state.archerLevel}` : 'В РЕЗЕРВЕ';
+  ui['archer-note'].textContent = state.archerUnlocked ? 'стреляет с башни' : 'после улучшения поселения II';
+  ui['hero-row'].classList.toggle('locked', !state.heroUnlocked);
+  ui['hero-note'].textContent = state.heroUnlocked ? '«Залп» — пробел или нажатие' : `«Залп» можно купить после волны ${HERO_UNLOCK_WAVE}`;
+  ui['volley-buy'].disabled = state.heroUnlocked || state.phase === 'wave' || state.wavesCleared < HERO_UNLOCK_WAVE || state.coins < VOLLEY_PRICE;
+  ui['volley-cost'].textContent = state.heroUnlocked ? 'Куплен · перезарядка 18 с'
+    : state.wavesCleared < HERO_UNLOCK_WAVE ? `После волны ${HERO_UNLOCK_WAVE} · ${VOLLEY_PRICE} монет`
+    : `${VOLLEY_PRICE} монет · необязательная способность по площади`;
+  ui['hero-status'].textContent = !state.heroUnlocked ? 'ЗАКРЫТ' : state.volleyCooldown > 0 ? `${Math.ceil(state.volleyCooldown)} С` : 'ГОТОВ';
+  ui['tower-slot'].style.display = state.catapultUnlocked ? '' : 'none'; // only useful once there is a second option
+  ui.volley.style.display = state.heroUnlocked ? '' : 'none';
+  const slotNames = { archer: 'Лучник', catapult: 'Катапульта' };
+  ui['tower-slot'].textContent = state.towerSlot ? `🗼 Слот башни: ${slotNames[state.towerSlot]}${state.catapultUnlocked ? ' ⇄' : ''}` : '🗼 Слот башни: пусто';
+  ui['tower-slot'].disabled = state.phase === 'wave' || !state.catapultUnlocked;
+  ui['tower-slot'].title = state.catapultUnlocked ? 'Сменить защитника на башне (между волнами, бесплатно)' : `Второй вариант откроется после волны ${CATAPULT_UNLOCK_WAVE}`;
+  ui['catapult-level'].textContent = state.catapultUnlocked ? `ур. ${state.catapultLevel}` : 'закрыта';
+  ui['catapult-cost'].textContent = state.catapultUnlocked ? `${catapultPrice()} монет · +2 урона по площади, чаще` : 'после улучшения поселения II';
+  ui['catapult-upgrade'].disabled = !canUpgrade('catapult') || !state.catapultUnlocked || state.coins < catapultPrice();
+  ui['archer-level'].textContent = state.archerUnlocked ? `ур. ${state.archerLevel}` : 'закрыт';
+  ui['archer-cost'].textContent = state.archerUnlocked ? `${archerPrice()} монет · +0,75 урона, стреляет чаще` : 'после улучшения поселения II';
+  ui['archer-upgrade'].disabled = !canUpgrade('archer') || !state.archerUnlocked || state.coins < archerPrice();
+  const volleyReady = state.volleyCooldown <= 0 && state.volleyFx <= 0;
+  ui.volley.disabled = !state.running || !state.heroUnlocked || !volleyReady || aliveMobs().length === 0;
+  ui.volley.textContent = volleyReady ? '➶ Залп героя (пробел)' : `➶ Залп · ${Math.ceil(state.volleyCooldown)} с`;
+  for (const kind of ['guard', 'spikes', 'farm', 'archer', 'catapult']) {
     if (state[`${kind}Level`] >= upgradeLimit(kind)) {
-      ui[`${kind}-cost`].textContent = kind === 'spikes' && state.clearedWave < 3 ? 'Откроются после волны 3' : `Нужно поселение уровня ${state.townLevel + 1}`;
+      ui[`${kind}-cost`].textContent = kind === 'spikes' && state.wavesCleared < 3
+        ? 'Откроются после волны 3' : state.townLevel === 3 ? 'Максимальный уровень'
+        : `Нужно поселение уровня ${state.townLevel + 1}`;
     }
   }
-  ui['archer-row'].classList.toggle('locked', !state.archerUnlocked);
   ui['town-level'].textContent = `ур. ${state.townLevel}`;
   ui['town-upgrade'].disabled = !canUpgradeTown();
-  ui['town-cost'].textContent = state.townLevel >= 2 ? 'Башня и лучник открыты · продолжение впереди' : state.clearedWave >= 5 ? 'Улучшить бесплатно · башня + лучник + новые уровни' : 'Победите босса волны 5 · откроет башню и лучника';
-  ui['archer-status'].textContent = !state.archerUnlocked ? 'ПОСЕЛЕНИЕ II' : state.archerAttackTimer > 0 ? 'ВЫСТРЕЛ' : 'В СТРОЮ';
-  ui['wave-button'].disabled = state.phase === 'wave' || state.phase === 'complete';
-  ui['wave-button'].textContent = state.phase === 'defeat' ? '↻ Восстановить и повторить' : state.phase === 'victory' ? `⚑ Вызвать волну ${state.wave + 1}` : state.phase === 'complete' ? '✓ Пять волн пройдено' : `⚑ Вызвать волну ${state.wave}`;
+  ui['town-cost'].textContent = state.townLevel === 3 ? 'Поселение полностью развито'
+    : canUpgradeTown() ? 'Улучшить бесплатно · новые постройки и уровни'
+    : `Победите босса волны ${state.townLevel * 5}`;
+  const needsTown = state.phase === 'victory' && state.wave === 5 && state.townLevel < 2;
+  ui['wave-button'].disabled = state.phase === 'wave' || state.phase === 'complete' || needsTown;
+  ui['wave-button'].textContent = state.phase === 'defeat' ? '↻ Повторить волну' : state.phase === 'victory' ? `⚑ Вызвать волну ${state.wave + 1}` : state.phase === 'complete' ? `✓ Все ${FINAL_WAVE} волн пройдены` : `⚑ Вызвать волну ${state.wave}`;
+  if (needsTown) ui['wave-button'].textContent = '⌂ Сначала улучшите поселение';
   const previewWave = state.phase === 'victory' ? state.wave + 1 : state.wave;
   const difficulty = getWaveDifficulty(previewWave);
   const locked = Boolean(state.waveDifficulties[previewWave]);
   ui['wave-difficulty'].textContent = `Волна ${previewWave} · HP ×${difficulty.hp.toFixed(1)} · атака ×${difficulty.damage.toFixed(1)}. ${locked ? 'Сила орков закреплена, в том числе при повторе.' : 'Сила орков закрепится при запуске.'}`;
+  ui['wave-preview'].textContent = `Состав: ${wavePreviewText(previewWave)}`;
+  const nextBoss = state.wavesCleared < 5 ? 5 : state.wavesCleared < 10 ? 10 : null;
+  ui['boss-progress'].textContent = nextBoss ? `Прогресс до босса: ${Math.min(state.wavesCleared, nextBoss - 1)} / ${nextBoss - 1} волн` : 'Кампания завершена · все боссы побеждены';
+  ui['specialization-note'].hidden = state.townLevel < 2;
+  if (state.townLevel >= 2) ui['specialization-note'].textContent = state.towerSlot === 'catapult'
+    ? 'Специализация башни: катапульта — урон по группе · нажмите слот, чтобы выбрать лучника'
+    : 'Специализация башни: лучник — точечный урон · нажмите слот, чтобы выбрать катапульту';
 }
 
 function frame(now) {
@@ -1217,6 +2481,7 @@ function frame(now) {
   update(delta, worldWidth);
   ctx.setTransform(canvas.width / worldWidth, 0, 0, canvas.height / worldHeight, 0, 0);
   ctx.clearRect(0, 0, worldWidth, worldHeight);
+  if (state.shake > 0) ctx.translate((Math.random() - 0.5) * 10 * state.shake / 0.28, (Math.random() - 0.5) * 6 * state.shake / 0.28);
   drawScene(worldWidth, worldHeight);
   syncUi();
   requestAnimationFrame(frame);
@@ -1228,30 +2493,19 @@ ui.pause.onclick = () => {
   ui.pause.textContent = state.running ? 'Ⅱ Пауза' : '▶ Продолжить';
 };
 ui.speed.onclick = () => {
-  state.speed = state.speed === 1 ? 100 : 1;
+  state.speed = ({ 1: 2, 2: 100, 100: 1 })[state.speed] || 1;
   ui.speed.textContent = `⏩ ${state.speed}×`;
 };
-function canUpgradeTown() {
-  return state.phase !== 'wave' && state.townLevel === 1 && state.clearedWave >= 5;
-}
-
-ui['town-upgrade'].onclick = () => {
-  if (!canUpgradeTown()) return;
-  state.townLevel = 2;
-  state.archerUnlocked = true;
-  state.archerCooldown = 1.2;
-  syncUi();
-};
-
+ui['town-upgrade'].onclick = upgradeTown;
 ui['wave-button'].onclick = () => {
+  if (state.phase === 'victory' && state.wave === 5 && state.townLevel < 2) return;
   if (state.phase === 'victory') state.wave += 1;
-  if (state.phase === 'defeat') state.gate = state.maxGate;
   if (state.phase !== 'complete' && state.phase !== 'wave') startWave();
 };
 ui['guard-upgrade'].onclick = () => {
   if (!canUpgrade('guard')) return;
-  const price = 5 + (state.guardLevel - 1) * 4;
-  if (state.food >= price) {
+  const price = guardUpgradePrice();
+  if (state.phase !== 'wave' && state.food >= price) {
     state.food -= price; state.guardLevel += 1; state.maxGuardHp += 20;
   }
 };
@@ -1269,6 +2523,39 @@ ui['farm-upgrade'].onclick = () => {
   if (state.coins >= price) { state.coins -= price; state.farmLevel += 1; }
 };
 ui.reset.onclick = resetGame;
+ui['archer-upgrade'].onclick = () => {
+  if (!canUpgrade('archer')) return;
+  const price = archerPrice();
+  if (state.archerUnlocked && state.phase !== 'wave' && state.coins >= price) {
+    state.coins -= price;
+    state.archerLevel += 1;
+  }
+};
+ui.volley.onclick = () => castVolley();
+ui['volley-buy'].onclick = () => {
+  if (state.heroUnlocked || state.phase === 'wave' || state.wavesCleared < HERO_UNLOCK_WAVE || state.coins < VOLLEY_PRICE) return;
+  state.coins -= VOLLEY_PRICE;
+  state.heroUnlocked = true;
+  showNotice('НОВАЯ СПОСОБНОСТЬ', 'ЗАЛП', 'Нажми пробел, кнопку или центуриона · перезарядка 18 секунд');
+  syncUi();
+};
+ui['tower-slot'].onclick = () => {
+  if (state.phase === 'wave' || !state.catapultUnlocked) return;
+  state.towerSlot = state.towerSlot === 'archer' ? 'catapult' : 'archer';
+};
+ui['catapult-upgrade'].onclick = () => {
+  if (!canUpgrade('catapult')) return;
+  const price = catapultPrice();
+  if (state.catapultUnlocked && state.phase !== 'wave' && state.coins >= price) {
+    state.coins -= price;
+    state.catapultLevel += 1;
+  }
+};
+
+// Debug: cycle village stages 1 → 2 → 3 → 1 without playing the waves.
+ui['village-stage'].onclick = () => {
+  state.stageOverride = state.villageStage % 3 + 1;
+};
 
 Promise.all([
   ...Object.entries(sources).map(async ([name, config]) => {
@@ -1294,13 +2581,26 @@ Promise.all([
   ...Object.entries(structureSources).map(async ([name, src]) => {
     structures[name] = await loadImage(src);
   }),
-  ...Object.entries(resourceSources).map(async ([name, src]) => {
-    resourceIcons[name] = await loadImage(src);
-  })
+  ...Object.entries(resourceSources).map(async ([name, src]) => { resourceIcons[name] = await loadImage(src); })
 ]).then(() => {
   ui.loading.classList.add('done');
 }).catch(() => {
   ui.loading.textContent = 'Не удалось загрузить игровые ассеты';
+});
+
+// Tap the hero (or press Space) to cast the volley.
+canvas.addEventListener('click', (event) => {
+  const rect = canvas.getBoundingClientRect();
+  const x = (event.clientX - rect.left) / rect.width * 1170;
+  const y = (event.clientY - rect.top) / rect.height * 540;
+  const hero = heroPosition(1170, 540);
+  if (Math.abs(x - hero.x) < 60 && y > hero.y - 170 && y < hero.y + 10) castVolley();
+});
+document.addEventListener('keydown', (event) => {
+  if (event.code === 'Space' && !event.repeat && !event.target.closest('button, input, textarea, select, [contenteditable]')) {
+    event.preventDefault();
+    castVolley();
+  }
 });
 
 requestAnimationFrame(frame);

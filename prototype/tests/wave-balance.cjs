@@ -27,7 +27,7 @@ run('state.wave = 2; startWave(); spawnMob();');
 const lockedHp = run('state.mobs[0].maxHp');
 run('failWave(); state.guardLevel = 10; state.maxGuardHp = 280; state.spikesLevel = 4; startWave(); spawnMob();');
 assert.equal(run('state.mobs[0].maxHp'), lockedHp);
-run('startWave()');
+run('failWave(); startWave()');
 let retryTicks = 0;
 while (run('state.phase') === 'wave' && retryTicks++ < 36000) run('update(1/60, 1170)');
 assert.equal(run('state.phase'), 'victory', 'Upgrades must help overcome a locked retry');
@@ -54,7 +54,7 @@ for (const [wave, level, spikes] of [[1,1,0],[2,2,0],[3,3,1],[4,4,1],[5,5,2],[5,
     assert.equal(run('state.phase'), 'victory');
     assert.ok(run('state.guardHp / state.maxGuardHp') < 0.4, 'Later waves should pressure an upgraded guard');
   }
-  if (wave === 5 && level === 5) assert.equal(run('state.phase'), 'complete');
+  if (wave === 5 && level === 5) assert.equal(run('state.phase'), 'victory');
   if (wave === 5 && level === 1) assert.equal(run('state.phase'), 'defeat');
 }
 console.log('Wave scaling, retries, patrols, reset, preview and combat checks passed.');
@@ -67,14 +67,13 @@ for (const result of botReport) {
   assert.notEqual(result.phase, 'defeat', `Balance bot lost wave ${result.wave}`);
   assert.ok(result.hpRatio >= 0.1 && result.hpRatio <= 0.4,
     `Wave ${result.wave} should end in the 10–40% tension band, got ${Math.round(result.hpRatio * 100)}%`);
-  assert.equal(result.gate, result.maxGate, `Guard should survive wave ${result.wave} before the gate is hit`);
 }
 console.log('Buy-all balance bot kept guard HP inside the 10–40% tension band.');
 
 for (const seconds of [120, 600]) {
   const idle = require('../tools/balance-bot.cjs').idle(seconds);
   assert.equal(idle.clearedWave, 0);
-  assert.ok(idle.guard <= 5 && idle.farm <= 5 && idle.gate === 1 && idle.spikes === 0,
+  assert.ok(idle.guard <= 5 && idle.farm <= 5 && idle.spikes === 0,
     'AFK purchases cannot unlock tiers beyond the current progression');
   assert.ok(idle.patrolKills > 0, 'AFK scenario must actually defeat patrols');
 }
@@ -82,7 +81,6 @@ run('resetGame(); state.food = 100000; state.coins = 100000');
 for (let attempt = 0; attempt < 20; attempt++) run("ui['guard-upgrade'].onclick(); ui['farm-upgrade'].onclick(); ui['spikes-upgrade'].onclick()");
 assert.equal(run('state.guardLevel'), 5);
 assert.equal(run('state.farmLevel'), 5);
-assert.equal(run('state.gateLevel'), 1);
 assert.equal(run('canUpgrade("gate")'), false);
 assert.equal(run('state.spikesLevel'), 0);
 run('syncUi()');
@@ -113,7 +111,7 @@ run('state.mobs = []; for (let i = 0; i < 36; i++) update(1/60, 1170)');
 assert.equal(run('state.guardHp'), 100);
 assert.equal(run('state.floaters.some(floater => floater.kind === "heal")'), true);
 for (const phase of ['victory', 'defeat', 'complete', 'preparation']) {
-  run(`resetGame(); state.phase = '${phase}'; state.guardHp = 20; state.patrolTimer = 100; for (let i = 0; i < 150; i++) update(1/60, 1170)`);
+  run(`resetGame(); state.phase = '${phase}'; state.guardHp = 20; state.patrolTimer = 100; state.foodTimer = 1000; for (let i = 0; i < 300; i++) update(1/60, 1170)`);
   assert.equal(run('state.guardHp'), 100);
   assert.equal(run('state.food'), 0, 'Recovery is free');
 }
@@ -156,6 +154,81 @@ assert.equal(run('buildWavePlan(1).join(",")'), 'orc');
 assert.equal(run('buildWavePlan(2).join(",")'), 'orc,orc');
 assert.ok(run('buildWavePlan(3).includes("orcDual")'));
 assert.equal(run('canUpgrade("spikes")'), false);
-run('state.clearedWave = 3');
+run('state.wavesCleared = 3');
 assert.equal(run('canUpgrade("spikes")'), true);
 console.log('Boss-gated town, archer unlock, onboarding and reset passed.');
+
+// The optional ability must be purchased through the same handler as the UI.
+run('resetGame(); state.coins = 100;');
+run("ui['volley-buy'].onclick()");
+assert.equal(run('state.heroUnlocked'), false, 'Money cannot skip the wave-three requirement');
+run('state.wavesCleared = 3; state.coins = 19;');
+run("ui['volley-buy'].onclick()");
+assert.equal(run('state.heroUnlocked'), false, 'Insufficient coins must not buy the ability');
+run('state.coins = 20; state.phase = "wave";');
+run("ui['volley-buy'].onclick()");
+assert.equal(run('state.heroUnlocked'), false, 'No buying during combat');
+run('state.phase = "victory";');
+run("ui['volley-buy'].onclick(); ui['volley-buy'].onclick()");
+assert.equal(run('state.heroUnlocked'), true);
+assert.equal(run('state.coins'), 0, 'One purchase charges exactly 20 coins');
+run('spawnMob("orcRed"); spawnMob("orcRed"); state.mobs.forEach(m => { m.x = 400; m.hp = m.maxHp = 500; });');
+run('state.running = false;');
+assert.equal(run('castVolley()'), false, 'Pause also pauses the ability');
+run('state.running = true;');
+assert.equal(run('castVolley()'), true);
+assert.equal(run('castVolley()'), false, 'Cooldown blocks a second cast');
+run('updateDefenders(0.8, 1170)');
+assert.ok(run('state.mobs.every(m => m.hp < m.maxHp)'), 'Volley hits the whole group');
+run('resetGame()');
+assert.equal(run('state.heroUnlocked'), false, 'Reset removes the purchased ability');
+
+// Boss reward and town claim must not grant the optional spell or allow wave six early.
+run('state.wave = 5; finishWave();');
+run("ui['wave-button'].onclick()");
+assert.equal(run('state.wave'), 5);
+run("ui['town-upgrade'].onclick()");
+assert.equal(run('state.townLevel'), 2);
+assert.equal(run('state.archerUnlocked && state.catapultUnlocked'), true);
+assert.equal(run('state.heroUnlocked'), false, 'Town upgrade does not buy the spell');
+run("ui['tower-slot'].onclick()");
+assert.equal(run('state.towerSlot'), 'catapult');
+run("ui['wave-button'].onclick(); ui['tower-slot'].onclick()");
+assert.equal(run('state.wave'), 6);
+assert.equal(run('state.towerSlot'), 'catapult', 'No specialization switching mid-wave');
+
+// Enemy traits and the two defender roles use different damage rules.
+run('resetGame(); spawnMob("orcShield"); spawnMob("boar");');
+assert.equal(run('effectiveDamage(state.mobs[0], 4, "pierce")'), 2);
+assert.equal(run('effectiveDamage(state.mobs[0], 4, "melee")'), 4);
+assert.equal(run('effectiveDamage(state.mobs[1], 4, "melee")'), 3);
+assert.equal(run('effectiveDamage(state.mobs[1], 4, "area")'), 4);
+run('resetGame(); state.coins = 1; state.food = 5; spawnMob("goblin"); spawnMob("goblin"); state.mobs.forEach(m => { m.x = 700; }); update(1/60, 1170);');
+assert.equal(run('state.coins'), 0);
+assert.equal(run('state.food'), 4, 'Goblins steal coins first, then food');
+run('resetGame(); state.archerUnlocked = true; state.archerLevel = 1; state.towerSlot = "archer"; spawnMob("orcRed"); spawnMob("orcArcher"); state.mobs[0].x = 500; state.mobs[1].x = 300; updateDefenders(0.01, 1170);');
+assert.equal(run('state.arrows[0].mob.type'), 'orcArcher', 'Archer prioritizes ranged enemies');
+run('resetGame(); state.catapultUnlocked = true; state.catapultLevel = 1; state.towerSlot = "catapult"; spawnMob("orcRed"); spawnMob("orcRed"); state.mobs.forEach(m => { m.x = 200; m.hp = m.maxHp = 100; }); updateDefenders(1, 1170);');
+assert.equal(run('state.mobs.every(m => m.hp < m.maxHp)'), true, 'Catapult damages both nearby enemies');
+run('state.enemyShots = [{t:0,dur:1,damage:999}]; state.phase = "victory"; startWave();');
+assert.equal(run('state.enemyShots.length'), 0, 'Projectiles never leak into a new wave');
+
+const fullCampaign = require('../tools/balance-bot.cjs').play({ waves: 10 });
+assert.equal(fullCampaign.length, 10);
+assert.equal(fullCampaign.at(-1).phase, 'complete', 'All ten waves are beatable without buying the spell');
+for (const result of fullCampaign) {
+  assert.equal(result.hasVolley, false);
+  assert.ok(result.enemies <= 5 && result.peakEnemies <= 2);
+  assert.equal(result.bossSharedField, false);
+}
+const withSpell = require('../tools/balance-bot.cjs').play({ waves: 10, buyVolley: true });
+assert.equal(withSpell.length, 10);
+assert.equal(withSpell.at(-1).phase, 'complete');
+assert.equal(withSpell[3].hasVolley, true, 'Bot actually buys the optional spell');
+assert.ok(withSpell.at(-1).hpRatio > fullCampaign.at(-1).hpRatio, 'Optional spell creates a real advantage');
+run('resetGame(); state.wavesCleared = 10; state.townLevel = 2; upgradeTown(); update(0.01, 1170);');
+assert.equal(run('state.townLevel'), 3);
+assert.equal(run('state.villageStage'), 3);
+run('upgradeTown()');
+assert.equal(run('state.townLevel'), 3, 'Final town upgrade is idempotent');
+console.log('Optional spell purchase, damage roles, full campaign, town growth and projectile isolation passed.');

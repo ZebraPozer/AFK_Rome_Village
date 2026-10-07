@@ -18,7 +18,7 @@
         <span class="eyebrow">ИГРОВОЙ ПРОТОТИП / 01</span>
         <h1>Держим рубеж.<br><em>Растим деревню.</em></h1>
       </div>
-      <p>Орки идут слева. Страж защищает ворота, а фермер собирает урожай.</p>
+      <p>Орки идут слева. Легионер держит рубеж, а фермер собирает урожай.</p>
     </section>
 
     <section class="game-layout">
@@ -47,12 +47,12 @@
             <h2 id="balance-reminder-title">Бот балансировки</h2>
             <span>ПРОВЕРЯТЬ ПОСЛЕ ИЗМЕНЕНИЙ</span>
           </div>
-          <p>Добавили врагов, апгрейды или способности? Повторите прогон: бот развивает ферму, ждёт еду, улучшает оборону и проходит 5 волн. Затем проверяет 2 и 10 минут фоновой прокачки. Ориентир — около 20% HP в конце волны; проверяемый коридор — 10–40%.</p>
+          <p>Добавили врагов, апгрейды или способности? Повторите прогон: бот развивает ферму, ждёт еду, улучшает оборону и проходит 10 небольших волн. Проверяет прохождение без «Залпа» и с его покупкой, а также фоновую прокачку. Для первых пяти волн без заклинания сохраняем коридор 10–40% HP. Баланс второго акта оцениваем отдельно.</p>
           <label for="balance-bot-command">Запуск в терминале из папки проекта</label>
           <input id="balance-bot-command" type="text" readonly spellcheck="false" value="node prototype/tools/balance-bot.cjs" aria-describedby="balance-bot-hint">
           <p id="balance-bot-hint" class="balance-reminder-hint">Команду можно выделить и скопировать. Новые покупки и активные способности нужно добавить в действия бота.</p>
         </section>
-      <div class="debug-toolbar">
+        <div class="debug-toolbar">
         <div class="scene-bar">
           <span><i id="live-dot"></i><b id="state-label">ВОЛНА ИДЁТ</b></span>
           <span>ВОЛНА <b id="wave">1</b></span>
@@ -61,8 +61,6 @@
         <div class="debug-grid">
         <div class="debug-stats">
         <div class="gate">
-          <div><span>Ворота</span><strong id="gate-value">100%</strong></div>
-          <div class="bar"><i id="gate-bar"></i></div>
           <div class="guard-health"><span>Легионер</span><strong id="guard-health-value">100/100</strong></div>
           <div class="bar guard-bar"><i id="guard-health-bar"></i></div>
         </div>
@@ -74,13 +72,17 @@
         <div class="activity">
           <div><img class="character-icon" src="assets/icons/legionary-head.png" alt=""><span><b>Легионер</b><small>держит рубеж</small></span><em id="guard-status">ГОТОВ</em></div>
           <div><img class="character-icon" src="assets/icons/farmer-head.png" alt=""><span><b>Фермер</b><small>производит еду</small></span><em id="farm-status">+ 1 / 3с</em></div>
-          <div id="archer-row"><img class="character-icon" src="assets/characters/roman-archer-ally-01.png" alt=""><span><b>Лучник</b><small>стреляет с башни</small></span><em id="archer-status">ПОСЕЛЕНИЕ II</em></div>
+          <div id="archer-row" class="locked"><img class="character-icon" src="assets/characters/roman-archer-ally-01.png" alt=""><span><b>Лучник</b><small id="archer-note">после улучшения поселения II</small></span><em id="archer-status">ЗАКРЫТ</em></div>
+          <div id="hero-row" class="locked"><i class="archer-icon">✪</i><span><b>Центурион</b><small id="hero-note">откроется после волны 3</small></span><em id="hero-status">ЗАКРЫТ</em></div>
         </div>
         <div class="upgrades" aria-label="Улучшения">
           <span class="upgrade-title">ПОСЕЛЕНИЕ И УЛУЧШЕНИЯ</span>
-          <button id="town-upgrade"><b>⌂ Поселение <i id="town-level">ур. 1</i></b><small id="town-cost">Победите босса волны 5 · откроет башню и лучника</small></button>
+          <button id="town-upgrade"><b>⌂ Поселение <i id="town-level">ур. 1</i></b><small id="town-cost">Победите босса волны 5</small></button>
           <button id="guard-upgrade"><b>⚔ Легионер <i id="guard-level">ур. 1</i></b><small id="guard-cost">5 еды · больше урона</small></button>
           <button id="spikes-upgrade"><b>⋀ Шипы <i id="spikes-level">не куплены</i></b><small id="spikes-cost">10 монет · пассивный урон</small></button>
+          <button id="archer-upgrade"><b>➶ Лучник <i id="archer-level">закрыт</i></b><small id="archer-cost">откроется после волны 1</small></button>
+          <button id="catapult-upgrade"><b>☄ Катапульта <i id="catapult-level">закрыта</i></b><small id="catapult-cost">откроется после волны 5</small></button>
+          <button id="volley-buy"><b>➶ Купить «Залп»</b><small id="volley-cost">После волны 3 · 20 монет</small></button>
           <button id="farm-upgrade"><b>✶ Ферма <i id="farm-level">ур. 1</i></b><small id="farm-cost">6 монет · больше еды</small></button>
         </div>
         <div class="debug-controls">
@@ -89,17 +91,24 @@
           <button id="wave-button">⚑ Новая волна</button>
           <button id="speed">⏩ 1×</button>
         </div>
+        <button id="tower-slot">🗼 Слот башни: пусто</button>
+        <button id="volley" class="primary">➶ Залп героя (пробел)</button>
+        <button id="village-stage" class="quiet">🏡 Деревня: ступень 1/3</button>
         <button id="reset" class="quiet">Сбросить прототип</button>
         </div>
         </div>
         <p id="wave-difficulty" class="note"></p>
-        <p class="note">Легионер начинает каждую волну и повторную попытку с <b>полным здоровьем бесплатно</b>. Еда нужна для улучшений.</p>
-        <p class="note">Фоновый доход: <b>1 монета за 3 побеждённых патрульных орков</b>. Победы в волнах открывают следующие уровни улучшений; еду производит ферма. Ускорение <b>100×</b> ускоряет и бой, и производство: 2 минуты на этой скорости — это 3 часа 20 минут игрового времени.</p>
+        <p id="wave-preview" class="note wave-preview"></p>
+        <p id="boss-progress" class="note boss-progress"></p>
+        <p id="specialization-note" class="note specialization-note" hidden></p>
+        <p class="note">Старт — один легионер. В каждой волне <b>1–5 врагов, одновременно не больше двух</b>. После босса пятой волны улучшите поселение: откроются башня и выбор защитника — <b>лучник по одной цели или катапульта по площади</b>.</p>
+        <p class="note">«Залп» можно докупить после третьей волны за <b>20 монет</b>. Активация: кнопка, пробел или нажатие на центуриона. Покупка необязательна.</p>
+        <p class="note">Каждую волну легионер начинает с полным здоровьем бесплатно. Фермер производит еду; 3 побеждённых патрульных дают 1 монету. Ускорение <b>1× / 2× / 100×</b> влияет на бой и производство. Сохранений и дохода при закрытой игре пока нет.</p>
         <div class="scene-legend">
           <span><img src="assets/icons/orc-raider-head.png" alt="">ОРДА</span>
           <span><img src="assets/icons/legionary-head.png" alt="">РУБЕЖ</span>
           <span><img src="assets/icons/farmer-head.png" alt="">ДЕРЕВНЯ</span>
-          <span class="boss-legend"><img src="assets/icons/orc-brute-boss-head.png" alt="">БОСС · ВОЛНА 5</span>
+          <span class="boss-legend"><img src="assets/icons/orc-brute-boss-head.png" alt="">БОССЫ · 5 И 10</span>
         </div>
         <p class="note">Проверка полного цикла: <b>подготовка → конечная волна → награда → улучшение</b>. На пятой волне приходит громила.
         </p>

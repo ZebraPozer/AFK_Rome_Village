@@ -1,79 +1,92 @@
-# AFK Rome Village — browser prototype
+# AFK Rome Village — объединённый прототип
 
-Run from the project directory:
+Запуск из корня проекта:
 
 ```sh
 python3 -m http.server 4173 --bind 127.0.0.1 --directory prototype
 ```
 
-Open http://127.0.0.1:4173. No build, installation, backend or account is required.
+Откройте http://127.0.0.1:4173. Установка зависимостей и сборка не нужны.
 
-## Current loop and town progression
+## Игровой цикл
 
-The player starts each wave manually. The guard fights automatically, the farmer
-produces food every three seconds, and ambient patrols provide slow coin income.
-Every wave and retry restores guard health for free. Recovery between fights is
-free too. Food upgrades the guard; coins upgrade the farm and spikes.
+Старт: один боевой персонаж — легионер, фермер и открытое поле без дома. Игрок сам запускает
+волны, легионер сражается автоматически. Ферма производит еду каждые три секунды.
+Еда улучшает легионера, монеты — ферму, шипы и защитников башни.
 
-Town I starts with one farmhouse and no archer or tower. Guard and farm upgrades
-cap at level 5. Spikes unlock after wave three and cap at level 2. Ordinary wave
-victories do not increase these caps. AFK wealth cannot bypass the town tier.
+Десять волн содержат соответственно 1, 2, 2, 3, 4, 4, 4, 4, 5 и 5 врагов.
+Одновременно живы не больше двух врагов волны. Между появлениями минимум четыре
+секунды; боссы пятой и десятой волн входят после гибели остальных.
+Первая половина сохраняет прежние составы, скорость орков и калибровку боя.
 
-Defeating the wave-five boss unlocks a free town upgrade button. Town II adds a
-second house, a tower and an archer without another purchase or a new currency.
-The guard/farm/spikes caps increase to 10/10/4. Repeated clicks or rewards cannot
-claim another tier. Reset restores town I and removes the archer and tower.
-The archer fires one damage every 3.6 seconds and can fight ambient patrols after
-the finale. Wave six and later town tiers are not implemented yet.
+После третьей волны открываются шипы и возможность купить «Залп» за 20 монет.
+Это разовая необязательная покупка за игровую валюту; героя нельзя получить
+бесплатно улучшением поселения. После покупки появляется центурион.
+Кнопка, пробел (кроме ввода и фокуса на кнопке) или нажатие на центуриона запускают
+дождь стрел в зоне перед легионером. Перезарядка — 18 секунд; на паузе способность
+не запускается. Покупки во время волны заблокированы.
 
-First victories award `6 + 3 * wave` coins plus enemy kill rewards, with no food
-bonus. Three ambient patrol kills award one coin. The first wave pays 11 coins
-including its kill, enough for the first farm upgrade (6 coins).
-Saving and income while the browser is closed are not implemented yet.
-Pause, reset and 1x/100x simulation controls are available.
+Победа над боссом пятой волны открывает бесплатное улучшение поселения II:
+первый дом, жители, башня, лучник и катапульта. Это улучшение необходимо для
+перехода к шестой волне. Башня имеет один слот: между волнами можно бесплатно
+переключать лучника (быстрые точечные выстрелы, приоритет вражеских стрелков)
+и катапульту (медленные удары по площади с минимальной дальностью).
+У каждого защитника свои улучшения. После шамана десятой волны можно бесплатно
+улучшить поселение III: вилла, мельница и дополнительные жители.
 
-## Wave difficulty
+Ограничения прокачки: легионер и ферма — 5/10/15 по уровню поселения;
+шипы — 2/4/6 после третьей волны; лучник и катапульта — 5/10 в поселениях II/III.
+Накопление ресурсов само по себе не открывает новые уровни поселения.
+Отладочная кнопка «Деревня» меняет только внешний вид, сброс возвращает обычный рост.
 
-The five playable waves contain 1, 2, 2, 3 and 4 enemies, respectively; the last
-includes the boss. Spawns are at least four seconds apart, at most two enemies
-are alive at once, and the boss enters after the others are defeated. Waves
-6–10 are not playable yet; the fallback roster has only four enemies, within
-the early-game limit of five. Wave one has fixed stats; later waves scale enemy
-HP and attack from the wave number and permanent combat upgrades.
+## Бой и награды
 
-With `s = wave - 1` and `d = guard DPS / starting guard DPS`:
+Каждая попытка начинается с полным здоровьем бесплатно. После боя легионер
+восстанавливается за несколько секунд, когда на поле нет живых врагов.
+При его гибели волна проиграна, улучшения сохраняются, повтор доступен сразу.
+Ворота как отдельная шкала из версии Клода не возвращены.
 
-- HP multiplier: `(1 + 0.3s + 0.06s²) × (1 + 0.35(√d − 1) + 0.12 × spikesLevel^0.75) × roster tuning`.
-- Attack multiplier: `(1 + 0.12s) × (maxGuardHp / 100)^0.25`.
+За первую победу начисляется `6 + 3 × номер волны` монет, дополнительно к наградам
+за убитых врагов. Повторное начисление награды исключено. Три убитых фоновых
+патрульных дают одну монету. Патрули используют базовые характеристики.
 
-Roster HP tuning for waves 1–5 is `9.8325, 5.4, 4.69, 2.96, 0.702` (wave one
-uses its value directly). Small groups have enough HP to pose a threat. If
-the guard falls and the wave passes the defense, the attempt fails even when
-the gate survives; enemies getting through never award a victory bonus.
+Во втором акте появляются гоблины, вражеские лучники и всадники. Гоблины
+проскакивают мимо легионера и крадут сначала монеты, затем еду. Щитоносцы получают
+половину урона стрел; броня уменьшает урон каждого попадания, кроме атак по площади.
+Внешность новых врагов пока использует перекрашенные исходные спрайты и рисованные детали.
 
-The adaptation grows more slowly than player power. Farm, gate, saved resources,
-current HP and time spent waiting do not increase difficulty. Each wave locks its
-multipliers on the first attempt and retains them on retries, so upgrading after
-a loss helps. Reset clears these snapshots. Ambient patrols keep their base stats.
-The panel previews the next wave's multipliers before launch.
+Сложность закрепляется на первой попытке волны: улучшения после поражения помогают.
+Экономика, запасы ресурсов и время ожидания не повышают сложность.
+Урон лучника — `0.75 × уровень`, катапульты — `3 + 2 × (уровень − 1)`;
+у них нет автоматического усиления вместе с HP врагов.
+«Залп» наносит `ceil(4 × множитель HP волны)` каждому противнику в зоне.
 
-Run the deterministic combat and difficulty checks with:
+Пауза, скорости 1×/2×/100× и сброс доступны в панели. Ускорение разбито на небольшие
+шаги симуляции, чтобы не пропускать удары. Сохранений и офлайн-дохода пока нет.
+
+## Проверка
 
 ```sh
 node prototype/tests/wave-balance.cjs
+node prototype/tools/balance-bot.cjs
 ```
 
-The deterministic farm/upgrade/play route ends with 31%, 37%, 40%, 36% and 22% guard
-HP across the five waves. Different purchases and preparation can change those
-outcomes; these are calibration results rather than guaranteed health values.
+Бот использует настоящие обработчики покупок и запуска волн. Проверяет десять волн
+без заклинания и с его покупкой, а также 2 и 10 минут фоновой прокачки.
+Исходные первые пять волн без «Залпа» заканчиваются примерно с 31%, 37%, 40%, 36%
+и 22% здоровья. В текущем детерминированном маршруте шаман побеждён с 10% здоровья
+без заклинания и примерно с 41% с ним. Это один маршрут покупок, не гарантия для
+любой сборки и не замена ручной проверки баланса.
 
-`node prototype/tools/balance-bot.cjs` runs a reproducible five-wave player:
-between waves it prioritizes the farm, buys available defenses and waits for
-enough food to bring the guard to the upcoming wave's level, then plays
-the real combat loop. The report includes preparation time and separate 2- and
-10-minute AFK purchase scenarios. The regression test requires this route to win with the
-guard (not the gate) at 10–40% HP after every wave. This is a tension band, not
-an exact 20% target, so purchases can still create visible advantages and combat
-does not feel secretly scripted to one result.
+Тесты также проверяют ограничения прогресса, отсутствие повторных наград,
+разовую оплату способности, перезарядку, роли защитников, смену слота,
+восстановление, сброс и очистку снарядов между волнами.
 
-The guard, raider and farmer sprites are extracted at runtime from the approved concept sheets. The boss uses a dedicated transparent production asset. Background removal is intentionally simple and local to this prototype. Production assets for Unreal should use clean transparent source files and a proper rig or sprite sequence.
+## Источники объединения
+
+Из текущего проекта сохранены небольшие волны, развитие через боссов, экономика
+патрулей, регенерация, иконки ресурсов, оригинальный лучник и бот балансировки.
+Из Test1.zip перенесены рисунок растущей деревни, очищенные спрайты, второй акт,
+роли врагов, башенный слот, катапульта и эффекты «Залпа».
+Документ Клода сохранён отдельно в `references/CLAUDE_GAME_DESIGN.md` как история
+его версии; актуальные решения описаны здесь и в конце `GAME_DESIGN.md`.
