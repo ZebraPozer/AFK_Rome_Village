@@ -52,7 +52,7 @@ function play({ waves = 5, spells = true, rotate = true } = {}) {
   run(`state.autoSpells = ${spells}`);
   const report = [];
   for (let wave = 1; wave <= waves; wave += 1) {
-    if (wave === 6) run("ui['town-upgrade'].onclick()");
+    run("ui['town-upgrade'].onclick(); for (const sys of SYSTEMS) unlockSystem(sys.id);");
     if (rotate) run("ui['auto-lineup'].onclick()");
     let preparationTicks = 0;
     shop(wave);
@@ -132,7 +132,7 @@ function session({ waves = 10, patience = 30, bossPatience = 60, recommendWait =
   const buyAll = () => {
     for (let round = 0; round < 50; round++) {
       const before = run('state.food + state.coins * 1000 + state.townLevel');
-      run("ui['town-upgrade'].onclick(); ui['guard-upgrade'].onclick(); ui['farm-upgrade'].onclick(); ui['spikes-upgrade'].onclick(); if (state.townLevel >= 2) { ui['archer-upgrade'].onclick(); ui['catapult-upgrade'].onclick(); } ui['auto-lineup'].onclick();");
+      run("ui['town-upgrade'].onclick(); for (const sys of SYSTEMS) unlockSystem(sys.id); ui['guard-upgrade'].onclick(); ui['farm-upgrade'].onclick(); ui['spikes-upgrade'].onclick(); if (state.townLevel >= 2) { ui['archer-upgrade'].onclick(); ui['catapult-upgrade'].onclick(); } ui['auto-lineup'].onclick();");
       if (run('state.food + state.coins * 1000 + state.townLevel') === before) break;
     }
   };

@@ -93,6 +93,8 @@ canvas { position: absolute; inset: 0; display: block; width: 100%; height: 100%
 .resources { height: var(--t); min-height: 44px; padding: 0 2.4cqh; align-items: center; gap: 3.6cqh; }
 .resources span { display: flex; align-items: center; gap: 1.2cqh; }
 .resources img { width: 5.2cqh; height: 5.2cqh; min-width: 18px; min-height: 18px; object-fit: contain; }
+.resources span[hidden] { display: none; }
+.resources .res-glyph { font-style: normal; font-size: 4.4cqh; line-height: 1; }
 .resources b { min-width: 6cqh; font: 700 3.8cqh/1 system-ui, sans-serif; font-variant-numeric: tabular-nums; }
 
 /* Spells: tiles in a row; cooldown fills from the bottom. */

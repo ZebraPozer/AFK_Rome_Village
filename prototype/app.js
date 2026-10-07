@@ -13,7 +13,8 @@ const ui = Object.fromEntries([
   'village-stage','town-upgrade','town-level','town-cost','sound-toggle','sound-volume',
   'hud-pause','hud-sound','hud-wave','hud-speed','hud-upgrade','hud-panel',
   'hud-tab-upgrades','hud-tab-heroes','hud-close',
-  'away','away-time','away-food','away-gold','away-cap','away-collect','hint','hud-upgrades','hud-heroes','hud-lineup','hud-auto-lineup'
+  'away','away-time','away-food','away-gold','away-cap','away-collect','hint',
+  'trophies','eagles','trophy-pill','eagle-pill','hud-upgrades','hud-heroes','hud-lineup','hud-auto-lineup'
 ].map((id) => [id, document.getElementById(id)]));
 
 // Runtime sprites are pre-cut, web-sized copies built from art/ by tools/build_assets.py.
@@ -250,6 +251,9 @@ const state = {
   blessFx: 0,
   hornFx: 0,
   hintsSeen: [],
+  trophies: 0,
+  eagles: 0,
+  systems: [],
   towerFx: 0,
   wavePlan: [],
   waveDifficulties: {},
@@ -283,7 +287,7 @@ const GROWTH_BANNER = 3.2;
 
 function computeVillageStage() {
   if (state.stageOverride) return state.stageOverride;
-  return state.townLevel;
+  return Math.min(3, state.townLevel); // three drawn stages so far; more need modular art
 }
 
 function removeConnectedBackground(image, type) {
@@ -479,7 +483,7 @@ function spawnMob(type = 'orc', countsForWave = true) {
 }
 
 function startWave() {
-  if (state.phase === 'wave' || state.phase === 'complete' || (state.wave > 5 && state.townLevel < 2)) return;
+  if (state.phase === 'wave' || state.phase === 'complete' || state.townLevel < requiredTown(state.wave)) return;
   if (state.phase === 'defeat') markHint('defeat');
   clearProjectiles();
   state.attackCooldown = 0;
@@ -709,13 +713,14 @@ function nextWaveInfo(next) {
 }
 
 // Every first clear gets its own small moment; bosses get a big one.
-function announceVictory(reward) {
+function announceVictory(reward, loot) {
   const boss = buildWavePlan(state.wave).find((type) => enemyTypes[type]?.isBoss);
   const next = state.wave + 1;
-  const after = state.phase === 'complete' ? 'Every wave held — the frontier is safe'
-    : state.wave === 5 && state.townLevel < 2 ? 'Upgrade your town to continue · open Upgrades'
+  const lootText = loot ? `+${loot.trophies} trophy${loot.trophies > 1 ? 'ies' : ''}${loot.eagles ? ` · +${loot.eagles} eagle` : ''} · ` : '';
+  const after = lootText + (state.phase === 'complete' ? 'Every wave held — the frontier is safe'
+    : canUpgradeTown() ? 'Raise your village in Upgrades'
     : state.wave === 3 ? 'Spikes unlocked · build them in Upgrades'
-    : nextWaveInfo(next);
+    : nextWaveInfo(next));
   if (boss) showNotice('BOSS DEFEATED', `${wavePreviewNames[boss].toUpperCase()} FALLS · +${reward} GOLD`, after);
   else showNotice(`WAVE ${state.wave} CLEARED`, `+${reward} GOLD`, after);
 }
@@ -729,7 +734,12 @@ function finishWave() {
   state.coins += reward;
   if (reward) state.floaters.push({ kind: 'reward', amount: reward, x: 585, life: 1.8, duration: 1.8 });
   sfx('fanfare', reward > 0);
-  if (reward) announceVictory(reward);
+  const loot = reward ? bossReward(state.wave) : null;
+  if (loot) {
+    state.trophies += loot.trophies;
+    state.eagles += loot.eagles;
+  }
+  if (reward) announceVictory(reward, loot);
   state.patrolTimer = 5;
   clearProjectiles();
   applyWaveFatigue();
@@ -751,9 +761,9 @@ function applyUnlocks() {
     state.heroes.archer.cd = 0;
     showNotice('TOWN II', 'NEW HERO · ARCHER', 'Tower slot: Archer with Volley, or the Catapult · key 2');
   }
-  if (state.townLevel >= 3 && !state.heroes.priestess.unlocked) {
+  if (state.townLevel >= 4 && !state.heroes.priestess.unlocked) {
     state.supportHero = 'priestess';
-    unlockHero('priestess', 'TOWN III', 'Third slot: Wall · Blessing heals the frontline · key 3');
+    unlockHero('priestess', 'VILLAGE 4', 'Third slot: Wall · Blessing heals the frontline · key 3');
   }
 }
 function showNotice(kicker, title, subtitle) {
@@ -860,7 +870,7 @@ function freshHeroes() {
 function slotUnlocked(role) {
   if (role === 'front') return true;
   if (role === 'tower') return state.archerUnlocked || state.catapultUnlocked;
-  return state.townLevel >= 3;
+  return state.townLevel >= 4;
 }
 
 function slotHero(role) {
@@ -1232,7 +1242,7 @@ function resetGame() {
     waveTotal: 0, spawned: 0, defeated: 0, archerUnlocked: false, wavePlan: [], waveDifficulties: {},
     archerLevel: 0, archerCooldown: 0, arrows: [], volleyFx: 0, volleyDamage: 0, shake: 0,
     towerSlot: null, catapultUnlocked: false, catapultLevel: 0, catapultCooldown: 0, rocks: [], enemyShots: [], dust: [], notice: null, towerFx: 0,
-    heroes: freshHeroes(), frontHero: 'legionary', supportHero: null, autoSpells: false, holdLine: 0, bashFx: 0, blessFx: 0, hornFx: 0, hintsSeen: [],
+    heroes: freshHeroes(), frontHero: 'legionary', supportHero: null, autoSpells: false, holdLine: 0, bashFx: 0, blessFx: 0, hornFx: 0, hintsSeen: [], trophies: 0, eagles: 0, systems: [],
     mobs: [], spawnTimer: 0.6, patrolTimer: 4, patrolSpawned: 0, foodTimer: 3, attackCooldown: 0, attackTimer: 0,
     hitFlash: 0, floaters: [], time: 0, last: 0,
     wavesCleared: 0, villageStage: 1, stageOverride: null, growthFx: 0, growthBanner: 0
@@ -1267,12 +1277,61 @@ function collectKillReward(mob) {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Boss rewards (docs/META_LOOP.md): trophies raise the village level, eagles
+// unlock new systems. Every 5th wave is a mini-boss, every 10th a mega-boss.
+// ---------------------------------------------------------------------------
+const MAX_TOWN = 7;
+const SYSTEMS = [
+  { id: 'armory', name: 'Armory', icon: '⚒', wave: 10, text: 'Bosses drop gear for your heroes' },
+  { id: 'barracks', name: 'Barracks', icon: '⚑', wave: 20, text: 'Train heroes with food — levels without a cap' },
+  { id: 'temple', name: 'Temple', icon: '☉', wave: 30, text: 'Offerings to Mars, Ceres and Minerva' }
+];
+
+function bossReward(wave) {
+  if (wave % 10 === 0) return { trophies: 2, eagles: 1 };
+  if (wave % 5 === 0) return { trophies: 1, eagles: 0 };
+  return null;
+}
+
+// Village level L needs the boss of wave 5·(L−1) beaten and one trophy.
+function townWaveRequirement(level) {
+  return 5 * (level - 1);
+}
+
+// The village must keep up with the frontier: wave w needs village 1 + ⌊(w−1)/5⌋.
+function requiredTown(wave) {
+  return Math.min(MAX_TOWN, 1 + Math.floor((wave - 1) / 5));
+}
+
 function canUpgradeTown() {
-  return state.phase !== 'wave' && state.townLevel < 3 && state.wavesCleared >= state.townLevel * 5;
+  const next = state.townLevel + 1;
+  return state.phase !== 'wave' && state.townLevel < MAX_TOWN && state.trophies >= 1
+    && state.wavesCleared >= townWaveRequirement(next);
+}
+
+function systemUnlocked(id) {
+  return state.systems.includes(id);
+}
+
+function canUnlockSystem(id) {
+  const sys = SYSTEMS.find((item) => item.id === id);
+  return Boolean(sys) && !systemUnlocked(id) && state.phase !== 'wave' && state.eagles >= 1 && state.wavesCleared >= sys.wave;
+}
+
+function unlockSystem(id) {
+  if (!canUnlockSystem(id)) return false;
+  const sys = SYSTEMS.find((item) => item.id === id);
+  state.eagles -= 1;
+  state.systems.push(id);
+  showNotice('EAGLE OFFERED', `${sys.name.toUpperCase()} OPENED`, sys.text);
+  sfx('fanfare');
+  return true;
 }
 
 function upgradeTown() {
   if (!canUpgradeTown()) return;
+  state.trophies -= 1;
   state.townLevel += 1;
   applyUnlocks();
   syncUi();
@@ -2513,7 +2572,7 @@ function drawFrontHero(width, height, guardX, ground) {
 // Between waves the next attackers wait at the forest edge: the threat is always in view.
 function drawLurkingHorde(width, height) {
   if (state.phase === 'wave' || state.phase === 'complete') return;
-  if (state.phase === 'victory' && state.wave === 5 && state.townLevel < 2) return;
+  if (state.phase === 'victory' && state.townLevel < requiredTown(state.wave + 1)) return;
   const nextWave = state.phase === 'victory' ? state.wave + 1 : state.wave;
   const plan = buildWavePlan(nextWave);
   const ground = height * 0.82;
@@ -2911,7 +2970,7 @@ const HUD_R = 540 * 0.028;    // corner radius
 function drawWaveRoster(width) {
   if (!portraits.orc) return;
   // During a wave show what is attacking; between waves show what comes next.
-  const shownWave = state.phase === 'victory' && !(state.wave === 5 && state.townLevel < 2) ? state.wave + 1 : state.wave;
+  const shownWave = state.phase === 'victory' && !(state.townLevel < requiredTown(state.wave + 1)) ? state.wave + 1 : state.wave;
   const plan = state.phase === 'wave' && state.wavePlan.length ? state.wavePlan : buildWavePlan(shownWave);
   const counts = plan.reduce((result, type) => {
     result[type] = (result[type] || 0) + 1;
@@ -3223,7 +3282,8 @@ function syncHud() {
   ui['hud-tab-heroes'].classList.toggle('active', hud.tab === 'heroes');
 
   // Corner button: upgrades between waves, a lock during combat, a cross when open.
-  const affordable = hudUpgrades.filter((row) => (!row.show || row.show()) && !ui[row.button].disabled).length;
+  const affordable = hudUpgrades.filter((row) => (!row.show || row.show()) && !ui[row.button].disabled).length
+    + SYSTEMS.filter((sys) => canUnlockSystem(sys.id)).length;
   ui['hud-upgrade'].classList.toggle('active', hud.open);
   ui['hud-upgrade'].disabled = inWave;
   const upgradeHtml = inWave ? '<span>🔒</span><small>In battle</small>'
@@ -3237,14 +3297,20 @@ function syncHud() {
   const rows = hudUpgrades.filter((row) => !row.show || row.show()).map((row) => ({
     ...row, levelText: ui[row.level].textContent, costText: ui[row.cost].textContent, disabled: Boolean(ui[row.button].disabled)
   }));
+  // Systems bought with an eagle appear once their boss has been beaten.
+  for (const sys of SYSTEMS) {
+    if (systemUnlocked(sys.id) || state.wavesCleared < sys.wave) continue;
+    rows.unshift({ kind: `sys-${sys.id}`, icon: sys.icon, name: `Unlock ${sys.name}`, system: sys.id,
+      levelText: '1 🦅', costText: `${sys.text}`, disabled: !canUnlockSystem(sys.id) });
+  }
   const key = JSON.stringify(rows.map((row) => [row.kind, row.levelText, row.costText, row.disabled]));
   if (key !== hudUpgradesKey) {
     hudUpgradesKey = key;
-    ui['hud-upgrades'].innerHTML = rows.map((row) => `<button class="row" data-upgrade="${row.button}" ${row.disabled ? 'disabled' : ''}><i>${row.icon}</i><span><b>${row.name}</b><small>${row.costText}</small></span><em>${row.levelText}</em></button>`).join('');
+    ui['hud-upgrades'].innerHTML = rows.map((row) => `<button class="row" ${row.system ? `data-system="${row.system}"` : `data-upgrade="${row.button}"`} ${row.disabled ? 'disabled' : ''}><i>${row.icon}</i><span><b>${row.name}</b><small>${row.costText}</small></span><em>${row.levelText}</em></button>`).join('');
   }
 
   // Wave button: short labels for the phone.
-  const needsTown = state.phase === 'victory' && state.wave === 5 && state.townLevel < 2;
+  const needsTown = state.phase === 'victory' && state.townLevel < requiredTown(state.wave + 1);
   const left = state.waveTotal - state.defeated;
   ui['hud-wave'].disabled = inWave;
   const nextWave = state.phase === 'victory' ? state.wave + 1 : state.phase === 'complete' ? FINAL_WAVE : state.wave;
@@ -3266,8 +3332,12 @@ function syncHud() {
 }
 
 function syncUi() {
-  ui.food.textContent = state.food;
-  ui.coins.textContent = state.coins;
+  ui.food.textContent = formatNumber(state.food);
+  ui.coins.textContent = formatNumber(state.coins);
+  ui.trophies.textContent = state.trophies;
+  ui.eagles.textContent = state.eagles;
+  ui['trophy-pill'].hidden = state.trophies === 0 && state.townLevel < 2;
+  ui['eagle-pill'].hidden = state.eagles === 0 && state.systems.length === 0;
   ui.wave.textContent = state.wave;
   ui.kills.textContent = state.kills;
   ui['mob-count'].textContent = state.phase === 'wave' ? state.waveTotal - state.defeated : 0;
@@ -3316,16 +3386,18 @@ function syncUi() {
   for (const kind of ['guard', 'spikes', 'farm', 'archer', 'catapult']) {
     if (state[`${kind}Level`] >= upgradeLimit(kind)) {
       ui[`${kind}-cost`].textContent = kind === 'spikes' && state.wavesCleared < 3
-        ? 'Unlocks after wave 3' : state.townLevel === 3 ? 'Max level'
-        : `Needs Town ${state.townLevel + 1}`;
+        ? 'Unlocks after wave 3' : state.townLevel >= MAX_TOWN ? 'Max level'
+        : `Needs village ${state.townLevel + 1}`;
     }
   }
   ui['town-level'].textContent = `lv ${state.townLevel}`;
   ui['town-upgrade'].disabled = !canUpgradeTown();
-  ui['town-cost'].textContent = state.townLevel === 3 ? 'Town fully developed'
-    : canUpgradeTown() ? 'Free upgrade · new buildings and levels'
-    : `Defeat the wave ${state.townLevel * 5} boss`;
-  const needsTown = state.phase === 'victory' && state.wave === 5 && state.townLevel < 2;
+  const nextTownWave = townWaveRequirement(state.townLevel + 1);
+  ui['town-cost'].textContent = state.townLevel >= MAX_TOWN ? 'Village fully developed for now'
+    : canUpgradeTown() ? `1 trophy · village ${state.townLevel + 1}: higher caps, new buildings`
+    : state.wavesCleared < nextTownWave ? `Defeat the wave ${nextTownWave} boss for a trophy`
+    : 'Needs 1 trophy';
+  const needsTown = state.phase === 'victory' && state.townLevel < requiredTown(state.wave + 1);
   ui['wave-button'].disabled = state.phase === 'wave' || needsTown;
   ui['wave-button'].textContent = state.phase === 'defeat' ? '↻ Retry wave' : state.phase === 'victory' ? `⚑ Call wave ${state.wave + 1}` : state.phase === 'complete' ? `↻ Replay wave ${FINAL_WAVE} (no reward)` : `⚑ Call wave ${state.wave}`;
   if (needsTown) ui['wave-button'].textContent = '⌂ Upgrade the town first';
@@ -3374,7 +3446,7 @@ ui.speed.onclick = () => {
 };
 ui['town-upgrade'].onclick = upgradeTown;
 ui['wave-button'].onclick = () => {
-  if (state.phase === 'victory' && state.wave === 5 && state.townLevel < 2) return;
+  if (state.phase === 'victory' && state.townLevel < requiredTown(state.wave + 1)) return;
   if (state.phase === 'victory') state.wave += 1;
   // After the campaign the last wave stays replayable to try out the full lineup.
   if (state.phase === 'complete') state.phase = 'preparation';
@@ -3450,7 +3522,7 @@ const SAVED_FIELDS = [
   'townLevel', 'wave', 'phase', 'food', 'coins', 'kills', 'patrolKills',
   'guardLevel', 'maxGuardHp', 'spikesLevel', 'farmLevel',
   'archerUnlocked', 'archerLevel', 'catapultUnlocked', 'catapultLevel', 'towerSlot',
-  'wavesCleared', 'waveDifficulties', 'frontHero', 'supportHero', 'autoSpells', 'hintsSeen'
+  'wavesCleared', 'waveDifficulties', 'frontHero', 'supportHero', 'autoSpells', 'hintsSeen', 'trophies', 'eagles', 'systems'
 ];
 
 function serializeSave(now = Date.now()) {
@@ -3594,7 +3666,7 @@ ui['hud-pause'].onclick = () => ui.pause.onclick();
 ui['hud-sound'].onclick = () => ui['sound-toggle'].onclick();
 ui['hud-speed'].onclick = () => ui.speed.onclick();
 ui['hud-wave'].onclick = () => {
-  if (state.phase === 'victory' && state.wave === 5 && state.townLevel < 2) {
+  if (state.phase === 'victory' && state.townLevel < requiredTown(state.wave + 1)) {
     hud.tab = 'upgrades';
     setHudOpen(true);
     return;
@@ -3607,8 +3679,9 @@ ui['hud-close'].onclick = () => setHudOpen(false);
 ui['hud-tab-upgrades'].onclick = () => { hud.tab = 'upgrades'; };
 ui['hud-tab-heroes'].onclick = () => { hud.tab = 'heroes'; markHint('heroes'); };
 ui['hud-upgrades'].onclick = (event) => {
-  const row = event.target.closest && event.target.closest('[data-upgrade]');
-  if (row) ui[row.dataset.upgrade].onclick();
+  const row = event.target.closest && event.target.closest('[data-upgrade], [data-system]');
+  if (row && row.dataset.system) unlockSystem(row.dataset.system);
+  else if (row) ui[row.dataset.upgrade].onclick();
 };
 ui['hud-lineup'].onclick = (event) => ui.lineup.onclick(event);
 ui['hud-auto-lineup'].onclick = () => autoLineup();

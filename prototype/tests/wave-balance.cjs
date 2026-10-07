@@ -97,7 +97,7 @@ assert.equal(run('state.farmLevel'), 5);
 assert.equal(run('canUpgrade("gate")'), false);
 assert.equal(run('state.spikesLevel'), 0);
 run('syncUi()');
-assert.match(elements.get('guard-cost').textContent, /Town/);
+assert.match(elements.get('guard-cost').textContent, /village/);
 run('state.food = 0; state.coins = 0; finishWave()');
 assert.equal(run('state.food'), 0, 'Victory does not replace farm production');
 assert.equal(run('state.coins'), 9);
@@ -235,17 +235,35 @@ assert.equal(run('hurtGuard(10, 600)'), 3, '«Удержать строй» cuts
 run('state.mobs = []; failWave()');
 assert.equal(run('state.holdLine'), 0);
 
-// Town III adds the wall slot with the priestess.
-run('resetGame(); state.wave = 5; finishWave(); upgradeTown(); state.wave = 10; finishWave(); upgradeTown(); syncUi()');
+// Village 4 adds the wall slot with the priestess.
+run('resetGame(); state.wavesCleared = 15; state.trophies = 3; upgradeTown(); upgradeTown(); syncUi()');
+assert.equal(run('state.townLevel'), 3);
+assert.equal(run('activeHeroes().join()'), 'legionary,archer', 'No wall slot before village 4');
+run('upgradeTown(); syncUi()');
+assert.equal(run('state.townLevel'), 4);
 assert.equal(run('activeHeroes().join()'), 'legionary,archer,priestess');
 assert.match(elements.get('lineup').innerHTML, /Priestess/);
 run('state.guardHp = 50; state.maxGuardHp = 200; state.heroes.priestess.cd = 0;');
 assert.equal(run('castSpell("priestess")'), true);
-assert.equal(run('state.guardHp'), 130, '«Благословение» heals 40% of max HP');
-assert.equal(run('state.phase'), 'complete');
-run("ui['wave-button'].onclick()");
-assert.equal(run('state.phase'), 'wave', 'Wave 10 stays replayable after the campaign');
-assert.equal(run('state.wave'), 10);
+assert.equal(run('state.guardHp'), 130, 'Blessing heals 40% of max HP');
+
+// Boss rewards: trophies raise the village, eagles open systems.
+run('resetGame(); state.wave = 4; finishWave();');
+assert.equal(run('state.trophies'), 0, 'Ordinary waves give no trophy');
+run('state.wave = 5; finishWave();');
+assert.equal(run('state.trophies + "/" + state.eagles'), '1/0', 'Mini-boss: 1 trophy');
+run('finishWave();');
+assert.equal(run('state.trophies'), 1, 'A boss pays its trophy only once');
+run('state.wave = 10; state.wavesCleared = 9; finishWave();');
+assert.equal(run('state.trophies + "/" + state.eagles'), '3/1', 'Mega-boss: 2 trophies + 1 eagle');
+run('upgradeTown(); upgradeTown(); upgradeTown();');
+assert.equal(run('state.townLevel'), 3, 'Village 4 also needs the wave 15 boss');
+assert.equal(run('state.trophies'), 1, 'Each village level costs one trophy');
+assert.equal(run('requiredTown(11)'), 3, 'Wave 11 needs village 3');
+assert.equal(run('unlockSystem("barracks")'), false, 'Barracks needs the wave 20 boss');
+assert.equal(run('unlockSystem("armory")'), true);
+assert.equal(run('state.eagles'), 0);
+assert.equal(run('unlockSystem("armory")'), false, 'A system unlocks once');
 
 // Enemy traits and the two defender roles use different damage rules.
 run('resetGame(); spawnMob("orcShield"); spawnMob("boar");');
@@ -274,11 +292,11 @@ assert.ok(fullCampaign.some((result) => result.lineup.includes('hoplite')), 'Bot
 const noRotation = require('../tools/balance-bot.cjs').play({ waves: 10, rotate: false });
 assert.equal(noRotation.at(-1).phase, 'complete', 'Rotation is an advantage, not a requirement');
 assert.ok(fullCampaign.at(-1).hpRatio > noRotation.at(-1).hpRatio, 'Rotation creates a real advantage');
-run('resetGame(); state.wavesCleared = 10; state.townLevel = 2; upgradeTown(); update(0.01, 1170);');
+run('resetGame(); state.wavesCleared = 10; state.townLevel = 2; state.trophies = 2; upgradeTown(); update(0.01, 1170);');
 assert.equal(run('state.townLevel'), 3);
 assert.equal(run('state.villageStage'), 3);
 run('upgradeTown()');
-assert.equal(run('state.townLevel'), 3, 'Final town upgrade is idempotent');
+assert.equal(run('state.townLevel'), 3, 'Village 4 waits for the wave 15 boss');
 console.log('Hero spells, slots, rotation, damage roles, full campaign, town growth and projectile isolation passed.');
 
 // Save / load and offline income.
