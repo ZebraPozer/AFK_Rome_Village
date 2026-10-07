@@ -13,7 +13,7 @@ const ui = Object.fromEntries([
   'village-stage','town-upgrade','town-level','town-cost','sound-toggle','sound-volume',
   'hud-pause','hud-sound','hud-wave','hud-speed','hud-upgrade','hud-panel',
   'hud-tab-upgrades','hud-tab-heroes','hud-close',
-  'away','away-time','away-food','away-gold','away-cap','away-collect','hud-upgrades','hud-heroes','hud-lineup','hud-auto-lineup'
+  'away','away-time','away-food','away-gold','away-cap','away-collect','hint','hud-upgrades','hud-heroes','hud-lineup','hud-auto-lineup'
 ].map((id) => [id, document.getElementById(id)]));
 
 // Runtime sprites are pre-cut, web-sized copies built from art/ by tools/build_assets.py.
@@ -249,6 +249,7 @@ const state = {
   bashFx: 0,
   blessFx: 0,
   hornFx: 0,
+  hintsSeen: [],
   towerFx: 0,
   wavePlan: [],
   waveDifficulties: {},
@@ -479,6 +480,7 @@ function spawnMob(type = 'orc', countsForWave = true) {
 
 function startWave() {
   if (state.phase === 'wave' || state.phase === 'complete' || (state.wave > 5 && state.townLevel < 2)) return;
+  if (state.phase === 'defeat') markHint('defeat');
   clearProjectiles();
   state.attackCooldown = 0;
   state.attackTimer = 0;
@@ -499,6 +501,8 @@ function startWave() {
   state.holdLine = 0;
   prepareHeroesForWave();
   state.hornFx = HORN_TIME;
+  markHint('call');
+  if (isBossWave(state.wave)) markHint('boss');
   state.shake = Math.max(state.shake, 0.2);
   playHorn();
   ui.pause.textContent = 'Ⅱ Pause';
@@ -696,6 +700,26 @@ function unlockAudio() {
   if (ac && ac.state === 'suspended') ac.resume();
 }
 
+function isBossWave(wave) {
+  return buildWavePlan(wave).some((type) => enemyTypes[type]?.isBoss);
+}
+
+function nextWaveInfo(next) {
+  return `${isBossWave(next) ? `Next: BOSS (wave ${next})` : `Next: wave ${next}`} · frontline lv ${recommendedLevel(next)} recommended`;
+}
+
+// Every first clear gets its own small moment; bosses get a big one.
+function announceVictory(reward) {
+  const boss = buildWavePlan(state.wave).find((type) => enemyTypes[type]?.isBoss);
+  const next = state.wave + 1;
+  const after = state.phase === 'complete' ? 'Every wave held — the frontier is safe'
+    : state.wave === 5 && state.townLevel < 2 ? 'Upgrade your town to continue · open Upgrades'
+    : state.wave === 3 ? 'Spikes unlocked · build them in Upgrades'
+    : nextWaveInfo(next);
+  if (boss) showNotice('BOSS DEFEATED', `${wavePreviewNames[boss].toUpperCase()} FALLS · +${reward} GOLD`, after);
+  else showNotice(`WAVE ${state.wave} CLEARED`, `+${reward} GOLD`, after);
+}
+
 function finishWave() {
   state.regenDelay = 0.35;
   state.phase = state.wave === FINAL_WAVE ? 'complete' : 'victory';
@@ -705,6 +729,7 @@ function finishWave() {
   state.coins += reward;
   if (reward) state.floaters.push({ kind: 'reward', amount: reward, x: 585, life: 1.8, duration: 1.8 });
   sfx('fanfare', reward > 0);
+  if (reward) announceVictory(reward);
   state.patrolTimer = 5;
   clearProjectiles();
   applyWaveFatigue();
@@ -749,6 +774,12 @@ function failWave() {
   clearProjectiles();
   state.guardHp = Math.ceil(state.maxGuardHp * 0.3);
   state.holdLine = 0;
+  const rec = recommendedLevel(state.wave);
+  state.notice = null; // the defeat message replaces anything queued
+  showNotice('DEFEAT', `${frontName().toUpperCase()} FELL`, state.guardLevel < rec
+    ? `Upgrade the frontline to lv ${rec}, then retry`
+    : state.townLevel < 2 ? 'Build spikes and time your Bash, then retry'
+    : 'Upgrade the tower or spikes and use your spells, then retry');
   applyWaveFatigue();
 }
 
@@ -963,6 +994,7 @@ function castSpell(id, width = 1170) {
     target.knock = boss ? 40 : BASH_KNOCK;
     target.attackCooldown = Math.max(target.attackCooldown, target.stun);
     state.bashFx = 0.4;
+    markHint('bash');
     sfx('bash');
     state.shake = Math.max(state.shake, 0.18);
     state.floaters.push({ kind: 'bash', amount: Math.round(dealt * 10) / 10, x: guardX - 60, life: 1.2, duration: 1.2 });
@@ -1200,7 +1232,7 @@ function resetGame() {
     waveTotal: 0, spawned: 0, defeated: 0, archerUnlocked: false, wavePlan: [], waveDifficulties: {},
     archerLevel: 0, archerCooldown: 0, arrows: [], volleyFx: 0, volleyDamage: 0, shake: 0,
     towerSlot: null, catapultUnlocked: false, catapultLevel: 0, catapultCooldown: 0, rocks: [], enemyShots: [], dust: [], notice: null, towerFx: 0,
-    heroes: freshHeroes(), frontHero: 'legionary', supportHero: null, autoSpells: false, holdLine: 0, bashFx: 0, blessFx: 0, hornFx: 0,
+    heroes: freshHeroes(), frontHero: 'legionary', supportHero: null, autoSpells: false, holdLine: 0, bashFx: 0, blessFx: 0, hornFx: 0, hintsSeen: [],
     mobs: [], spawnTimer: 0.6, patrolTimer: 4, patrolSpawned: 0, foodTimer: 3, attackCooldown: 0, attackTimer: 0,
     hitFlash: 0, floaters: [], time: 0, last: 0,
     wavesCleared: 0, villageStage: 1, stageOverride: null, growthFx: 0, growthBanner: 0
@@ -1246,8 +1278,21 @@ function upgradeTown() {
   syncUi();
 }
 
+// Presentation timers run on real time, so banners stay readable at 2× and 100×.
+function tickPresentation(delta) {
+  state.growthFx = Math.max(0, state.growthFx - delta);
+  state.growthBanner = Math.max(0, state.growthBanner - delta);
+  if (state.notice) {
+    state.notice.t -= delta;
+    if (state.notice.t <= 0) state.notice = state.notice.next || null;
+  }
+  state.towerFx = Math.max(0, state.towerFx - delta);
+  state.hornFx = Math.max(0, state.hornFx - delta);
+}
+
 function update(delta, width, simulationStep = false) {
   if (!state.running) return;
+  if (!simulationStep) tickPresentation(delta);
   if (!simulationStep && state.speed > 1) {
     let remaining = delta * state.speed;
     while (remaining > 1e-9 && state.running) {
@@ -1266,14 +1311,7 @@ function update(delta, width, simulationStep = false) {
   state.attackCooldown = Math.max(0, state.attackCooldown - dt);
   state.attackTimer = Math.max(0, state.attackTimer - dt);
   state.hitFlash = Math.max(0, state.hitFlash - dt);
-  state.growthFx = Math.max(0, state.growthFx - delta);
-  state.growthBanner = Math.max(0, state.growthBanner - delta);
-  if (state.notice) {
-    state.notice.t -= delta;
-    if (state.notice.t <= 0) state.notice = state.notice.next || null;
-  }
-  state.towerFx = Math.max(0, state.towerFx - delta);
-  state.hornFx = Math.max(0, state.hornFx - delta);
+
   if (state.autoSpells && state.running) autoCastSpells(width);
   const nextStage = computeVillageStage();
   if (nextStage !== state.villageStage) {
@@ -1293,6 +1331,11 @@ function update(delta, width, simulationStep = false) {
       && activeWaveMobs < (nextIsBoss ? 1 : 2)) {
     const nextType = state.wavePlan[state.spawned] || 'orc';
     spawnMob(nextType);
+    if (enemyTypes[nextType]?.isBoss && state.notice?.kicker !== 'BOSS') {
+      showNotice('BOSS', `${(wavePreviewNames[nextType] || 'Boss').toUpperCase()} APPEARS`, 'Hold the line and use your spells!');
+      state.shake = Math.max(state.shake, 0.4);
+      sfx('horn');
+    }
     state.spawned += 1;
     state.spawnTimer = 4;
   }
@@ -2754,10 +2797,41 @@ function drawActBanner(width) {
 // One banner position for every message: under the roster with the HUD margin,
 // centred in the area the upgrades panel leaves free.
 const BANNER_SURFACE = 'rgba(22, 28, 24, 0.92)';
+function activeBoss() {
+  return state.phase === 'wave' ? state.mobs.find((mob) => !mob.dead && mob.countsForWave && enemyTypes[mob.type]?.isBoss) : null;
+}
+
+// Big boss health bar right under the roster.
+function drawBossBar(width) {
+  const boss = activeBoss();
+  if (!boss) return;
+  const w = 380;
+  const x = width / 2 - w / 2;
+  const y = HUD_M + HUD_T + 10;
+  ctx.save();
+  roundedRect(x, y, w, 20, 10, HUD_SURFACE);
+  const ratio = Math.max(0, boss.hp / boss.maxHp);
+  if (ratio > 0) roundedRect(x + 3, y + 3, Math.max(14, (w - 6) * ratio), 14, 7, '#d24a32');
+  ctx.fillStyle = HUD_TEXT; ctx.font = '700 10px system-ui, sans-serif'; ctx.textBaseline = 'middle';
+  ctx.textAlign = 'left'; ctx.fillText((wavePreviewNames[boss.type] || 'Boss').toUpperCase(), x + 12, y + 10.5);
+  ctx.textAlign = 'right'; ctx.fillText(`${formatNumber(Math.ceil(boss.hp))} / ${formatNumber(boss.maxHp)}`, x + w - 12, y + 10.5);
+  ctx.restore();
+}
+
+// 1234 → 1.2K, 3 400 000 → 3.4M (idle-style big numbers).
+function formatNumber(value) {
+  const n = Math.floor(value);
+  if (Math.abs(n) < 10000) return String(n);
+  const units = ['K', 'M', 'B', 'T', 'Qa', 'Qi'];
+  let v = n; let i = -1;
+  while (Math.abs(v) >= 1000 && i < units.length - 1) { v /= 1000; i += 1; }
+  return `${v >= 100 ? v.toFixed(0) : v.toFixed(1)}${units[i]}`;
+}
+
 function bannerSlot(width) {
   const panelLeft = width - HUD_M * 1.6 - width * 0.34;
   const centre = typeof hud !== 'undefined' && hud.open ? panelLeft / 2 : width / 2;
-  return { x: centre, y: HUD_M + HUD_T + HUD_M + 32 };
+  return { x: centre, y: HUD_M + HUD_T + HUD_M + 32 + (activeBoss() ? 26 : 0) };
 }
 
 function drawForegroundFoliage(width, height) {
@@ -3011,6 +3085,7 @@ function drawScene(width, height) {
   }
   drawDangerOverlay(width, height);
   drawWaveRoster(width);
+  drawBossBar(width);
   drawFloaters(height);
   drawActBanner(width);
 }
@@ -3089,6 +3164,52 @@ function setHudOpen(open) {
   hud.open = open && state.phase !== 'wave';
 }
 
+// ---------------------------------------------------------------------------
+// First-minute hints: one at a time, each shown until the player does the thing.
+// ---------------------------------------------------------------------------
+const hints = [
+  { id: 'call', target: 'hud-wave', text: 'Tap to call the first wave',
+    show: () => state.phase === 'preparation' && state.wavesCleared === 0 && state.wave === 1 },
+  { id: 'bash', target: 'spell-bar', text: 'Orc in reach — tap Bash to stun it',
+    show: () => state.phase === 'wave' && state.frontHero === 'legionary' && !spellBlocked('legionary') },
+  { id: 'upgrade', target: 'hud-upgrade', text: 'Spend food: upgrade your Frontline',
+    show: () => state.phase !== 'wave' && state.wavesCleared >= 1 && !ui['guard-upgrade'].disabled && !hud.open },
+  { id: 'defeat', target: 'hud-upgrade', text: 'Lost? Upgrade, then retry the wave',
+    show: () => state.phase === 'defeat' && !hud.open },
+  { id: 'boss', target: 'hud-wave', text: 'Boss next! Reach the recommended level first',
+    show: () => state.phase === 'victory' && isBossWave(state.wave + 1) && !hud.open },
+  { id: 'heroes', target: 'hud-upgrade', text: 'New hero! Swap heroes in Upgrades → Heroes',
+    show: () => state.heroes.hoplite.unlocked && state.phase !== 'wave' && !hud.open }
+];
+
+function markHint(id) {
+  if (!state.hintsSeen.includes(id)) state.hintsSeen.push(id);
+}
+
+function currentHint() {
+  if (ui.away && ui.away.hidden === false) return null;
+  return hints.find((hint) => !state.hintsSeen.includes(hint.id) && hint.show()) || null;
+}
+
+function syncHint() {
+  const hint = currentHint();
+  const el = ui.hint;
+  el.hidden = !hint;
+  if (!hint) return;
+  if (el.dataset) el.dataset.id = hint.id;
+  if (el.textContent !== hint.text) el.textContent = hint.text;
+  const card = canvas.parentElement;
+  let target = ui[hint.target];
+  if (hint.target === 'spell-bar' && target && target.querySelector) target = target.querySelector('.spell') || target;
+  if (!card || !target || typeof target.getBoundingClientRect !== 'function') return;
+  const c = card.getBoundingClientRect();
+  const t = target.getBoundingClientRect();
+  const x = Math.min(c.width - 120, Math.max(120, t.left - c.left + t.width / 2));
+  el.style.left = `${x}px`;
+  el.style.bottom = `${c.bottom - t.top + 12}px`;
+  el.style.setProperty('--arrow', `${t.left - c.left + t.width / 2 - x}px`);
+}
+
 function syncHud() {
   const inWave = state.phase === 'wave';
   if (inWave) hud.open = false;
@@ -3125,16 +3246,22 @@ function syncHud() {
   const needsTown = state.phase === 'victory' && state.wave === 5 && state.townLevel < 2;
   const left = state.waveTotal - state.defeated;
   ui['hud-wave'].disabled = inWave;
-  ui['hud-wave'].textContent = inWave ? `⚔ ${left} left`
+  const nextWave = state.phase === 'victory' ? state.wave + 1 : state.phase === 'complete' ? FINAL_WAVE : state.wave;
+  const boss = isBossWave(nextWave);
+  const title = inWave ? `⚔ ${left} left`
     : needsTown ? '⌂ Upgrade town'
     : state.phase === 'defeat' ? `↻ Retry wave ${state.wave}`
-    : state.phase === 'victory' ? `⚑ Wave ${state.wave + 1}`
-    : state.phase === 'complete' ? `↻ Wave ${FINAL_WAVE}`
-    : `⚑ Wave ${state.wave}`;
+    : `${state.phase === 'complete' ? '↻' : boss ? '☠' : '⚑'} ${boss ? 'Boss · wave' : 'Wave'} ${nextWave}`;
+  const rec = recommendedLevel(nextWave);
+  const sub = inWave || needsTown ? '' : `<small class="${state.guardLevel >= rec ? 'ok' : 'low'}">Frontline lv ${rec} ${state.guardLevel >= rec ? '✓' : 'recommended'}</small>`;
+  const waveHtml = `<span>${title}</span>${sub}`;
+  if (hud.waveHtml !== waveHtml) { hud.waveHtml = waveHtml; ui['hud-wave'].innerHTML = waveHtml; }
+  ui['hud-wave'].classList.toggle('boss', boss && !inWave);
   ui['hud-wave'].classList.toggle('ready', !inWave && !needsTown && !hud.open);
   ui['hud-speed'].textContent = `${state.speed}×`;
   ui['hud-pause'].textContent = state.running ? 'Ⅱ' : '▶';
   ui['hud-sound'].textContent = sound.enabled ? '🔊' : '🔈';
+  syncHint();
 }
 
 function syncUi() {
@@ -3257,6 +3384,7 @@ ui['guard-upgrade'].onclick = () => {
   const price = guardUpgradePrice();
   if (state.phase !== 'wave' && state.food >= price) {
     state.food -= price; state.guardLevel += 1; state.maxGuardHp += 20;
+    markHint('upgrade');
   }
 };
 ui['spikes-upgrade'].onclick = () => {
@@ -3321,7 +3449,7 @@ const SAVED_FIELDS = [
   'townLevel', 'wave', 'phase', 'food', 'coins', 'kills', 'patrolKills',
   'guardLevel', 'maxGuardHp', 'spikesLevel', 'farmLevel',
   'archerUnlocked', 'archerLevel', 'catapultUnlocked', 'catapultLevel', 'towerSlot',
-  'wavesCleared', 'waveDifficulties', 'frontHero', 'supportHero', 'autoSpells'
+  'wavesCleared', 'waveDifficulties', 'frontHero', 'supportHero', 'autoSpells', 'hintsSeen'
 ];
 
 function serializeSave(now = Date.now()) {
@@ -3476,7 +3604,7 @@ ui['hud-wave'].onclick = () => {
 ui['hud-upgrade'].onclick = () => setHudOpen(!hud.open);
 ui['hud-close'].onclick = () => setHudOpen(false);
 ui['hud-tab-upgrades'].onclick = () => { hud.tab = 'upgrades'; };
-ui['hud-tab-heroes'].onclick = () => { hud.tab = 'heroes'; };
+ui['hud-tab-heroes'].onclick = () => { hud.tab = 'heroes'; markHint('heroes'); };
 ui['hud-upgrades'].onclick = (event) => {
   const row = event.target.closest && event.target.closest('[data-upgrade]');
   if (row) ui[row.dataset.upgrade].onclick();
