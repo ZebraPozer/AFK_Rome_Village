@@ -522,7 +522,7 @@ function spawnMob(type = 'orc', countsForWave = true) {
   const hp = Math.round(stats.hp * difficulty.hp);
   // Spread each wave across shallow depth lanes so the horde does not run
   // through the battlefield as one overlapping horizontal line.
-  const laneOffsets = [-30, 18, -10, 32, 4, -22, 25];
+  const laneOffsets = [-24, 14, -8, 26, 3, -18, 20];
   const spawnIndex = countsForWave ? state.spawned : state.patrolSpawned;
   const laneY = stats.isBoss ? 0 : laneOffsets[spawnIndex % laneOffsets.length];
   // Ranged orcs keep wide gaps, so a single catapult rock rarely hits more than one.
@@ -1142,9 +1142,9 @@ function archerPrice() {
 
 // Shared tower geometry for update() and drawScene() (world is 1170×540).
 function towerGeometry(width, height = 540) {
-  const ground = height * 0.82;
+  const ground = height * GROUND_RATIO;
   const towerX = width * 0.6;
-  const towerHeight = Math.min(300, height * 0.64);
+  const towerHeight = Math.min(300, height * 0.64) * ACTOR_SCALE;
   const platformY = ground - towerHeight * 0.72;
   return { ground, towerX, towerHeight, platformY };
 }
@@ -2215,7 +2215,7 @@ function drawGroundLayer(width, height, ground) {
 }
 
 function drawBackground(width, height) {
-  const ground = height * 0.82;
+  const ground = height * GROUND_RATIO;
   const sky = ctx.createLinearGradient(0, 0, 0, ground);
   sky.addColorStop(0, '#b9ddec');
   sky.addColorStop(0.58, '#d9e8d5');
@@ -2625,16 +2625,17 @@ function drawVillageFront(width, ground) {
 
 // Crop beds grow with the farm level (1 → 4 beds in a 2×2 plot), independent of stage.
 const fieldBeds = [
-  { dx: -76, dy: 34, crop: 'wheat' },
-  { dx: 76, dy: 34, crop: 'cabbage' },
-  { dx: -76, dy: 68, crop: 'carrot' },
-  { dx: 76, dy: 68, crop: 'pumpkin' }
+  // Two compact rows right under the ground line, so the beds stay above the HUD.
+  { dx: -76, dy: 22, crop: 'wheat' },
+  { dx: 76, dy: 22, crop: 'cabbage' },
+  { dx: -76, dy: 46, crop: 'carrot' },
+  { dx: 76, dy: 46, crop: 'pumpkin' }
 ];
 function drawVillageFields(width, ground) {
   const patches = Math.min(fieldBeds.length, state.farmLevel);
   for (let i = 0; i < patches; i++) {
     const bed = fieldBeds[i];
-    drawField(1000 + bed.dx, ground + bed.dy, 140, 26, bed.crop, null);
+    drawField(1000 + bed.dx, ground + bed.dy, 140, 20, bed.crop, null);
   }
 }
 
@@ -2645,6 +2646,10 @@ function drawVillageVillagers(width, ground) {
 
 // Hero (gold-crested centurion) and archer on the tower platform.
 const LOW_HP = 0.35;
+// Scene layout: the ground line sits above the bottom HUD row, and every actor and
+// building is drawn at ACTOR_SCALE, so the HUD never covers the battle or the farm.
+const GROUND_RATIO = 0.7;
+const ACTOR_SCALE = 0.8;
 // Canvas panels share the HUD look: one translucent surface, no outlines.
 const HUD_SURFACE = 'rgba(22, 28, 24, 0.72)';
 const HUD_TEXT = '#f4eedb';
@@ -2669,7 +2674,7 @@ function drawBow(x, y, drawn) {
 
 function drawTowerDefenders(width, height) {
   const { towerX, platformY } = towerGeometry(width, height);
-  const size = Math.min(104, height * 0.21);
+  const size = Math.min(104, height * 0.21) * ACTOR_SCALE;
   if (state.towerSlot === 'catapult') drawCatapult(towerX - 30, platformY);
   if (state.towerSlot === 'archer') {
     const archerX = towerX - 24;
@@ -2719,7 +2724,7 @@ function supportPosition(width, height) {
 function drawSupportHero(width, height) {
   if (state.supportHero !== 'priestess') return;
   const pos = supportPosition(width, height);
-  const size = Math.min(118, height * 0.23);
+  const size = Math.min(118, height * 0.23) * ACTOR_SCALE;
   ctx.save();
   ctx.filter = 'hue-rotate(190deg) saturate(0.7) brightness(1.15)';
   drawSprite(sprites.archer, pos.x, pos.y, size, true, Math.sin(state.time * 1.8) * -1.2);
@@ -2733,7 +2738,7 @@ function drawSupportHero(width, height) {
 }
 
 function drawFrontHero(width, height, guardX, ground) {
-  const size = Math.min(160, height * 0.32);
+  const size = Math.min(160, height * 0.32) * ACTOR_SCALE;
   const low = state.phase === 'wave' && state.guardHp > 0 && state.guardHp / state.maxGuardHp < LOW_HP;
   const filters = [];
   if (state.frontHero === 'hoplite') filters.push('sepia(0.55) saturate(1.5) hue-rotate(-12deg)');
@@ -2783,7 +2788,7 @@ function drawLurkingHorde(width, height) {
   if (state.phase === 'victory' && state.townLevel < requiredTown(state.wave + 1)) return;
   const nextWave = state.phase === 'victory' ? state.wave + 1 : state.wave;
   const plan = buildWavePlan(nextWave);
-  const ground = height * 0.82;
+  const ground = height * GROUND_RATIO;
   // The next wave waits at the very edge of the screen, half hidden in drifting fog.
   // Real colours (no black silhouettes) so it reads as "orcs waiting", not a bug.
   plan.forEach((type, i) => {
@@ -2791,7 +2796,7 @@ function drawLurkingHorde(width, height) {
     const look = enemyLooks[type] || {};
     const x = 8 + i * 20 + (stats.isBoss ? 26 : 0);
     const y = ground + 4 - (i % 2) * 9;
-    const h = Math.min(stats.height, height * (stats.height / 510)) * 0.8;
+    const h = Math.min(stats.height, height * (stats.height / 510)) * 0.8 * ACTOR_SCALE;
     const sway = Math.sin(state.time * 1.4 + i * 1.3) * 3;
     ctx.save();
     ctx.filter = `${look.filter || ''} saturate(0.75) brightness(0.92)`.trim();
@@ -2876,7 +2881,7 @@ function drawArrowShape(x, y, angle, length = 24) {
 }
 
 function arrowTarget(mob, height) {
-  return { x: mob.x, y: height * 0.82 + 18 + (mob.laneY ?? 0) - 62 };
+  return { x: mob.x, y: height * GROUND_RATIO + 18 + (mob.laneY ?? 0) - 62 * ACTOR_SCALE };
 }
 
 function drawArrows(height) {
@@ -2897,7 +2902,7 @@ function drawVolley(width, height) {
   const guardX = width * 0.52;
   const [from, to] = VOLLEY_ZONE;
   const elapsed = VOLLEY_FALL - state.volleyFx;
-  const groundY = height * 0.82 + 20;
+  const groundY = height * GROUND_RATIO + 20;
   // Danger zone marker on the road.
   ctx.save();
   ctx.globalAlpha = 0.25 + 0.15 * Math.sin(elapsed * 30);
@@ -3025,7 +3030,7 @@ function drawCatapult(x, baseY) {
 }
 
 function drawRocksAndShots(height) {
-  const ground = height * 0.82;
+  const ground = height * GROUND_RATIO;
   for (const rock of state.rocks) {
     const p = Math.min(1, rock.t / rock.dur);
     const ty = ground + 18 + rock.laneY - 30;
@@ -3267,7 +3272,7 @@ function drawWaveRoster(width) {
 }
 
 function drawFloaters(height) {
-  const ground = height * 0.82;
+  const ground = height * GROUND_RATIO;
   ctx.save();
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
@@ -3315,11 +3320,17 @@ function drawScene(width, height) {
   drawForegroundFoliage(width, height);
   if (!sprites.guard || !sprites.orc || !sprites.orcDual || !sprites.orcShield || !sprites.orcRed || !sprites.boss || !sprites.farmer || !structures.guardTower) return;
   const towerBuilt = state.archerUnlocked;
-  const ground = height * 0.82;
+  const ground = height * GROUND_RATIO;
   // The tower stands right behind the legionary so the village gets the right third of the screen.
   const towerX = width * 0.6;
-  const towerHeight = Math.min(300, height * 0.64);
-  drawVillageBack(width, ground);
+  const towerHeight = Math.min(300, height * 0.64) * ACTOR_SCALE;
+  const village = (draw) => {
+    ctx.save();
+    ctx.translate(width * 0.98, ground); ctx.scale(ACTOR_SCALE, ACTOR_SCALE); ctx.translate(-width * 0.98, -ground);
+    draw();
+    ctx.restore();
+  };
+  village(() => drawVillageBack(width, ground));
   if (towerBuilt) {
     const pop = state.towerFx > 0 ? Math.max(0.01, easeOutBack(1 - state.towerFx / TOWER_POP)) : 1;
     ctx.save();
@@ -3329,17 +3340,15 @@ function drawScene(width, height) {
     drawStructure(structures.guardTower, towerX, ground + 8, towerHeight);
     ctx.restore();
   }
-  drawVillageFront(width, ground);
-  drawVillageFields(width, ground);
-  drawVillageVillagers(width, ground);
+  village(() => { drawVillageFront(width, ground); drawVillageFields(width, ground); drawVillageVillagers(width, ground); });
   const farmerDirection = Math.cos(state.time * 0.65) < 0;
   // The farmer works among the field beds on the village side, away from the line.
   const farmerX = width * 0.855 + Math.sin(state.time * 0.65) * Math.min(25, width * 0.02);
   const farmerBob = Math.abs(Math.sin(state.time * 2.6)) * -2;
-  drawSprite(sprites.farmer, farmerX, ground - 8, Math.min(134, height * 0.27), farmerDirection, farmerBob);
+  village(() => drawSprite(sprites.farmer, farmerX, ground - 8, Math.min(134, height * 0.27), farmerDirection, farmerBob));
 
   if (state.spikesLevel > 0 && sprites.spikes) {
-    const spikesHeight = Math.min(105 + (state.spikesLevel - 1) * 5, 125);
+    const spikesHeight = Math.min(105 + (state.spikesLevel - 1) * 5, 125) * ACTOR_SCALE;
     drawSprite(sprites.spikes, width * 0.435, ground - 16, spikesHeight, false, 0, 1, 0.84, 0.14);
   }
 
@@ -3356,7 +3365,7 @@ function drawScene(width, height) {
     // Class controls silhouette size: dual-wielders are 10% below the
     // standard orc, while the boss is 20% above it.
     const classHeight = typeStats.height;
-    const mobHeight = Math.min(classHeight, height * (classHeight / 510));
+    const mobHeight = Math.min(classHeight, height * (classHeight / 510)) * ACTOR_SCALE;
 
     const shadowScale = Math.max(0.42, Math.min(0.58, 0.42 + (mobHeight - 112) / 480));
     drawEnemy(mob, drawX, mobGround, mobHeight, bob, opacity, shadowScale);
@@ -3986,7 +3995,7 @@ canvas.addEventListener('click', (event) => {
   const rect = canvas.getBoundingClientRect();
   const x = (event.clientX - rect.left) / rect.width * 1170;
   const y = (event.clientY - rect.top) / rect.height * 540;
-  const ground = 540 * 0.82;
+  const ground = 540 * GROUND_RATIO;
   const archer = heroPosition(1170, 540);
   const support = supportPosition(1170, 540);
   if (state.towerSlot === 'archer' && Math.abs(x - archer.x) < 60 && y > archer.y - 170 && y < archer.y + 10) castSpell('archer');
