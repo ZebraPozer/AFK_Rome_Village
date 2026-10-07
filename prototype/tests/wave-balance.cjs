@@ -1,18 +1,7 @@
 const assert = require('node:assert/strict');
-const fs = require('node:fs');
-const vm = require('node:vm');
-const source = fs.readFileSync(require('node:path').join(__dirname, '../app.js'), 'utf8');
-const elements = new Map();
-const document = {
-  querySelector: () => ({ getContext: () => ({}) }),
-  getElementById: (id) => {
-    if (!elements.has(id)) elements.set(id, { style: {}, classList: { toggle() {} } });
-    return elements.get(id);
-  }
-};
-const sandbox = vm.createContext({ document, Math: Object.assign(Object.create(Math), { random: () => 0.5 }) });
-vm.runInContext(source.slice(0, source.lastIndexOf('\nPromise.all([')), sandbox);
-const run = (code) => vm.runInContext(code, sandbox);
+// Full game (simulation + presentation) with a stub DOM; see tools/load-game.cjs.
+const { loadGame } = require('../tools/load-game.cjs');
+const { run, elements } = loadGame();
 assert.equal(run('calculateWaveDifficulty(1, {guardLevel: 20, spikesLevel: 10, maxGuardHp: 480}).hp'), run('calculateWaveDifficulty(1, state).hp'));
 for (let wave = 1; wave <= 10; wave += 1) {
   assert.ok(run(`buildWavePlan(${wave}).length`) <= (wave <= 4 ? 3 : 5), 'Early waves must remain small');
@@ -437,3 +426,22 @@ for (const w of [7, 18, 24]) {
   assert.notEqual(run('state.phase'), 'wave', `Wave ${w} with a catapult must end (no stalemate with enemy archers)`);
 }
 console.log('No stalemates: catapult waves with enemy archers end.');
+
+// Architecture: the simulation runs with no DOM at all, never references browser,
+// rendering or UI globals, and the data bundle matches data/*.json.
+{
+  const { loadGame, SIM } = require('../tools/load-game.cjs');
+  const sim = loadGame({ simOnly: true });
+  sim.run('jumpToWave(12); state.autoSpells = true; callWave(); for (let i = 0; i < 60 * 300 && state.phase === "wave"; i++) update(1/60, 1170);');
+  assert.notEqual(sim.run('state.phase'), 'wave', 'A wave runs to the end with the simulation alone');
+  const forbidden = /\b(document|window|localStorage|navigator|canvas|ctx|ui|hud|sprites|requestAnimationFrame|performance)\b(?!\w*:)/;
+  for (const file of SIM) {
+    const code = require('node:fs').readFileSync(require('node:path').join(__dirname, '..', file), 'utf8')
+      .split('\n').filter((line) => !line.trim().startsWith('//')).join('\n')
+      .replace(/'[^'\n]*'|`[^`]*`|"[^"\n]*"/g, "''");
+    const hit = code.match(forbidden);
+    assert.equal(hit, null, `${file} must not use ${hit && hit[0]} (simulation stays engine-agnostic)`);
+  }
+  require('node:child_process').execFileSync(process.execPath, [require('node:path').join(__dirname, '../tools/build-data.cjs'), '--check'], { stdio: 'pipe' });
+  console.log('Architecture passed: sim runs without DOM, no browser globals in src/sim, data bundle up to date.');
+}

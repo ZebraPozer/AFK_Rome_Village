@@ -1,29 +1,13 @@
 #!/usr/bin/env node
 'use strict';
 
-// Headless playthrough that uses the real combat and shop handlers from app.js.
+// Headless playthrough that uses the real simulation and player commands (src/sim).
 // The bot invests in the farm and waits for food to upgrade before each wave.
 // With spells on it plays like an attentive player («Авто» cast policy) and
 // rotates heroes before every wave (freshest hero per slot).
-const fs = require('node:fs');
-const path = require('node:path');
-const vm = require('node:vm');
-
-const source = fs.readFileSync(path.join(__dirname, '../app.js'), 'utf8');
-const elements = new Map();
-const document = {
-  querySelector: () => ({ getContext: () => ({}) }),
-  getElementById: (id) => {
-    if (!elements.has(id)) elements.set(id, { style: {}, classList: { toggle() {} } });
-    return elements.get(id);
-  }
-};
-const sandbox = vm.createContext({
-  document,
-  Math: Object.assign(Object.create(Math), { random: () => 0.5 })
-});
-vm.runInContext(source.slice(0, source.lastIndexOf('\nPromise.all([')), sandbox);
-const run = (code) => vm.runInContext(code, sandbox);
+// Simulation only — no DOM. The bot uses the same commands as the buttons (sim/actions.js).
+const { loadGame } = require('./load-game.cjs');
+const { run } = loadGame({ simOnly: true });
 const parseTrials = (value) => value ? value.split(',').map(Number) : [];
 const hpTrials = parseTrials(process.env.BALANCE_HP);
 const attackTrials = parseTrials(process.env.BALANCE_ATK);
@@ -37,13 +21,13 @@ function shop(wave) {
     const before = run('JSON.stringify([state.food,state.coins,state.guardLevel,state.spikesLevel,state.farmLevel,state.archerLevel,state.catapultLevel])');
     if (run('state.townLevel') >= 2) {
       // Only the defender standing in the tower slot is levelled.
-      if (run(`state[state.towerSlot + 'Level'] < ${t.archerLevel}`)) run("ui[state.towerSlot + '-upgrade'].onclick()");
+      if (run(`state[state.towerSlot + 'Level'] < ${t.archerLevel}`)) run("buy(state.towerSlot)");
     }
-    if (run(`state.spikesLevel < ${t.spikesLevel}`)) run("ui['spikes-upgrade'].onclick()");
+    if (run(`state.spikesLevel < ${t.spikesLevel}`)) run("buy('spikes')");
     // After the Barracks: train every hero on the field up to the expected level.
     run(`for (const id of activeHeroes()) if (!heroDefs[id].machine && heroLevel(id) < ${t.heroLevel}) trainHero(id)`);
-    if (run(`state.guardLevel < ${t.guardLevel}`)) run("ui['guard-upgrade'].onclick()");
-    if (!run('meetsExpected(' + wave + ')')) run("ui['farm-upgrade'].onclick()");
+    if (run(`state.guardLevel < ${t.guardLevel}`)) run("buy('frontline')");
+    if (!run('meetsExpected(' + wave + ')')) run("buy('farm')");
     const after = run('JSON.stringify([state.food,state.coins,state.guardLevel,state.spikesLevel,state.farmLevel,state.archerLevel,state.catapultLevel])');
     if (before === after) break;
   }
@@ -54,7 +38,7 @@ function play({ waves = 5, spells = true, rotate = true, maxPrepHours = 12 } = {
   run(`state.autoSpells = ${spells}`);
   const report = [];
   for (let wave = 1; wave <= waves; wave += 1) {
-    run("ui['town-upgrade'].onclick(); for (const sys of SYSTEMS) unlockSystem(sys.id);");
+    run("upgradeTown(); for (const sys of SYSTEMS) unlockSystem(sys.id);");
     if (rotate) run("autoLineup()");
     let preparationTicks = 0;
     shop(wave);
@@ -67,7 +51,7 @@ function play({ waves = 5, spells = true, rotate = true, maxPrepHours = 12 } = {
     }
     if (preparationTicks >= 60 * 3600 * maxPrepHours) throw new Error(`Preparation for wave ${wave} exceeded ${maxPrepHours} h`);
     run('autoEquip()');
-    run("ui['wave-button'].onclick()");
+    run("callWave()");
     if (Number.isFinite(hpTrials[wave - 1])) run(`state.waveDifficulties[state.wave].hp *= ${hpTrials[wave - 1]}`);
     if (Number.isFinite(attackTrials[wave - 1])) run(`state.waveDifficulties[state.wave].damage *= ${attackTrials[wave - 1]}`);
     const start = JSON.parse(run('JSON.stringify({hp:state.guardHp,maxHp:state.maxGuardHp,guard:state.guardLevel,spikes:state.spikesLevel,farm:state.farmLevel,archer:state.archerLevel,catapult:state.catapultLevel,lineup:activeHeroes(),power:activeHeroes().map(heroPowerMult),difficulty:state.waveDifficulties[state.wave]})'));
@@ -94,8 +78,8 @@ function idle(seconds) {
   run(`for (let tick = 0; tick < ${Math.round(seconds * 60)}; tick++) {
     update(1/60, 1170);
     if (tick % 60 === 0) {
-      ui['farm-upgrade'].onclick();
-      ui['guard-upgrade'].onclick(); ui['spikes-upgrade'].onclick();
+      buy('farm');
+      buy('frontline'); buy('spikes');
     }
   }`);
   return JSON.parse(run('JSON.stringify({clearedWave:state.wavesCleared,guard:state.guardLevel,spikes:state.spikesLevel,farm:state.farmLevel,patrolKills:state.patrolKills,coins:state.coins,food:state.food})'));
@@ -137,7 +121,7 @@ function session({ waves = 10, patience = 30, bossPatience = 60, recommendWait =
   const buyAll = () => {
     for (let round = 0; round < 50; round++) {
       const before = run('state.food + state.coins * 1000 + state.townLevel');
-      run("ui['town-upgrade'].onclick(); for (const sys of SYSTEMS) unlockSystem(sys.id); ui['guard-upgrade'].onclick(); ui['farm-upgrade'].onclick(); ui['spikes-upgrade'].onclick(); if (state.townLevel >= 2) { ui['archer-upgrade'].onclick(); ui['catapult-upgrade'].onclick(); } ui['auto-lineup'].onclick();");
+      run("upgradeTown(); for (const sys of SYSTEMS) unlockSystem(sys.id); buy('frontline'); buy('farm'); buy('spikes'); if (state.townLevel >= 2) { buy('archer'); buy('catapult'); } autoLineup();");
       if (run('state.food + state.coins * 1000 + state.townLevel') === before) break;
     }
   };
@@ -156,7 +140,7 @@ function session({ waves = 10, patience = 30, bossPatience = 60, recommendWait =
     // The HUD shows a recommended frontline level: wait for it if it is reachable soon.
     const recommended = run(`recommendedLevel(${wave})`);
     while (run('state.guardLevel') < recommended && waitForGuard() <= recommendWait && prep < 600) { tick(60); prep += 1; buyAll(); }
-    run("ui['wave-button'].onclick()");
+    run("callWave()");
     let fight = 0;
     while (run('state.phase') === 'wave' && fight < 600 * 60) { tick(1); fight += 1; }
     const phase = run('state.phase');

@@ -1,0 +1,255 @@
+{
+  "_doc": "Wave rosters (enemy type ids, spawned in order) and wave-flow rules.",
+  "finalWave": 30,
+  "plans": {
+    "1": [
+      "orc"
+    ],
+    "2": [
+      "orc",
+      "orc"
+    ],
+    "3": [
+      "orc",
+      "orcDual"
+    ],
+    "4": [
+      "orc",
+      "orc",
+      "orcDual"
+    ],
+    "5": [
+      "orc",
+      "orcDual",
+      "orcShield",
+      "boss"
+    ],
+    "6": [
+      "orc",
+      "goblin",
+      "goblin",
+      "goblin"
+    ],
+    "7": [
+      "orc",
+      "orcArcher",
+      "orcShield",
+      "orcArcher"
+    ],
+    "8": [
+      "orcDual",
+      "boar",
+      "orcShield",
+      "boar"
+    ],
+    "9": [
+      "goblin",
+      "orcShield",
+      "orcArcher",
+      "goblin",
+      "orcRed"
+    ],
+    "10": [
+      "orcShield",
+      "orcArcher",
+      "boar",
+      "goblin",
+      "shaman"
+    ],
+    "11": [
+      "orc",
+      "troll",
+      "orcArcher",
+      "orc",
+      "goblin"
+    ],
+    "12": [
+      "wolfRider",
+      "wolfRider",
+      "orcShield",
+      "orcArcher",
+      "goblin"
+    ],
+    "13": [
+      "troll",
+      "orcDual",
+      "wolfRider",
+      "orcArcher",
+      "orcShield"
+    ],
+    "14": [
+      "troll",
+      "troll",
+      "goblin",
+      "goblin",
+      "orcArcher",
+      "orcRed"
+    ],
+    "15": [
+      "wolfRider",
+      "orcShield",
+      "goblin",
+      "goblin",
+      "goblinKing"
+    ],
+    "16": [
+      "troll",
+      "wolfRider",
+      "orcArcher",
+      "orcArcher",
+      "orcShield",
+      "goblin"
+    ],
+    "17": [
+      "orcRed",
+      "troll",
+      "wolfRider",
+      "wolfRider",
+      "orcArcher",
+      "goblin"
+    ],
+    "18": [
+      "troll",
+      "troll",
+      "orcShield",
+      "orcArcher",
+      "boar",
+      "goblin"
+    ],
+    "19": [
+      "orcRed",
+      "orcRed",
+      "wolfRider",
+      "orcArcher",
+      "troll",
+      "goblin"
+    ],
+    "20": [
+      "troll",
+      "orcShield",
+      "orcArcher",
+      "wolfRider",
+      "warlord"
+    ],
+    "21": [
+      "berserker",
+      "berserker",
+      "orcArcher",
+      "troll",
+      "goblin",
+      "goblin"
+    ],
+    "22": [
+      "berserker",
+      "troll",
+      "wolfRider",
+      "orcArcher",
+      "orcShield",
+      "goblin"
+    ],
+    "23": [
+      "berserker",
+      "berserker",
+      "troll",
+      "orcArcher",
+      "orcArcher",
+      "wolfRider"
+    ],
+    "24": [
+      "troll",
+      "troll",
+      "berserker",
+      "orcRed",
+      "orcArcher",
+      "goblin",
+      "goblin"
+    ],
+    "25": [
+      "berserker",
+      "troll",
+      "orcArcher",
+      "wolfRider",
+      "ogreChief"
+    ],
+    "26": [
+      "berserker",
+      "berserker",
+      "troll",
+      "troll",
+      "orcArcher",
+      "wolfRider",
+      "goblin"
+    ],
+    "27": [
+      "orcRed",
+      "berserker",
+      "troll",
+      "orcArcher",
+      "orcArcher",
+      "wolfRider",
+      "goblin"
+    ],
+    "28": [
+      "troll",
+      "troll",
+      "troll",
+      "berserker",
+      "orcArcher",
+      "wolfRider",
+      "goblin"
+    ],
+    "29": [
+      "berserker",
+      "berserker",
+      "orcRed",
+      "troll",
+      "orcArcher",
+      "orcArcher",
+      "wolfRider"
+    ],
+    "30": [
+      "troll",
+      "berserker",
+      "orcArcher",
+      "wolfRider",
+      "orcShield",
+      "cyclops"
+    ]
+  },
+  "spawnIntervalSeconds": 4,
+  "firstSpawnDelaySeconds": 0.2,
+  "maxConcurrent": [
+    {
+      "fromWave": 1,
+      "max": 2
+    },
+    {
+      "fromWave": 21,
+      "max": 3
+    }
+  ],
+  "bossEntersAlone": true,
+  "walkSpeed": {
+    "base": 28,
+    "perWave": 2.5,
+    "openingBoost": {
+      "upToWave": 5,
+      "factor": 2.5
+    }
+  },
+  "firstClearGold": {
+    "base": 6,
+    "perWave": 3
+  },
+  "rangedPatienceSeconds": 90,
+  "patrols": {
+    "intervalSeconds": [
+      8,
+      12
+    ],
+    "maxAlive": 2,
+    "goldPerKill": 1,
+    "twinBladesFromWave": 3,
+    "twinBladesEvery": 4
+  }
+}

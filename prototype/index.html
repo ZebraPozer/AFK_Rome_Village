@@ -195,6 +195,29 @@
       </aside>
     </section>
   </main>
-  <script src="app.js"></script>
+  <!-- Load order matters (shared global scope, no build step). Keep in sync with tools/load-game.cjs.
+       data → sim (rules, no DOM) → audio → render → ui → main (boot). -->
+  <script src="data/game-data.js"></script>
+  <script src="src/sim/events.js"></script>
+  <script src="src/sim/constants.js"></script>
+  <script src="src/sim/waves.js"></script>
+  <script src="src/sim/world.js"></script>
+  <script src="src/sim/heroes.js"></script>
+  <script src="src/sim/combat.js"></script>
+  <script src="src/sim/progression.js"></script>
+  <script src="src/sim/actions.js"></script>
+  <script src="src/sim/save.js"></script>
+  <script src="src/audio/sound.js"></script>
+  <script src="src/render/assets.js"></script>
+  <script src="src/render/background.js"></script>
+  <script src="src/render/village.js"></script>
+  <script src="src/render/actors.js"></script>
+  <script src="src/render/overlay.js"></script>
+  <script src="src/render/scene.js"></script>
+  <script src="src/ui/hud.js"></script>
+  <script src="src/ui/panel.js"></script>
+  <script src="src/ui/platform.js"></script>
+  <script src="src/ui/input.js"></script>
+  <script src="src/main.js"></script>
 </body>
 </html>

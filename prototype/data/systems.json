@@ -1,0 +1,99 @@
+{
+  "_doc": "Armory gear, Barracks training, Temple gods.",
+  "armory": {
+    "slots": {
+      "weapon": {
+        "icon": "⚔",
+        "label": "damage",
+        "values": [
+          0.1,
+          0.2,
+          0.35
+        ],
+        "names": [
+          "Iron Gladius",
+          "Centurion Gladius",
+          "Gladius of Mars"
+        ]
+      },
+      "armor": {
+        "icon": "⛨",
+        "label": "damage taken",
+        "values": [
+          0.08,
+          0.15,
+          0.25
+        ],
+        "names": [
+          "Leather Lorica",
+          "Segmented Lorica",
+          "Lorica of Jupiter"
+        ]
+      },
+      "charm": {
+        "icon": "✦",
+        "label": "spell cooldown",
+        "values": [
+          0.08,
+          0.15,
+          0.25
+        ],
+        "names": [
+          "Bronze Bulla",
+          "Silver Bulla",
+          "Bulla of Minerva"
+        ]
+      }
+    },
+    "rarity": [
+      "Common",
+      "Rare",
+      "Epic"
+    ],
+    "eliteDropEvery": 6,
+    "eliteTypes": [
+      "troll",
+      "orcRed"
+    ],
+    "miniBossItems": 1,
+    "megaBossItems": 2,
+    "armorCap": 0.6,
+    "charmCap": 0.5
+  },
+  "barracks": {
+    "base": 150,
+    "growth": 1.18,
+    "damage": 0.06,
+    "toughness": 0.05
+  },
+  "gods": {
+    "mars": {
+      "name": "Mars",
+      "icon": "⚔",
+      "resource": "coins",
+      "base": 300,
+      "growth": 1.25,
+      "per": 0.04,
+      "text": "damage of all heroes"
+    },
+    "ceres": {
+      "name": "Ceres",
+      "icon": "✶",
+      "resource": "food",
+      "base": 400,
+      "growth": 1.25,
+      "per": 0.08,
+      "text": "food production"
+    },
+    "minerva": {
+      "name": "Minerva",
+      "icon": "✦",
+      "resource": "coins",
+      "base": 350,
+      "growth": 1.25,
+      "per": 0.03,
+      "text": "spell cooldown",
+      "cap": 0.45
+    }
+  }
+}

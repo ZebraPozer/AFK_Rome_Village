@@ -1,0 +1,20 @@
+{
+  "_doc": "Offline (AFK) income = efficiency x live rates (farm food, patrol gold), from minSeconds up to the cap for the current village.",
+  "efficiency": 0.5,
+  "minSeconds": 60,
+  "goldEvery": 10,
+  "capHoursByVillage": [
+    {
+      "upTo": 2,
+      "hours": 2
+    },
+    {
+      "upTo": 4,
+      "hours": 4
+    },
+    {
+      "upTo": 99,
+      "hours": 8
+    }
+  ]
+}

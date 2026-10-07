@@ -1,0 +1,44 @@
+{
+  "_doc": "Boss rewards, village levels and systems unlocked with eagles.",
+  "bosses": {
+    "miniEvery": 5,
+    "megaEvery": 10,
+    "mini": {
+      "trophies": 1,
+      "eagles": 0
+    },
+    "mega": {
+      "trophies": 2,
+      "eagles": 1
+    }
+  },
+  "village": {
+    "max": 7,
+    "costTrophies": 1,
+    "requiresBossOfWave": "5*(level-1)",
+    "waveRequiresVillage": "1+floor((w-1)/5)"
+  },
+  "systems": [
+    {
+      "id": "armory",
+      "name": "Armory",
+      "icon": "⚒",
+      "wave": 10,
+      "text": "Bosses drop gear for your heroes"
+    },
+    {
+      "id": "barracks",
+      "name": "Barracks",
+      "icon": "⚑",
+      "wave": 20,
+      "text": "Train heroes with food — levels without a cap"
+    },
+    {
+      "id": "temple",
+      "name": "Temple",
+      "icon": "☉",
+      "wave": 30,
+      "text": "Offerings to Mars, Ceres and Minerva"
+    }
+  ]
+}

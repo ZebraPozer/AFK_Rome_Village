@@ -1,0 +1,120 @@
+{
+  "_doc": "Heroes = units with one spell. role = slot they fit (front / tower / support). damageMult / guardTaken = multipliers vs the legionary. Upgrades belong to the slot, not the hero.",
+  "heroes": {
+    "legionary": {
+      "name": "Legionary",
+      "role": "front",
+      "damageMult": 1,
+      "guardTaken": 1,
+      "spell": {
+        "id": "shieldBash",
+        "name": "Shield Bash",
+        "short": "Bash",
+        "icon": "⛨",
+        "cooldown": 12,
+        "hint": "stuns and knocks back the nearest enemy"
+      }
+    },
+    "hoplite": {
+      "name": "Hoplite",
+      "role": "front",
+      "damageMult": 0.85,
+      "guardTaken": 0.85,
+      "spell": {
+        "id": "holdLine",
+        "name": "Hold the Line",
+        "short": "Hold",
+        "icon": "▥",
+        "cooldown": 16,
+        "hint": "takes 70% less damage for 5 s"
+      }
+    },
+    "archer": {
+      "name": "Archer",
+      "role": "tower",
+      "damageMult": 1,
+      "spell": {
+        "id": "volley",
+        "name": "Volley",
+        "short": "Volley",
+        "icon": "➶",
+        "cooldown": 18,
+        "hint": "arrows rain on everything in front of the line"
+      }
+    },
+    "catapult": {
+      "name": "Catapult",
+      "role": "tower",
+      "machine": true,
+      "damageMult": 1,
+      "spell": null
+    },
+    "priestess": {
+      "name": "Priestess",
+      "role": "support",
+      "damageMult": 1,
+      "spell": {
+        "id": "blessing",
+        "name": "Blessing",
+        "short": "Bless",
+        "icon": "✚",
+        "cooldown": 20,
+        "hint": "heals the frontline hero by 40% HP"
+      }
+    }
+  },
+  "slots": [
+    {
+      "role": "front",
+      "name": "Front",
+      "key": "1"
+    },
+    {
+      "role": "tower",
+      "name": "Tower",
+      "key": "2"
+    },
+    {
+      "role": "support",
+      "name": "Wall",
+      "key": "3"
+    }
+  ],
+  "slotUnlockVillage": {
+    "front": 1,
+    "tower": 2,
+    "support": 4
+  },
+  "hopliteUnlockWave": 7,
+  "fatigue": {
+    "restedBonus": 0.25,
+    "penaltyPerWave": 0.1,
+    "max": 3,
+    "waveStartCooldownShare": 0.5
+  },
+  "spells": {
+    "shieldBash": {
+      "stun": 2.5,
+      "bossStun": 1.2,
+      "knockback": 120,
+      "bossKnockback": 40,
+      "damagePerFrontlineLevel": 2,
+      "reach": 150
+    },
+    "holdLine": {
+      "seconds": 5,
+      "damageTaken": 0.3
+    },
+    "volley": {
+      "fallSeconds": 0.75,
+      "zone": [
+        -400,
+        -20
+      ],
+      "damagePerWaveHp": 4
+    },
+    "blessing": {
+      "healShare": 0.4
+    }
+  }
+}

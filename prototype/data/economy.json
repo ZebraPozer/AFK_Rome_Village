@@ -1,0 +1,69 @@
+{
+  "_doc": "Prices: price(level) = base * growth^min(9, level-1) * lateGrowth^max(0, level-10). Guard is paid in food, the rest in gold.",
+  "prices": {
+    "guardBase": 36,
+    "guardGrowth": 1.5,
+    "farmBase": 24,
+    "farmGrowth": 1.6,
+    "spikesBase": 24,
+    "spikesGrowth": 1.5,
+    "archerBase": 24,
+    "archerGrowth": 1.35,
+    "catapultBase": 28,
+    "catapultGrowth": 1.35
+  },
+  "lateGrowth": 1.12,
+  "farm": {
+    "tickSeconds": 3,
+    "foodPerLevel": 1
+  },
+  "frontline": {
+    "baseHp": 100,
+    "hpPerLevel": 20,
+    "damagePerLevel": 1,
+    "attackInterval": {
+      "base": 0.72,
+      "perLevel": -0.06,
+      "min": 0.4
+    }
+  },
+  "archer": {
+    "damagePerLevel": 0.75,
+    "interval": {
+      "base": 1.3,
+      "perLevel": -0.12,
+      "min": 0.55
+    },
+    "range": 430
+  },
+  "catapult": {
+    "damage": {
+      "base": 3,
+      "perLevel": 2
+    },
+    "interval": {
+      "base": 3.4,
+      "perLevel": -0.3,
+      "min": 2.0
+    },
+    "range": 540,
+    "minRange": 200,
+    "splash": 62
+  },
+  "spikes": {
+    "damagePerLevel": 1,
+    "tickSeconds": 0.75,
+    "unlockAfterWave": 3
+  },
+  "caps": {
+    "_doc": "Max level = per village level: frontline/farm = village*5, spikes = village*2 (after wave 3), archer/catapult = (village-1)*5.",
+    "frontline": 5,
+    "farm": 5,
+    "spikes": 2,
+    "tower": 5
+  },
+  "recovery": {
+    "hpPerSecondShare": 0.25,
+    "delaySeconds": 0.35
+  }
+}

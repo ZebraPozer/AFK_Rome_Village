@@ -1,0 +1,154 @@
+{
+  "_doc": "Difficulty tuning. Each wave's enemy HP/damage multipliers are computed for the EXPECTED build at that wave (expectedProgress), then multiplied by the per-wave tuning arrays. Index 0 = first wave of the range. Tuned with tools/balance-bot.cjs.",
+  "opening": {
+    "waves": [
+      1,
+      5
+    ],
+    "hp": [
+      3.62,
+      2.44,
+      4.7,
+      2.78,
+      0.7
+    ],
+    "damage": [
+      3,
+      2.8,
+      1.4,
+      1.6,
+      1.15
+    ]
+  },
+  "act2": {
+    "waves": [
+      6,
+      10
+    ],
+    "hp": [
+      1,
+      2.4,
+      1.3,
+      1.2,
+      1
+    ],
+    "damage": [
+      1,
+      2.8,
+      1.8,
+      3.4,
+      1.4
+    ]
+  },
+  "act3": {
+    "waves": [
+      11,
+      30
+    ],
+    "hp": [
+      1.1,
+      3.3,
+      2.5,
+      0.85,
+      0.85,
+      0.85,
+      2.5,
+      2.5,
+      1.1,
+      0.42,
+      1.1,
+      0.65,
+      1.45,
+      0.2,
+      0.85,
+      0.5,
+      0.5,
+      1.45,
+      1.1,
+      0.2
+    ],
+    "damage": [
+      2,
+      1.25,
+      1.25,
+      1,
+      1,
+      2,
+      1.25,
+      1,
+      1.6,
+      1,
+      1,
+      0.8,
+      0.8,
+      1.6,
+      1,
+      1.25,
+      1.25,
+      0.8,
+      1,
+      1.25
+    ]
+  },
+  "expectedProgress": {
+    "table": [
+      {
+        "guardLevel": 1,
+        "spikesLevel": 0
+      },
+      {
+        "guardLevel": 2,
+        "spikesLevel": 0
+      },
+      {
+        "guardLevel": 3,
+        "spikesLevel": 0
+      },
+      {
+        "guardLevel": 4,
+        "spikesLevel": 1
+      },
+      {
+        "guardLevel": 5,
+        "spikesLevel": 1
+      },
+      {
+        "guardLevel": 6,
+        "spikesLevel": 2,
+        "archerLevel": 2,
+        "catapultLevel": 2
+      },
+      {
+        "guardLevel": 7,
+        "spikesLevel": 2,
+        "archerLevel": 3,
+        "catapultLevel": 3
+      },
+      {
+        "guardLevel": 8,
+        "spikesLevel": 2,
+        "archerLevel": 4,
+        "catapultLevel": 3
+      },
+      {
+        "guardLevel": 9,
+        "spikesLevel": 2,
+        "archerLevel": 5,
+        "catapultLevel": 4
+      },
+      {
+        "guardLevel": 10,
+        "spikesLevel": 2,
+        "archerLevel": 5,
+        "catapultLevel": 5
+      }
+    ],
+    "late": {
+      "_doc": "Waves beyond the table: guard = 10 + round((w-10)*guardPerWave), spikes = 2 + floor((w-10)/spikesEvery), tower = 5 + round((w-10)*towerPerWave); heroes trained 1 level per wave after barracksWave.",
+      "guardPerWave": 0.75,
+      "spikesEvery": 5,
+      "towerPerWave": 0.5,
+      "heroLevelFromWave": 20
+    }
+  }
+}
