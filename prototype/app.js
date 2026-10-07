@@ -16,16 +16,17 @@ const ui = Object.fromEntries([
   'away','away-time','away-food','away-gold','away-cap','away-collect','hud-upgrades','hud-heroes','hud-lineup','hud-auto-lineup'
 ].map((id) => [id, document.getElementById(id)]));
 
+// Runtime sprites are pre-cut, web-sized copies built from art/ by tools/build_assets.py.
 const sources = {
-  guard: { src: 'assets/roman-parts-source.png', crop: [10, 188, 335, 575], background: 'sage' },
-  orc: { src: 'assets/characters/orc-raider.png', crop: [0, 0, 1039, 966] },
-  orcDual: { src: 'assets/characters/orc-dual-swords.png', crop: [0, 0, 1211, 1066] },
-  orcShield: { src: 'assets/characters/orc-shield-guard.png', crop: [0, 0, 1215, 1174] },
-  orcRed: { src: 'assets/characters/orc-red-elite.png', crop: [0, 0, 1092, 1199] },
-  boss: { src: 'assets/concepts/orc-brute-boss-01.png', crop: [0, 0, 1254, 1254] },
-  farmer: { src: 'assets/characters/roman-farmer.png', crop: [0, 0, 737, 905] },
-  archer: { src: 'assets/characters/roman-archer-ally-01.png', crop: [0, 0, 1312, 1199], background: 'checker' },
-  spikes: { src: 'assets/obstacles/palisade-clean.png', crop: [0, 0, 1391, 879] }
+  guard: { src: 'assets/characters/roman-legionary.png' },
+  orc: { src: 'assets/characters/orc-raider.png' },
+  orcDual: { src: 'assets/characters/orc-dual-swords.png' },
+  orcShield: { src: 'assets/characters/orc-shield-guard.png' },
+  orcRed: { src: 'assets/characters/orc-red-elite.png' },
+  boss: { src: 'assets/characters/orc-brute-boss.png' },
+  farmer: { src: 'assets/characters/roman-farmer.png' },
+  archer: { src: 'assets/characters/roman-archer.png' },
+  spikes: { src: 'assets/obstacles/palisade.png' }
 };
 
 const enemyTypes = {
@@ -148,20 +149,20 @@ function getWaveDifficulty(wave) {
 const sprites = {};
 const skyLayers = {};
 const skySources = {
-  bank: 'assets/sky/pieces/cloud-bank-far.png',
-  cumulus: 'assets/sky/pieces/cloud-cumulus.png',
-  wisp: 'assets/sky/pieces/cloud-wisp.png',
-  sunlit: 'assets/sky/pieces/cloud-sunlit.png'
+  bank: 'assets/sky/cloud-bank-far.png',
+  cumulus: 'assets/sky/cloud-cumulus.png',
+  wisp: 'assets/sky/cloud-wisp.png',
+  sunlit: 'assets/sky/cloud-sunlit.png'
 };
 const landscapeLayers = {};
 const landscapeSources = {
-  mountains: 'assets/landscape/mountains-cartoon-v2.png',
-  hills: 'assets/landscape/hills-cartoon-v2.png',
-  treeline: 'assets/landscape/treeline-cartoon-v2.png',
-  grass: 'assets/landscape/grass-meadow-tile.png'
+  mountains: 'assets/landscape/mountains.png',
+  hills: 'assets/landscape/hills.png',
+  treeline: 'assets/landscape/treeline.png',
+  grass: 'assets/landscape/grass-tile.jpg'
 };
 const structureSources = {
-  guardTower: 'assets/buildings/wooden-guard-tower-room.png'
+  guardTower: 'assets/buildings/wooden-guard-tower.png'
 };
 const structures = {};
 const resourceSources = { food: 'assets/icons/food.png', gold: 'assets/icons/gold.png' };
@@ -390,7 +391,7 @@ function loadSprite(config) {
   return new Promise((resolve, reject) => {
     const image = new Image();
     image.onload = () => {
-      const [x, y, width, height] = config.crop;
+      const [x, y, width, height] = config.crop || [0, 0, image.naturalWidth, image.naturalHeight];
       const work = document.createElement('canvas');
       work.width = width;
       work.height = height;

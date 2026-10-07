@@ -11,13 +11,17 @@ step, no dependencies.
 
 ```
 index.html                     redirect to prototype/ (GitHub Pages entry)
+docs/GAME_DESIGN.md            design doc (Russian); latest decisions are at the END
+docs/references/               sketches, concepts, Claude's original design doc
+ASSET_REQUESTS.md              art to render, with paths and specs
+art/                           full-resolution SOURCE art by category (+ art/_archive: unused)
 prototype/index.html           phone frame + HUD markup + debug panel
 prototype/style.css            all styles (HUD design tokens at the top)
 prototype/app.js               the whole game (single file, sections marked with // ---- banners)
-prototype/tests/wave-balance.cjs   headless tests (node, no deps)
-prototype/tools/balance-bot.cjs    headless balance bot that plays with the real handlers
-GAME_DESIGN.md                 design doc (Russian); latest decisions are at the END
-ASSET_REQUESTS.md              art to render, with paths and specs
+prototype/assets/              GENERATED web-sized copies of art/ — never edit by hand
+prototype/tools/build_assets.py   art/ → prototype/assets/ (Pillow); list of runtime assets
+prototype/tests/wave-balance.cjs  headless tests (node, no deps)
+prototype/tools/balance-bot.cjs   headless balance bot that plays with the real handlers
 ```
 
 Run locally: `python3 -m http.server 4173 --directory prototype` → http://127.0.0.1:4173
@@ -56,7 +60,10 @@ If you add a purchase, spell or hero, teach the bot to use it (`tools/balance-bo
   Boot-only code (load save, timers, listeners that need a real page) goes **after** it.
 - **Determinism:** tests stub `Math.random` to 0.5. Do not depend on wall-clock time in
   core logic (offline income takes `seconds` as a parameter).
-- **Assets:** paths are case-sensitive on GitHub Pages. New art must have real alpha.
+- **Assets:** source art goes into `art/<category>/`, then run
+  `python3 prototype/tools/build_assets.py`; register new files in its `ASSETS` list and in
+  `app.js`. Runtime sprites are pre-cut (no runtime background keying, no crop rects).
+  Paths are case-sensitive on GitHub Pages. New art must have real alpha.
   Placeholders (tinted sprites, code-drawn props) are listed in `ASSET_REQUESTS.md` —
   when a real asset lands, remove the matching placeholder code.
 - **Sound** is synthesized (`sfxLib` in `app.js`); no audio files yet.

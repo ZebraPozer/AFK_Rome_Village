@@ -1,8 +1,11 @@
 # Asset requests — AFK Rome Village
 
 Hey Codex 👋 — this is the list of art we need rendered (or re-rendered) for the prototype.
-Everything in the game currently works with placeholders, so nothing here is blocking;
-just replace the files at the given paths and the game picks them up.
+Everything in the game currently works with placeholders, so nothing here is blocking.
+
+**Where to put files:** paths below like `assets/characters/x.png` mean the **source** goes to
+`art/characters/x.png` (full resolution). Then add it to `prototype/tools/build_assets.py`
+and run it — the game loads the web-sized copy from `prototype/assets/`.
 
 ## Style and technical rules (apply to everything)
 
@@ -25,8 +28,8 @@ just replace the files at the given paths and the game picks them up.
 
 | # | File | What | Placeholder now |
 |---|---|---|---|
-| 1 | `assets/characters/roman-legionary.png` | Legionary, the starting frontline hero: scutum shield + gladius, red crested helmet. Same look as now. | Cut out of `assets/roman-parts-source.png` (sage background keyed at runtime) |
-| 2 | `assets/characters/roman-archer.png` | Archer hero on the tower, drawing a bow. Same look as now. | `roman-archer-ally-01.png` is RGB with a checkerboard, keyed at runtime |
+| 1 | `assets/characters/roman-legionary.png` | Legionary, the starting frontline hero: scutum shield + gladius, red crested helmet. Same look as now, but at full resolution. | Small (324×538) cut-out from an old parts sheet, fringe around the edges |
+| 2 | `assets/characters/roman-archer.png` | Archer hero on the tower, drawing a bow. Same look as now. | Cut out of a checkerboard image — edges are rough |
 | 3 | `assets/characters/greek-hoplite.png` | Hoplite, second frontline hero: round bronze shield (aspis), spear, bronze helmet with a tall red crest. Heavier and calmer than the legionary. | Legionary sprite tinted bronze + a crest drawn in code |
 | 4 | `assets/characters/roman-priestess.png` | Priestess, support hero on the wall: white/gold robes, laurel wreath, staff or incense bowl, soft golden glow. | Archer sprite tinted blue + a halo drawn in code |
 | 5 | `assets/ui/spell-shield-bash.png` | Spell icon: shield slam / impact. | Font glyph ⛨ |
@@ -61,7 +64,7 @@ These are drawn today as tinted orc sprites with props drawn in code.
 | 17 | `assets/characters/orc-archer.png` | Orc with a short bow, light armour, keeps its distance. |
 | 18 | `assets/characters/orc-boar-rider.png` | Orc riding a war boar (one sprite, rider + boar), charging pose. |
 | 19 | `assets/characters/orc-shaman.png` | Boss of wave 10: tall shaman with a glowing blue staff, bone/feather headdress, purple tones. Should read as a boss (big silhouette). |
-| 20 | `assets/characters/orc-brute-boss.png` | Boss of wave 5 as a clean field sprite (today it uses the concept `assets/concepts/orc-brute-boss-01.png`). |
+| 20 | `assets/characters/orc-brute-boss.png` | Boss of wave 5 as a proper field sprite (today it is a cut-out of the concept art `art/concepts/orc-brute-boss-01.png`). |
 
 ## Priority 4 — buildings and defences (nice to have)
 
