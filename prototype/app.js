@@ -12,7 +12,7 @@ const ui = Object.fromEntries([
   'catapult-upgrade','catapult-level','catapult-cost','tower-slot',
   'village-stage','town-upgrade','town-level','town-cost','sound-toggle','sound-volume',
   'hud-pause','hud-sound','hud-wave','hud-speed','hud-upgrade','hud-panel',
-  'hud-tab-upgrades','hud-tab-heroes','hud-close',
+  'hud-tab-upgrades','hud-tab-heroes','hud-close','hud-gear',
   'away','away-time','away-food','away-gold','away-cap','away-collect','hint',
   'trophies','eagles','trophy-pill','eagle-pill','hud-upgrades','hud-heroes','hud-lineup','hud-auto-lineup'
 ].map((id) => [id, document.getElementById(id)]));
@@ -40,7 +40,15 @@ const enemyTypes = {
   goblin:    { hp: 2,  damage: 1,  attackRate: 0.8,  speed: 1.4,  reward: 1, loot: 1,  height: 84,  bar: '#b5c24a', traits: ['swarm'] },
   orcArcher: { hp: 4,  damage: 3,  attackRate: 2.0,  speed: 1.2,  reward: 3, loot: 2, height: 118, bar: '#9a7bc0', traits: ['ranged'], range: 250 },
   boar:      { hp: 6,  damage: 5,  attackRate: 1.3,  speed: 1.8,  reward: 4, loot: 4, height: 104, bar: '#8a5a3a', traits: ['charge', 'armor'], armor: 1 },
-  shaman:    { hp: 30, damage: 9, attackRate: 1.6,  speed: 0.45, reward: 15, loot: 5, height: 150, bar: '#7a4fc4', traits: ['aura'], isBoss: true }
+  shaman:    { hp: 30, damage: 9, attackRate: 1.6,  speed: 0.45, reward: 15, loot: 5, height: 150, bar: '#7a4fc4', traits: ['aura'], isBoss: true },
+  // Act III (waves 11–30). Placeholders until the art in ASSET_REQUESTS.md lands.
+  troll:      { hp: 14, damage: 6,  attackRate: 1.9, speed: 0.55, reward: 6,  loot: 4,  height: 160, bar: '#7d8f6a', traits: ['armor'], armor: 2 },
+  wolfRider:  { hp: 5,  damage: 4,  attackRate: 1.0, speed: 2.3,  reward: 3,  loot: 3,  height: 104, bar: '#9aa0a6', traits: ['charge'] },
+  berserker:  { hp: 9,  damage: 7,  attackRate: 1.0, speed: 1.3,  reward: 5,  loot: 3,  height: 126, bar: '#e0573f', traits: ['enrage'] },
+  goblinKing: { hp: 30, damage: 9, attackRate: 1.5, speed: 0.6,  reward: 20, loot: 8,  height: 128, bar: '#c9d24a', isBoss: true },
+  warlord:    { hp: 34, damage: 10, attackRate: 1.6, speed: 0.5,  reward: 30, loot: 10, height: 172, bar: '#b33a2b', traits: ['armor'], armor: 2, isBoss: true },
+  ogreChief:  { hp: 40, damage: 11, attackRate: 1.7, speed: 0.5,  reward: 35, loot: 12, height: 176, bar: '#a0723f', traits: ['charge'], isBoss: true },
+  cyclops:    { hp: 48, damage: 12, attackRate: 1.8, speed: 0.45, reward: 50, loot: 15, height: 186, bar: '#5f7fa8', traits: ['armor', 'aura'], armor: 2, isBoss: true }
 };
 
 // Trait glyphs shown on the wave roster and what they mean (see GAME_DESIGN 13.2).
@@ -50,7 +58,8 @@ const traitInfo = {
   swarm:  { glyph: '✦', color: '#e6e36a', name: 'swarm: slips past the frontline' },
   ranged: { glyph: '➶', color: '#c7a6f0', name: 'shoots the frontline from range' },
   charge: { glyph: '»', color: '#f0a160', name: 'charge: first hit ×2' },
-  aura:   { glyph: '✚', color: '#9fd0ff', name: 'aura: shields allies every 6 s' }
+  aura:   { glyph: '✚', color: '#9fd0ff', name: 'aura: shields allies every 6 s' },
+  enrage: { glyph: '♨', color: '#ff7a59', name: 'enrage: +50% damage below half HP' }
 };
 
 function traitsOf(type) {
@@ -62,7 +71,14 @@ const enemyLooks = {
   goblin:    { sprite: 'orc', filter: 'hue-rotate(38deg) saturate(1.3) brightness(1.1)' },
   orcArcher: { sprite: 'orcDual', filter: 'hue-rotate(-55deg) saturate(0.85)', prop: 'bow' },
   boar:      { sprite: 'orc', prop: 'boar' },
-  shaman:    { sprite: 'orcRed', filter: 'hue-rotate(245deg) saturate(1.15)', prop: 'staff' }
+  shaman:    { sprite: 'orcRed', filter: 'hue-rotate(245deg) saturate(1.15)', prop: 'staff' },
+  troll:      { sprite: 'orcShield', filter: 'hue-rotate(70deg) saturate(0.6) brightness(0.85)' },
+  wolfRider:  { sprite: 'orc', prop: 'boar', filter: 'saturate(0.35) brightness(0.95)' },
+  berserker:  { sprite: 'orcDual', filter: 'hue-rotate(-30deg) saturate(1.6) contrast(1.1)' },
+  goblinKing: { sprite: 'orc', filter: 'hue-rotate(38deg) saturate(1.5) brightness(1.15)' },
+  warlord:    { sprite: 'orcRed', filter: 'brightness(0.75) saturate(1.3)' },
+  ogreChief:  { sprite: 'boss', filter: 'hue-rotate(25deg) saturate(1.2)' },
+  cyclops:    { sprite: 'boss', filter: 'hue-rotate(190deg) saturate(0.8)' }
 };
 
 function enemySprite(type) {
@@ -82,15 +98,43 @@ function buildWavePlan(wave) {
     7: ['orc', 'orcArcher', 'orcShield', 'orcArcher'],
     8: ['orcDual', 'boar', 'orcShield', 'boar'],
     9: ['goblin', 'orcShield', 'orcArcher', 'goblin', 'orcRed'],
-    10: ['orcShield', 'orcArcher', 'boar', 'goblin', 'shaman']
+    10: ['orcShield', 'orcArcher', 'boar', 'goblin', 'shaman'],
+    // Act III: trolls (armour), wolf riders (fast charge), berserkers (enrage); bosses every 5.
+    11: ['orc', 'troll', 'orcArcher', 'orc', 'goblin'],
+    12: ['wolfRider', 'wolfRider', 'orcShield', 'orcArcher', 'goblin'],
+    13: ['troll', 'orcDual', 'wolfRider', 'orcArcher', 'orcShield'],
+    14: ['troll', 'troll', 'goblin', 'goblin', 'orcArcher', 'orcRed'],
+    15: ['wolfRider', 'orcShield', 'goblin', 'goblin', 'goblinKing'],
+    16: ['troll', 'wolfRider', 'orcArcher', 'orcArcher', 'orcShield', 'goblin'],
+    17: ['orcRed', 'troll', 'wolfRider', 'wolfRider', 'orcArcher', 'goblin'],
+    18: ['troll', 'troll', 'orcShield', 'orcArcher', 'boar', 'goblin'],
+    19: ['orcRed', 'orcRed', 'wolfRider', 'orcArcher', 'troll', 'goblin'],
+    20: ['troll', 'orcShield', 'orcArcher', 'wolfRider', 'warlord'],
+    21: ['berserker', 'berserker', 'orcArcher', 'troll', 'goblin', 'goblin'],
+    22: ['berserker', 'troll', 'wolfRider', 'orcArcher', 'orcShield', 'goblin'],
+    23: ['berserker', 'berserker', 'troll', 'orcArcher', 'orcArcher', 'wolfRider'],
+    24: ['troll', 'troll', 'berserker', 'orcRed', 'orcArcher', 'goblin', 'goblin'],
+    25: ['berserker', 'troll', 'orcArcher', 'wolfRider', 'ogreChief'],
+    26: ['berserker', 'berserker', 'troll', 'troll', 'orcArcher', 'wolfRider', 'goblin'],
+    27: ['orcRed', 'berserker', 'troll', 'orcArcher', 'orcArcher', 'wolfRider', 'goblin'],
+    28: ['troll', 'troll', 'troll', 'berserker', 'orcArcher', 'wolfRider', 'goblin'],
+    29: ['berserker', 'berserker', 'orcRed', 'troll', 'orcArcher', 'orcArcher', 'wolfRider'],
+    30: ['troll', 'berserker', 'orcArcher', 'wolfRider', 'orcShield', 'cyclops']
   };
   return [...(plans[wave] || plans[FINAL_WAVE])];
 }
 
 const wavePreviewNames = {
   orc: 'Orc', orcDual: 'Twin Blades', orcShield: 'Shield Bearer', orcRed: 'Elite', boss: 'Brute',
-  goblin: 'Goblin', orcArcher: 'Orc Archer', boar: 'Boar Rider', shaman: 'Shaman'
+  goblin: 'Goblin', orcArcher: 'Orc Archer', boar: 'Boar Rider', shaman: 'Shaman',
+  troll: 'Troll', wolfRider: 'Wolf Rider', berserker: 'Berserker',
+  goblinKing: 'Goblin King', warlord: 'Orc Warlord', ogreChief: 'Ogre Chief', cyclops: 'Cyclops'
 };
+
+// From wave 21 three wave enemies may fight at once (bosses still enter alone).
+function maxConcurrent(wave) {
+  return wave > 20 ? 3 : 2;
+}
 
 function wavePreviewText(wave) {
   const plan = buildWavePlan(wave);
@@ -126,6 +170,9 @@ const OPENING_DAMAGE_TUNING = [3.0, 2.8, 1.4, 1.6, 1.15];
 // Act II assumes the player uses hero spells and rotation (balance bot «Авто»).
 const ACT2_HP_TUNING = [1, 2.4, 1.3, 1.2, 1];
 const ACT2_DAMAGE_TUNING = [1, 2.8, 1.8, 3.4, 1.4];
+// Act III (waves 11–30), tuned with the balance bot (spells, rotation and gear).
+const ACT3_HP_TUNING = [1.1, 3.3, 2.5, 0.85, 0.85, 0.85, 2.5, 2.5, 1.1, 0.42, 0.55, 1.45, 0.44, 0.85, 0.28, 0.38, 0.2, 0.2, 1.1, 0.38];
+const ACT3_DAMAGE_TUNING = [2, 1.25, 1.25, 1, 1, 2, 1.25, 1, 1.6, 1, 1.6, 1, 1.25, 1.25, 1, 1, 2, 1.25, 0.8, 0.8];
 
 function calculateWaveDifficulty(wave, progress) {
   if (wave <= 5) return calculateOpeningDifficulty(wave, progress);
@@ -137,9 +184,11 @@ function calculateWaveDifficulty(wave, progress) {
   const offense = 1 + 0.35 * (Math.sqrt(dpsRatio) - 1)
     + 0.12 * Math.pow(progress.spikesLevel, 0.75)
     + 0.1 * Math.max(progress.archerLevel || 0, progress.catapultLevel || 0);
+  const tuneHp = wave <= 10 ? ACT2_HP_TUNING[wave - 6] : (ACT3_HP_TUNING[wave - 11] ?? 1);
+  const tuneDamage = wave <= 10 ? ACT2_DAMAGE_TUNING[wave - 6] : (ACT3_DAMAGE_TUNING[wave - 11] ?? 1);
   return {
-    hp: (1 + 0.3 * step + 0.06 * step * step) * offense * (ACT2_HP_TUNING[wave - 6] ?? 1),
-    damage: (1 + 0.12 * step) * Math.pow(progress.maxGuardHp / 100, 0.25) * (ACT2_DAMAGE_TUNING[wave - 6] ?? 1)
+    hp: (1 + 0.3 * step + 0.06 * step * step) * offense * tuneHp,
+    damage: (1 + 0.12 * step) * Math.pow(progress.maxGuardHp / 100, 0.25) * tuneDamage
   };
 }
 
@@ -156,7 +205,10 @@ const EXPECTED_PROGRESS = [
 ];
 function expectedProgress(wave) {
   const known = EXPECTED_PROGRESS[wave];
-  const base = known || { guardLevel: wave, spikesLevel: Math.min(2 + Math.floor((wave - 10) / 5), 12), archerLevel: Math.max(5, wave - 5), catapultLevel: Math.max(5, wave - 5) };
+  // Beyond wave 10 the expected build grows slower than the wave number.
+  const late = Math.max(0, wave - 10);
+  const base = known || { guardLevel: 10 + Math.round(late * 0.75), spikesLevel: 2 + Math.floor(late / 5),
+    archerLevel: 5 + Math.round(late * 0.5), catapultLevel: 5 + Math.round(late * 0.5) };
   return { archerLevel: 0, catapultLevel: 0, ...base, maxGuardHp: 80 + 20 * base.guardLevel };
 }
 
@@ -254,6 +306,9 @@ const state = {
   trophies: 0,
   eagles: 0,
   systems: [],
+  gear: [],
+  gearDrops: 0,
+  eliteKills: 0,
   towerFx: 0,
   wavePlan: [],
   waveDifficulties: {},
@@ -716,7 +771,7 @@ function nextWaveInfo(next) {
 function announceVictory(reward, loot) {
   const boss = buildWavePlan(state.wave).find((type) => enemyTypes[type]?.isBoss);
   const next = state.wave + 1;
-  const lootText = loot ? `+${loot.trophies} trophy${loot.trophies > 1 ? 'ies' : ''}${loot.eagles ? ` · +${loot.eagles} eagle` : ''} · ` : '';
+  const lootText = loot ? `+${loot.trophies} ${loot.trophies > 1 ? 'trophies' : 'trophy'}${loot.eagles ? ` · +${loot.eagles} eagle` : ''}${loot.items ? ` · ${loot.items.map(gearName).join(', ')}` : ''} · ` : '';
   const after = lootText + (state.phase === 'complete' ? 'Every wave held — the frontier is safe'
     : canUpgradeTown() ? 'Raise your village in Upgrades'
     : state.wave === 3 ? 'Spikes unlocked · build them in Upgrades'
@@ -738,6 +793,10 @@ function finishWave() {
   if (loot) {
     state.trophies += loot.trophies;
     state.eagles += loot.eagles;
+    if (systemUnlocked('armory')) {
+      const items = Array.from({ length: loot.eagles ? 2 : 1 }, () => dropGear(state.wave, Boolean(loot.eagles)));
+      loot.items = items;
+    }
   }
   if (reward) announceVictory(reward, loot);
   state.patrolTimer = 5;
@@ -814,13 +873,17 @@ const ECONOMY = {
   archerBase: 24, archerGrowth: 1.35,    // gold
   catapultBase: 28, catapultGrowth: 1.35 // gold
 };
-const priceAt = (base, growth, level) => Math.round(base * Math.pow(growth, Math.max(0, level - 1)));
+// Steep growth for the first 10 levels (fast early pacing), gentle after that so the
+// long game stays reachable with AFK income.
+const LATE_GROWTH = 1.12;
+const priceAt = (base, growth, level) => Math.round(base * Math.pow(growth, Math.min(9, Math.max(0, level - 1)))
+  * Math.pow(LATE_GROWTH, Math.max(0, level - 10)));
 function farmPrice() { return priceAt(ECONOMY.farmBase, ECONOMY.farmGrowth, state.farmLevel); }
 function spikesPrice() { return priceAt(ECONOMY.spikesBase, ECONOMY.spikesGrowth, state.spikesLevel); }
 const TOWER_POP = 0.9;
 const NOTICE_TIME = 3.6;
 const CATAPULT_UNLOCK_WAVE = 5;
-const FINAL_WAVE = 10;
+const FINAL_WAVE = 30;
 const CATAPULT_RANGE = 540;
 const CATAPULT_MIN_RANGE = 280; // cannot lob at enemies right under the wall
 const CATAPULT_SPLASH = 62;
@@ -995,7 +1058,7 @@ function castSpell(id, width = 1170) {
   if (spellBlocked(id)) return false;
   const def = heroDefs[id];
   const guardX = width * 0.52;
-  const mult = heroPowerMult(id);
+  const mult = heroPowerMult(id) * (1 + gearBonus(id, 'weapon'));
   if (def.spell.id === 'shieldBash') {
     const target = bashTarget(width);
     const boss = enemyTypes[target.type]?.isBoss;
@@ -1024,13 +1087,13 @@ function castSpell(id, width = 1170) {
     sfx('bless');
     state.floaters.push({ kind: 'bless', amount: heal, x: guardX, life: 1.4, duration: 1.4 });
   }
-  state.heroes[id].cd = def.spell.cooldown;
+  state.heroes[id].cd = def.spell.cooldown * (1 - Math.min(0.5, gearBonus(id, 'charm')));
   return true;
 }
 
 // Every hit on the frontline hero goes through here (melee and enemy arrows).
 function hurtGuard(raw, guardX) {
-  let damage = raw * (heroDefs[state.frontHero].guardTaken ?? 1);
+  let damage = raw * (heroDefs[state.frontHero].guardTaken ?? 1) * (1 - Math.min(0.6, gearBonus(state.frontHero, 'armor')));
   if (state.holdLine > 0) damage *= HOLD_LINE_TAKEN;
   damage = Math.max(1, Math.round(damage));
   state.guardHp = Math.max(0, state.guardHp - damage);
@@ -1166,7 +1229,7 @@ function updateDefenders(dt, width) {
     const pool = ranged.length ? ranged : inRange;
     const target = pool.reduce((lead, mob) => (!lead || mob.x > lead.x ? mob : lead), null);
     if (target) {
-      state.arrows.push({ sx: towerX - 30, sy: platformY - 62, mob: target, t: 0, dur: 0.42, damage: archerDamage(state.archerLevel) * heroPowerMult('archer') });
+      state.arrows.push({ sx: towerX - 30, sy: platformY - 62, mob: target, t: 0, dur: 0.42, damage: archerDamage(state.archerLevel) * heroPowerMult('archer') * (1 + gearBonus('archer', 'weapon')) });
       state.archerCooldown = archerInterval(state.archerLevel);
       sfx('arrow');
     }
@@ -1242,7 +1305,7 @@ function resetGame() {
     waveTotal: 0, spawned: 0, defeated: 0, archerUnlocked: false, wavePlan: [], waveDifficulties: {},
     archerLevel: 0, archerCooldown: 0, arrows: [], volleyFx: 0, volleyDamage: 0, shake: 0,
     towerSlot: null, catapultUnlocked: false, catapultLevel: 0, catapultCooldown: 0, rocks: [], enemyShots: [], dust: [], notice: null, towerFx: 0,
-    heroes: freshHeroes(), frontHero: 'legionary', supportHero: null, autoSpells: false, holdLine: 0, bashFx: 0, blessFx: 0, hornFx: 0, hintsSeen: [], trophies: 0, eagles: 0, systems: [],
+    heroes: freshHeroes(), frontHero: 'legionary', supportHero: null, autoSpells: false, holdLine: 0, bashFx: 0, blessFx: 0, hornFx: 0, hintsSeen: [], trophies: 0, eagles: 0, systems: [], gear: [], gearDrops: 0, eliteKills: 0,
     mobs: [], spawnTimer: 0.6, patrolTimer: 4, patrolSpawned: 0, foodTimer: 3, attackCooldown: 0, attackTimer: 0,
     hitFlash: 0, floaters: [], time: 0, last: 0,
     wavesCleared: 0, villageStage: 1, stageOverride: null, growthFx: 0, growthBanner: 0
@@ -1266,6 +1329,13 @@ function canUpgrade(kind) {
 
 function collectKillReward(mob) {
   let reward = mob.reward;
+  if (mob.countsForWave && systemUnlocked('armory') && (mob.type === 'troll' || mob.type === 'orcRed')) {
+    state.eliteKills += 1;
+    if (state.eliteKills % ELITE_DROP_EVERY === 0) {
+      const item = dropGear(state.wave, false);
+      state.floaters.push({ kind: 'gear', amount: gearName(item), x: mob.x, life: 1.8, duration: 1.8 });
+    }
+  }
   if (!mob.countsForWave) {
     state.patrolKills += 1;
     reward = 1; // patrols are the steady gold drip between waves
@@ -1284,8 +1354,9 @@ function collectKillReward(mob) {
 const MAX_TOWN = 7;
 const SYSTEMS = [
   { id: 'armory', name: 'Armory', icon: '⚒', wave: 10, text: 'Bosses drop gear for your heroes' },
-  { id: 'barracks', name: 'Barracks', icon: '⚑', wave: 20, text: 'Train heroes with food — levels without a cap' },
-  { id: 'temple', name: 'Temple', icon: '☉', wave: 30, text: 'Offerings to Mars, Ceres and Minerva' }
+  // Barracks and Temple are designed (META_LOOP.md) but not built yet: eagles keep.
+  { id: 'barracks', name: 'Barracks', icon: '⚑', wave: 20, text: 'Train heroes with food — levels without a cap', soon: true },
+  { id: 'temple', name: 'Temple', icon: '☉', wave: 30, text: 'Offerings to Mars, Ceres and Minerva', soon: true }
 ];
 
 function bossReward(wave) {
@@ -1316,7 +1387,7 @@ function systemUnlocked(id) {
 
 function canUnlockSystem(id) {
   const sys = SYSTEMS.find((item) => item.id === id);
-  return Boolean(sys) && !systemUnlocked(id) && state.phase !== 'wave' && state.eagles >= 1 && state.wavesCleared >= sys.wave;
+  return Boolean(sys) && !sys.soon && !systemUnlocked(id) && state.phase !== 'wave' && state.eagles >= 1 && state.wavesCleared >= sys.wave;
 }
 
 function unlockSystem(id) {
@@ -1327,6 +1398,67 @@ function unlockSystem(id) {
   showNotice('EAGLE OFFERED', `${sys.name.toUpperCase()} OPENED`, sys.text);
   sfx('fanfare');
   return true;
+}
+
+// ---------------------------------------------------------------------------
+// Armory (eagle of wave 10): bosses drop gear, elites sometimes. Three slots per
+// hero. Weapon: +% damage. Armour: −% damage taken. Charm: −% spell cooldown.
+// ---------------------------------------------------------------------------
+const GEAR_SLOTS = {
+  weapon: { icon: '⚔', label: 'damage', values: [0.1, 0.2, 0.35], names: ['Iron Gladius', 'Centurion Gladius', 'Gladius of Mars'] },
+  armor:  { icon: '⛨', label: 'damage taken', values: [0.08, 0.15, 0.25], names: ['Leather Lorica', 'Segmented Lorica', 'Lorica of Jupiter'] },
+  charm:  { icon: '✦', label: 'spell cooldown', values: [0.08, 0.15, 0.25], names: ['Bronze Bulla', 'Silver Bulla', 'Bulla of Minerva'] }
+};
+const RARITY = ['Common', 'Rare', 'Epic'];
+const ELITE_DROP_EVERY = 6;   // every 6th elite kill (troll / elite orc) drops an item
+
+function gearRarityFor(wave, mega) {
+  if (wave >= 30) return mega ? 2 : 1;
+  if (wave >= 20) return mega ? 1 : (wave >= 25 ? 1 : 0);
+  return mega ? 1 : 0;
+}
+
+function dropGear(wave, mega) {
+  const order = ['weapon', 'armor', 'charm'];
+  const slot = order[state.gearDrops % order.length];
+  const rarity = gearRarityFor(wave, mega);
+  const item = { id: state.gearDrops + 1, slot, rarity, owner: null };
+  state.gearDrops += 1;
+  state.gear.push(item);
+  return item;
+}
+
+function gearName(item) {
+  return GEAR_SLOTS[item.slot].names[item.rarity];
+}
+
+function gearBonus(heroId, slot) {
+  return state.gear.filter((item) => item.owner === heroId && item.slot === slot)
+    .reduce((sum, item) => sum + GEAR_SLOTS[item.slot].values[item.rarity], 0);
+}
+
+// Give the item to the next hero in line (or take it off). One item per slot per hero.
+function cycleGearOwner(itemId) {
+  if (state.phase === 'wave') return false;
+  const item = state.gear.find((entry) => entry.id === itemId);
+  if (!item) return false;
+  const heroes = Object.keys(heroDefs).filter((id) => state.heroes[id].unlocked && !heroDefs[id].machine);
+  const order = [null, ...heroes];
+  const next = order[(order.indexOf(item.owner) + 1) % order.length];
+  if (next) for (const other of state.gear) if (other !== item && other.owner === next && other.slot === item.slot) other.owner = null;
+  item.owner = next;
+  return true;
+}
+
+// Best items to the heroes on the field, front first.
+function autoEquip() {
+  if (state.phase === 'wave') return;
+  for (const item of state.gear) item.owner = null;
+  const heroes = activeHeroes().filter((id) => !heroDefs[id].machine);
+  for (const slot of Object.keys(GEAR_SLOTS)) {
+    const items = state.gear.filter((item) => item.slot === slot).sort((a, b) => b.rarity - a.rarity);
+    heroes.forEach((id, i) => { if (items[i]) items[i].owner = id; });
+  }
 }
 
 function upgradeTown() {
@@ -1387,7 +1519,7 @@ function update(delta, width, simulationStep = false) {
   const activeWaveMobs = state.mobs.filter(mob => mob.countsForWave && !mob.dead).length;
   const nextIsBoss = Boolean(enemyTypes[state.wavePlan[state.spawned]]?.isBoss);
   if (state.phase === 'wave' && state.spawned < state.waveTotal && state.spawnTimer <= 0
-      && activeWaveMobs < (nextIsBoss ? 1 : 2)) {
+      && activeWaveMobs < (nextIsBoss ? 1 : maxConcurrent(state.wave))) {
     const nextType = state.wavePlan[state.spawned] || 'orc';
     spawnMob(nextType);
     if (enemyTypes[nextType]?.isBoss && state.notice?.kicker !== 'BOSS') {
@@ -1484,7 +1616,8 @@ function update(delta, width, simulationStep = false) {
       if (mob === frontline && mob.attackCooldown <= 0) {
         const charge = traits.includes('charge') && !mob.charged;
         mob.charged = true;
-        hurtGuard(charge ? mob.damage * 2 : mob.damage, guardX);
+        const enraged = traits.includes('enrage') && mob.hp < mob.maxHp / 2;
+        hurtGuard((charge ? mob.damage * 2 : mob.damage) * (enraged ? 1.5 : 1), guardX);
         mob.attackMotion = 0.32;
         mob.attackCooldown = mob.attackRate;
       }
@@ -1506,7 +1639,7 @@ function update(delta, width, simulationStep = false) {
     !mob.dead && mob.x > guardX - 130 && mob.x < guardX - 10 && (!lead || mob.x > lead.x) ? mob : lead
   ), null);
   if (state.guardHp > 0 && target && state.attackCooldown <= 0) {
-    damageMob(target, state.guardLevel * heroDefs[state.frontHero].damageMult * heroPowerMult(state.frontHero), 'melee');
+    damageMob(target, state.guardLevel * heroDefs[state.frontHero].damageMult * heroPowerMult(state.frontHero) * (1 + gearBonus(state.frontHero, 'weapon')), 'melee');
     sfx('sword');
     state.attackTimer = 0.28;
     state.hitFlash = 0.14;
@@ -2711,6 +2844,7 @@ function drawEnemy(mob, x, groundY, height, bob, opacity, shadowScale) {
   if (look.prop === 'boar') {
     drawShadow(x, groundY + 2, 96, 0.14);
     ctx.save(); ctx.globalAlpha = opacity;
+    if (look.filter && mob.type === 'wolfRider') ctx.filter = look.filter; // grey "wolf" until real art
     drawBoar(x, groundY + bob * 0.5, 1, mob.bob);
     ctx.restore();
     // Rider sits on the boar's back.
@@ -2967,6 +3101,21 @@ const HUD_M = 540 * 0.04;     // edge margin
 const HUD_T = 540 * 0.125;    // tile size
 const HUD_R = 540 * 0.028;    // corner radius
 
+function rosterFreeSpan(width) {
+  const fallback = { left: 200, right: width - 260 };
+  const card = canvas.parentElement;
+  const left = ui['hud-sound'];
+  const right = ui.coins && ui.coins.closest ? ui.coins.closest('.resources') : null;
+  if (!card || !left || !right || typeof card.getBoundingClientRect !== 'function') return fallback;
+  const c = card.getBoundingClientRect();
+  if (!c.width) return fallback;
+  const scale = width / c.width;
+  return {
+    left: (left.getBoundingClientRect().right - c.left) * scale + HUD_M,
+    right: (right.getBoundingClientRect().left - c.left) * scale - HUD_M
+  };
+}
+
 function drawWaveRoster(width) {
   if (!portraits.orc) return;
   // During a wave show what is attacking; between waves show what comes next.
@@ -2977,13 +3126,16 @@ function drawWaveRoster(width) {
     return result;
   }, {});
   const entries = Object.entries(counts);
+  const many = entries.length > 3;
   const pad = 14;
-  const head = 40;
-  const countWidth = 24;
-  const gap = 12;
+  const head = many ? 34 : 40;
+  const countWidth = many ? 20 : 24;
+  const gap = many ? 8 : 12;
   const labelWidth = 40;
   const panelWidth = pad + labelWidth + entries.length * (head + 4 + countWidth) + (entries.length - 1) * gap + pad;
-  const x = width / 2 - panelWidth / 2;
+  // Centre on screen, but stay inside the gap between the top-left tiles and the resources.
+  const free = rosterFreeSpan(width);
+  const x = Math.max(free.left, Math.min(free.right - panelWidth, width / 2 - panelWidth / 2));
   const y = HUD_M;
   const mid = y + HUD_T / 2;
   ctx.save();
@@ -3038,7 +3190,7 @@ function drawFloaters(height) {
       continue;
     }
     const resourceIcon = floater.kind === 'food' ? resourceIcons.food : floater.kind === 'reward' ? resourceIcons.gold : null;
-    const label = floater.kind === 'bash' ? `BASH −${floater.amount}` : floater.kind === 'hold' ? 'HOLD · −70% DMG' : floater.kind === 'bless' ? `+${floater.amount} ♥` : floater.kind === 'stolen' ? `−${floater.amount} STOLEN` : floater.kind === 'volley' ? `VOLLEY −${floater.amount}` : floater.kind === 'food' ? `+${floater.amount}` : floater.kind === 'hurt' ? `−${floater.amount}  ♥` : floater.kind === 'spikes' ? `−${floater.amount}  ⋀` : floater.kind === 'arrow' ? `−${floater.amount}  ➶` : floater.kind === 'reward' ? `VICTORY  +${floater.amount}` : `+${floater.amount}  ☠`;
+    const label = floater.kind === 'gear' ? `⚒ ${floater.amount}` : floater.kind === 'bash' ? `BASH −${floater.amount}` : floater.kind === 'hold' ? 'HOLD · −70% DMG' : floater.kind === 'bless' ? `+${floater.amount} ♥` : floater.kind === 'stolen' ? `−${floater.amount} STOLEN` : floater.kind === 'volley' ? `VOLLEY −${floater.amount}` : floater.kind === 'food' ? `+${floater.amount}` : floater.kind === 'hurt' ? `−${floater.amount}  ♥` : floater.kind === 'spikes' ? `−${floater.amount}  ⋀` : floater.kind === 'arrow' ? `−${floater.amount}  ➶` : floater.kind === 'reward' ? `VICTORY  +${floater.amount}` : `+${floater.amount}  ☠`;
     ctx.save();
     ctx.globalAlpha = alpha;
     ctx.translate(floater.x + sway, y);
@@ -3270,6 +3422,22 @@ function syncHint() {
   el.style.setProperty('--arrow', `${t.left - c.left + t.width / 2 - x}px`);
 }
 
+let gearKey = '';
+function syncGear() {
+  const key = JSON.stringify([systemUnlocked('armory'), state.gear, state.phase === 'wave']);
+  if (key === gearKey) return;
+  gearKey = key;
+  if (!systemUnlocked('armory')) { ui['hud-gear'].innerHTML = ''; return; }
+  const inWave = state.phase === 'wave';
+  const rows = state.gear.slice().sort((a, b) => b.rarity - a.rarity || a.slot.localeCompare(b.slot)).map((item) => {
+    const slot = GEAR_SLOTS[item.slot];
+    const sign = item.slot === 'weapon' ? '+' : '−';
+    const owner = item.owner ? heroDefs[item.owner].name : 'in storage';
+    return `<button class="row" data-gear="${item.id}" ${inWave ? 'disabled' : ''} title="Tap to give it to the next hero"><i>${slot.icon}</i><span><b>${gearName(item)}</b><small>${RARITY[item.rarity]} · ${sign}${Math.round(slot.values[item.rarity] * 100)}% ${slot.label}</small></span><em class="${item.owner ? 'good' : ''}">${owner}</em></button>`;
+  }).join('');
+  ui['hud-gear'].innerHTML = `<p class="row-note"><b>Armory</b> · tap an item to pass it to the next hero</p>${rows || '<p class="row-note">No gear yet — bosses drop it, elites sometimes.</p>'}`;
+}
+
 function syncHud() {
   const inWave = state.phase === 'wave';
   if (inWave) hud.open = false;
@@ -3300,8 +3468,8 @@ function syncHud() {
   // Systems bought with an eagle appear once their boss has been beaten.
   for (const sys of SYSTEMS) {
     if (systemUnlocked(sys.id) || state.wavesCleared < sys.wave) continue;
-    rows.unshift({ kind: `sys-${sys.id}`, icon: sys.icon, name: `Unlock ${sys.name}`, system: sys.id,
-      levelText: '1 🦅', costText: `${sys.text}`, disabled: !canUnlockSystem(sys.id) });
+    rows.unshift({ kind: `sys-${sys.id}`, icon: sys.icon, name: `${sys.soon ? '' : 'Unlock '}${sys.name}`, system: sys.id,
+      levelText: sys.soon ? 'soon' : '1 🦅', costText: sys.soon ? `${sys.text} · coming soon, keep your eagle` : sys.text, disabled: !canUnlockSystem(sys.id) });
   }
   const key = JSON.stringify(rows.map((row) => [row.kind, row.levelText, row.costText, row.disabled]));
   if (key !== hudUpgradesKey) {
@@ -3328,6 +3496,7 @@ function syncHud() {
   ui['hud-speed'].textContent = `${state.speed}×`;
   ui['hud-pause'].textContent = state.running ? 'Ⅱ' : '▶';
   ui['hud-sound'].textContent = sound.enabled ? '🔊' : '🔈';
+  syncGear();
   syncHint();
 }
 
@@ -3522,7 +3691,7 @@ const SAVED_FIELDS = [
   'townLevel', 'wave', 'phase', 'food', 'coins', 'kills', 'patrolKills',
   'guardLevel', 'maxGuardHp', 'spikesLevel', 'farmLevel',
   'archerUnlocked', 'archerLevel', 'catapultUnlocked', 'catapultLevel', 'towerSlot',
-  'wavesCleared', 'waveDifficulties', 'frontHero', 'supportHero', 'autoSpells', 'hintsSeen', 'trophies', 'eagles', 'systems'
+  'wavesCleared', 'waveDifficulties', 'frontHero', 'supportHero', 'autoSpells', 'hintsSeen', 'trophies', 'eagles', 'systems', 'gear', 'gearDrops', 'eliteKills'
 ];
 
 function serializeSave(now = Date.now()) {
@@ -3684,7 +3853,11 @@ ui['hud-upgrades'].onclick = (event) => {
   else if (row) ui[row.dataset.upgrade].onclick();
 };
 ui['hud-lineup'].onclick = (event) => ui.lineup.onclick(event);
-ui['hud-auto-lineup'].onclick = () => autoLineup();
+ui['hud-auto-lineup'].onclick = () => { autoLineup(); autoEquip(); };
+ui['hud-gear'].onclick = (event) => {
+  const row = event.target.closest && event.target.closest('[data-gear]');
+  if (row) cycleGearOwner(Number(row.dataset.gear));
+};
 
 // Tap a hero to cast their spell; keys 1/2/3 cast the slot spells.
 canvas.addEventListener('click', (event) => {

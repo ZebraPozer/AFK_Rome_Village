@@ -99,6 +99,16 @@ desktop page.
 runtime chroma-keying for the legionary/archer is gone. Root `assets/` and
 `transparent-stickers/` no longer exist (moved into `art/_archive/`).
 
+**Steps after the first handoff** (commits `92e5d57` … latest):
+- Balance: idle-style exponential economy (`ECONOMY`), fixed per-wave difficulty against
+  `expectedProgress(wave)`, human-like `session()` bot; first 10 waves ≈ 23 min (tested).
+- First session: wave/boss notices, boss HP bar, recommended level on the wave button,
+  first-minute hints (`hints`, `state.hintsSeen`), banners on real time.
+- Trophies & eagles (`bossReward`, `canUpgradeTown`, `requiredTown`, `SYSTEMS`), village 1–7.
+- Waves 11–30 with placeholder enemies and 4 bosses, up to 3 enemies from wave 21,
+  Armory gear (`GEAR_SLOTS`, `dropGear`, `autoEquip`, `cycleGearOwner`), tuning `ACT3_*`.
+- Barracks / Temple exist only as "soon" rows — implementing them is the next feature.
+
 ## 3. Known issues / open decisions
 - Spell/UI icons are font glyphs/emoji; some render as empty boxes on some systems.
   Real icons are requested in `ASSET_REQUESTS.md` (`assets/ui/…`).

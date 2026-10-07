@@ -66,6 +66,28 @@ These are drawn today as tinted orc sprites with props drawn in code.
 | 19 | `assets/characters/orc-shaman.png` | Boss of wave 10: tall shaman with a glowing blue staff, bone/feather headdress, purple tones. Should read as a boss (big silhouette). |
 | 20 | `assets/characters/orc-brute-boss.png` | Boss of wave 5 as a proper field sprite (today it is a cut-out of the concept art `art/concepts/orc-brute-boss-01.png`). |
 
+## Priority 3b — act III enemies and bosses (waves 11–30)
+
+Placeholders today: tinted copies of existing orc sprites.
+
+| File (source in `art/characters/`) | What |
+|---|---|
+| `troll.png` | Big armoured troll, slow, heavy club. Bigger than an elite orc. |
+| `wolf-rider.png` | Orc riding a grey wolf, fast, charging. |
+| `orc-berserker.png` | Shirtless orc with two axes, war paint, angry — he enrages at half HP. |
+| `goblin-king.png` | Boss (wave 15): fat goblin with a crown on a small throne/shield, cocky. |
+| `orc-warlord.png` | Boss (wave 20): huge orc in black iron armour with a banner. |
+| `ogre-chief.png` | Boss (wave 25): ogre with a tree-trunk club, skull belt. |
+| `cyclops.png` | Boss (wave 30): one-eyed giant with a stone shield. The biggest silhouette so far. |
+
+Head icons for all of the above, same framing as `orc-raider-head.png`.
+
+## Priority 3c — loot and boss rewards (UI icons, 256×256)
+
+`assets/ui/trophy.png` (boss trophy), `assets/ui/eagle.png` (Roman legion eagle, Aquila),
+`assets/ui/gear-weapon.png`, `gear-armor.png`, `gear-charm.png`, each in 3 rarities
+(`-common`, `-rare`, `-epic`: iron / silver / gold-glowing).
+
 ## Priority 4 — buildings and defences (nice to have)
 
 | # | File | What | Now |

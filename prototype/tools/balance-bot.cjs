@@ -47,21 +47,24 @@ function shop(wave) {
   }
 }
 
-function play({ waves = 5, spells = true, rotate = true } = {}) {
+function play({ waves = 5, spells = true, rotate = true, maxPrepHours = 12 } = {}) {
   run('resetGame()');
   run(`state.autoSpells = ${spells}`);
   const report = [];
   for (let wave = 1; wave <= waves; wave += 1) {
     run("ui['town-upgrade'].onclick(); for (const sys of SYSTEMS) unlockSystem(sys.id);");
-    if (rotate) run("ui['auto-lineup'].onclick()");
+    if (rotate) run("autoLineup()");
     let preparationTicks = 0;
     shop(wave);
-    while (!run(`meetsExpected(${wave})`) && preparationTicks < 72000) {
-      run('for (let i = 0; i < 60; i++) update(1/60, 1170)');
-      preparationTicks += 60;
+    // Waiting is fast-forwarded with the same rates as offline income (farm food,
+    // patrol gold), 30 s at a time, so hours of AFK do not need a frame-by-frame sim.
+    while (!run(`meetsExpected(${wave})`) && preparationTicks < 60 * 3600 * maxPrepHours) {
+      run('state.food += 10 * state.farmLevel; state.coins += 3;');
+      preparationTicks += 60 * 30;
       shop(wave);
     }
-    if (preparationTicks >= 72000) throw new Error(`Preparation for wave ${wave} exceeded twenty minutes`);
+    if (preparationTicks >= 60 * 3600 * maxPrepHours) throw new Error(`Preparation for wave ${wave} exceeded ${maxPrepHours} h`);
+    run('autoEquip()');
     run("ui['wave-button'].onclick()");
     if (Number.isFinite(hpTrials[wave - 1])) run(`state.waveDifficulties[state.wave].hp *= ${hpTrials[wave - 1]}`);
     if (Number.isFinite(attackTrials[wave - 1])) run(`state.waveDifficulties[state.wave].damage *= ${attackTrials[wave - 1]}`);
@@ -161,4 +164,4 @@ function session({ waves = 10, patience = 30, bossPatience = 60, recommendWait =
   return report;
 }
 
-module.exports = { play, idle, run, session };
+module.exports = { play, idle, run, session, shop };

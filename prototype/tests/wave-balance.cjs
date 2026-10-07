@@ -283,14 +283,14 @@ assert.equal(run('state.enemyShots.length'), 0, 'Projectiles never leak into a n
 
 const fullCampaign = require('../tools/balance-bot.cjs').play({ waves: 10 });
 assert.equal(fullCampaign.length, 10);
-assert.equal(fullCampaign.at(-1).phase, 'complete', 'All ten waves are beatable with spells and rotation');
+assert.equal(fullCampaign.at(-1).phase, 'victory', 'All ten opening waves are beatable with spells and rotation');
 for (const result of fullCampaign) {
   assert.ok(result.enemies <= 5 && result.peakEnemies <= 2);
   assert.equal(result.bossSharedField, false);
 }
 assert.ok(fullCampaign.some((result) => result.lineup.includes('hoplite')), 'Bot actually rotates in the hoplite');
 const noRotation = require('../tools/balance-bot.cjs').play({ waves: 10, rotate: false });
-assert.equal(noRotation.at(-1).phase, 'complete', 'Rotation is an advantage, not a requirement');
+assert.equal(noRotation.at(-1).phase, 'victory', 'Rotation is an advantage, not a requirement');
 assert.ok(fullCampaign.at(-1).hpRatio > noRotation.at(-1).hpRatio, 'Rotation creates a real advantage');
 run('resetGame(); state.wavesCleared = 10; state.townLevel = 2; state.trophies = 2; upgradeTown(); update(0.01, 1170);');
 assert.equal(run('state.townLevel'), 3);
@@ -329,3 +329,35 @@ assert.notEqual(firstSession.at(-1).phase, 'defeat', 'The first session reaches 
 assert.ok(sessionMinutes >= 15 && sessionMinutes <= 35, `First session should take 15–35 min, got ${sessionMinutes.toFixed(1)}`);
 assert.ok(defeats.length >= 1 && defeats.length <= 8, `1–8 defeats expected in the first session, got ${defeats.length}`);
 console.log(`Pacing passed: first 10 waves in ${sessionMinutes.toFixed(1)} min with ${defeats.length} defeats (${defeats.map((r) => r.wave).join(', ')}).`);
+
+// Act III: the balanced player reaches wave 30 with spells, rotation and gear.
+const longRun = require('../tools/balance-bot.cjs').play({ waves: 30, maxPrepHours: 48 });
+assert.equal(longRun.length, 30);
+assert.equal(longRun.at(-1).phase, 'complete', 'All 30 waves are beatable');
+for (const result of longRun) {
+  assert.ok(result.peakEnemies <= (result.wave > 20 ? 3 : 2), `Wave ${result.wave} crowds the field`);
+  assert.equal(result.bossSharedField, false, `Boss of wave ${result.wave} must enter alone`);
+  if (result.wave > 10) assert.ok(result.hpRatio >= 0.15 && result.hpRatio <= 0.6, `Wave ${result.wave} should end at 15–60% HP, got ${Math.round(result.hpRatio * 100)}%`);
+}
+const prepHours = longRun.reduce((sum, r) => sum + r.preparationSeconds, 0) / 3600;
+assert.ok(prepHours > 3 && prepHours < 24, `Waves 1–30 should need hours of AFK, not minutes or days (got ${prepHours.toFixed(1)} h)`);
+run('state.townLevel');
+
+// Armory: boss drops after the eagle, items pass between heroes, gear changes combat.
+run('resetGame(); state.wave = 10; state.wavesCleared = 9; finishWave(); unlockSystem("armory"); state.wave = 15; state.wavesCleared = 14; finishWave();');
+assert.equal(run('state.gear.length'), 1, 'Mini-boss drops one item once the Armory is open');
+assert.equal(run('state.gear[0].slot'), 'weapon');
+run('state.wave = 20; state.wavesCleared = 19; finishWave();');
+assert.equal(run('state.gear.length'), 3, 'Mega-boss drops two items');
+assert.equal(run('state.gear[1].rarity'), 1, 'Mega-boss items are rare');
+run('autoEquip()');
+assert.equal(run('state.gear.filter(i => i.owner === "legionary").length'), 3, 'Auto-equip dresses the frontline first');
+assert.ok(Math.abs(run('gearBonus("legionary", "weapon")') - 0.1) < 1e-9);
+run('state.holdLine = 0; state.frontHero = "legionary"');
+assert.equal(run('hurtGuard(100, 600)'), 85, 'Rare armour: −15% damage taken');
+run('cycleGearOwner(1)');
+assert.notEqual(run('state.gear[0].owner'), 'legionary', 'Tapping an item passes it on');
+run('state.heroes.legionary.cd = 0; spawnMob("orc"); state.mobs[0].x = 1170 * 0.52 - 72; state.gear.forEach(i => { i.owner = i.slot === "charm" ? "legionary" : i.owner; }); castSpell("legionary")');
+assert.ok(run('state.heroes.legionary.cd') < 12, 'A charm shortens the cooldown');
+assert.equal(run('requiredTown(21)'), 5);
+console.log(`Act III passed: 30 waves complete after ${prepHours.toFixed(1)} h of AFK; Armory drops, equips and boosts.`);
