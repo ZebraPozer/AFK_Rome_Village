@@ -1,7 +1,7 @@
 'use strict';
 
 const canvas = document.querySelector('#game');
-const ctx = canvas.getContext('2d');
+let ctx = canvas.getContext('2d'); // reassigned briefly while baking cached layers
 const ui = Object.fromEntries([
   'food','coins','wave','kills','mob-count','pause','speed',
   'reset','wave-button','wave-difficulty','wave-preview','boss-progress','specialization-note','state-label','live-dot','guard-status','farm-status','loading',
@@ -1778,13 +1778,7 @@ function drawCloud(image, width, height, options) {
 }
 
 function drawSkyLayers(width, height) {
-  // A restrained sunlight bloom keeps the center readable and warms the village side.
-  const glow = ctx.createRadialGradient(width * 0.76, height * 0.10, 0, width * 0.76, height * 0.10, width * 0.42);
-  glow.addColorStop(0, '#fff0bd5c');
-  glow.addColorStop(0.42, '#fff4ce24');
-  glow.addColorStop(1, '#fff4ce00');
-  ctx.fillStyle = glow;
-  ctx.fillRect(0, 0, width, height * 0.72);
+  // The sunlight bloom is baked with the sky gradient (drawSkyGradient); only clouds move.
 
   drawCloud(skyLayers.wisp, width, height, {
     x: 0.03, y: 0.03, width: 0.24, opacity: 0.30, speed: 2.2, phase: 0.6,
@@ -2228,18 +2222,49 @@ function drawGroundLayer(width, height, ground) {
   ctx.restore();
 }
 
-function drawBackground(width, height) {
-  const ground = height * GROUND_RATIO;
+// The sky gradient and the landscape (mountains, hills, trees, ground) never change,
+// so they are baked once per canvas size; only the clouds are drawn every frame.
+const bgCache = { key: '', sky: null, land: null };
+
+function bakeLayer(width, height, draw) {
+  const layer = document.createElement('canvas');
+  layer.width = canvas.width;
+  layer.height = canvas.height;
+  const g = layer.getContext('2d');
+  g.setTransform(canvas.width / width, 0, 0, canvas.height / height, 0, 0);
+  const screen = ctx;
+  ctx = g;
+  try { draw(); } finally { ctx = screen; }
+  return layer;
+}
+
+function drawSkyGradient(width, height, ground) {
   const sky = ctx.createLinearGradient(0, 0, 0, ground);
   sky.addColorStop(0, '#b9ddec');
   sky.addColorStop(0.58, '#d9e8d5');
   sky.addColorStop(1, '#eef0c9');
   ctx.fillStyle = sky;
   ctx.fillRect(0, 0, width, height);
-  drawSkyLayers(width, height);
-  drawLandscapeLayers(width, height, ground);
+  const glow = ctx.createRadialGradient(width * 0.76, height * 0.10, 0, width * 0.76, height * 0.10, width * 0.42);
+  glow.addColorStop(0, '#fff0bd5c');
+  glow.addColorStop(0.42, '#fff4ce24');
+  glow.addColorStop(1, '#fff4ce00');
+  ctx.fillStyle = glow;
+  ctx.fillRect(0, 0, width, height * 0.72);
+}
 
-  drawGroundLayer(width, height, ground);
+function drawBackground(width, height) {
+  const ground = height * GROUND_RATIO;
+  const ready = landscapeLayers.mountains && landscapeLayers.hills && landscapeLayers.treeline && landscapeLayers.grass;
+  const key = `${canvas.width}x${canvas.height}:${ready ? 1 : 0}`;
+  if (bgCache.key !== key) {
+    bgCache.key = key;
+    bgCache.sky = bakeLayer(width, height, () => drawSkyGradient(width, height, ground));
+    bgCache.land = bakeLayer(width, height, () => { drawLandscapeLayers(width, height, ground); drawGroundLayer(width, height, ground); });
+  }
+  ctx.drawImage(bgCache.sky, 0, 0, width, height);
+  drawSkyLayers(width, height);
+  ctx.drawImage(bgCache.land, 0, 0, width, height);
 
   // The farm and buildings are drawn by drawVillage*() so they can grow by stage.
 }
