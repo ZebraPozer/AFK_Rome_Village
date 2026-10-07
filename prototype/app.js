@@ -3204,7 +3204,8 @@ function syncHint() {
   if (!card || !target || typeof target.getBoundingClientRect !== 'function') return;
   const c = card.getBoundingClientRect();
   const t = target.getBoundingClientRect();
-  const x = Math.min(c.width - 120, Math.max(120, t.left - c.left + t.width / 2));
+  const half = (el.offsetWidth || 240) / 2 + 12; // keep the bubble inside the screen
+  const x = Math.min(c.width - half, Math.max(half, t.left - c.left + t.width / 2));
   el.style.left = `${x}px`;
   el.style.bottom = `${c.bottom - t.top + 12}px`;
   el.style.setProperty('--arrow', `${t.left - c.left + t.width / 2 - x}px`);
