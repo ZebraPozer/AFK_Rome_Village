@@ -163,6 +163,18 @@
             <table class="dev-table"><thead><tr><th>Closed for</th><th>Food</th><th>Gold</th><th>Would buy now</th><th>Next wave</th></tr></thead><tbody id="afk-forecast"></tbody></table>
           </div>
           <div class="dev-card">
+            <h3>Cheats</h3>
+            <p class="dev-hint">Jump to any wave with the build the game expects there (rewards, trophies, eagles, gear and unlocks replayed). Logged in stats.</p>
+            <div class="dev-buttons">
+              <label class="dev-inline">Wave <input id="cheat-wave" type="number" min="1" max="30" value="15"> <button id="cheat-jump">Jump</button></label>
+              <button data-cheat="food">+1000 food</button>
+              <button data-cheat="gold">+1000 gold</button>
+              <button data-cheat="trophy">+1 trophy</button>
+              <button data-cheat="eagle">+1 eagle</button>
+              <button data-cheat="heal">Full HP</button>
+            </div>
+          </div>
+          <div class="dev-card">
             <h3>Playtest stats</h3>
             <p class="dev-hint">Recorded locally on every device: waves, purchases, AFK returns, play time.</p>
             <div id="stats-summary" class="dev-summary"></div>

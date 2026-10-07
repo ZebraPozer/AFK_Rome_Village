@@ -15,7 +15,8 @@ const ui = Object.fromEntries([
   'hud-tab-upgrades','hud-tab-heroes','hud-close','hud-gear',
   'away','away-time','away-food','away-gold','away-cap','away-collect','hint',
   'trophies','eagles','trophy-pill','eagle-pill',
-  'afk-custom','afk-custom-go','afk-efficiency','afk-cap','afk-forecast','stats-summary','stats-export','stats-clear','hud-upgrades','hud-heroes','hud-lineup','hud-auto-lineup'
+  'afk-custom','afk-custom-go','afk-efficiency','afk-cap','afk-forecast','stats-summary','stats-export','stats-clear',
+  'cheat-wave','cheat-jump','hud-upgrades','hud-heroes','hud-lineup','hud-auto-lineup'
 ].map((id) => [id, document.getElementById(id)]));
 
 // Runtime sprites are pre-cut, web-sized copies built from art/ by tools/build_assets.py.
@@ -3826,7 +3827,8 @@ ui['village-stage'].onclick = () => {
 // Only progress is saved; a wave in progress is restored as its preparation.
 // ---------------------------------------------------------------------------
 const SAVE_KEY = 'afkRomeSave.v1';
-const SAVE_VERSION = 1;
+// Bump when the economy or progression changes so old saves start fresh.
+const SAVE_VERSION = 2;
 // Offline income: half of what live play earns, capped by the village level
 // (2 h at village 1–2, 4 h at 3–4, 8 h from 5). Both can be overridden in the debug panel.
 const OFFLINE = { efficiency: 0.5, capOverride: null, minSeconds: 60, goldEvery: 10 };
@@ -4017,6 +4019,48 @@ function syncDevTools() {
   ].map(([k, v]) => `<span>${k}</span><b>${v}</b>`).join('');
 }
 
+// ---------------------------------------------------------------------------
+// Debug cheats: jump straight to any wave with the build the game expects there.
+// ---------------------------------------------------------------------------
+function jumpToWave(target) {
+  const wave = Math.max(1, Math.min(FINAL_WAVE, Math.round(target)));
+  stats.muted = true;
+  resetGame();
+  // Replay the first clears so rewards, trophies, eagles, gear and unlocks match a real run.
+  for (let w = 1; w < wave; w += 1) {
+    state.wave = w;
+    state.wavesCleared = w - 1;
+    state.phase = 'victory';
+    finishWave();
+    while (canUpgradeTown()) upgradeTown();
+    for (const sys of SYSTEMS) unlockSystem(sys.id);
+  }
+  const t = expectedProgress(wave);
+  Object.assign(state, {
+    wave, phase: wave === 1 ? 'preparation' : 'victory', guardLevel: t.guardLevel, maxGuardHp: t.maxGuardHp,
+    spikesLevel: Math.min(t.spikesLevel, upgradeLimit('spikes')),
+    farmLevel: Math.min(upgradeLimit('farm'), 1 + Math.ceil(wave * 0.5)), food: 0, coins: 0, notice: null
+  });
+  if (state.phase === 'victory') state.wave = wave - 1; // the wave button then calls `wave`
+  if (state.archerUnlocked) { state.archerLevel = Math.min(t.archerLevel, upgradeLimit('archer')); state.catapultLevel = Math.max(1, Math.min(t.catapultLevel, upgradeLimit('catapult'))); }
+  if (systemUnlocked('barracks')) for (const id of Object.keys(state.heroes)) if (state.heroes[id].unlocked) state.heroes[id].level = t.heroLevel;
+  autoLineup(); autoEquip();
+  state.hintsSeen = hints.map((hint) => hint.id);
+  state.guardHp = state.maxGuardHp;
+  state.notice = null;
+  stats.muted = false;
+  recordStat('cheat', { action: 'jump', to: wave });
+}
+
+function cheat(action) {
+  if (action === 'food') state.food += 1000;
+  if (action === 'gold') state.coins += 1000;
+  if (action === 'trophy') state.trophies += 1;
+  if (action === 'eagle') state.eagles += 1;
+  if (action === 'heal') state.guardHp = state.maxGuardHp;
+  recordStat('cheat', { action });
+}
+
 function exportStats() {
   const payload = { exportedAt: new Date().toISOString(), summary: statsSummary(), offline: { ...OFFLINE },
     progress: serializeSave(), events: stats.events };
@@ -4195,6 +4239,11 @@ document.addEventListener('keydown', (event) => {
   loadDebugSettings();
   recordStat('session');
   const saved = readSave();
+  if (saved && saved.version !== SAVE_VERSION) {
+    clearSave();
+    recordStat('fresh-start', { oldVersion: saved.version });
+    showNotice('NEW VERSION', 'FRESH START', 'The game changed a lot — your old save was reset');
+  }
   if (saved && applySave(saved)) {
     const income = offlineIncome((Date.now() - (saved.savedAt || Date.now())) / 1000, offlineFarmRate());
     if (income.food || income.gold) showAway(income);
@@ -4205,6 +4254,8 @@ document.addEventListener('keydown', (event) => {
   ui['afk-efficiency'].onchange = () => { OFFLINE.efficiency = Math.max(0, Number(ui['afk-efficiency'].value) / 100); saveDebugSettings(); };
   ui['afk-cap'].onchange = () => { OFFLINE.capOverride = Number(ui['afk-cap'].value) > 0 ? Number(ui['afk-cap'].value) : null; saveDebugSettings(); };
   ui['stats-export'].onclick = exportStats;
+  ui['cheat-jump'].onclick = () => jumpToWave(Number(ui['cheat-wave'].value));
+  document.querySelectorAll('[data-cheat]').forEach((button) => { button.onclick = () => cheat(button.dataset.cheat); });
   ui['stats-clear'].onclick = clearStats;
   setInterval(writeSave, 5000);
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') writeSave(); });

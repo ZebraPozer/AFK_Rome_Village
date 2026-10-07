@@ -412,3 +412,18 @@ run('state.food = 1000; ui["guard-upgrade"].onclick()');
 assert.equal(run('stats.events.at(-1).item'), 'frontline', 'Purchases are logged');
 assert.equal(run('statsSummary().wins'), 1);
 console.log('Debug tools passed: AFK forecast, offline settings and stats log.');
+
+// Cheats: jumping to a wave reproduces the build the game expects there.
+for (const w of [6, 15, 21, 30]) {
+  run(`jumpToWave(${w})`);
+  const s = JSON.parse(run('JSON.stringify({ wave: state.wave, phase: state.phase, town: state.townLevel, guard: state.guardLevel, cleared: state.wavesCleared, systems: state.systems, gear: state.gear.length })'));
+  assert.equal(s.cleared, w - 1, `Jump ${w}: previous waves cleared`);
+  assert.equal(run('state.phase === "victory" ? state.wave + 1 : state.wave'), w, `Jump ${w}: next wave is ${w}`);
+  assert.ok(run(`state.townLevel >= requiredTown(${w})`), `Jump ${w}: village allows the wave`);
+}
+run('jumpToWave(30)');
+assert.equal(run('state.systems.join()'), 'armory,barracks', 'Temple waits for the wave 30 boss');
+assert.ok(run('heroLevel("legionary")') > 1, 'Heroes are trained after the jump');
+run("ui['wave-button'].onclick()");
+assert.equal(run('state.phase + state.wave'), 'wave30', 'After the jump the wave can be called');
+console.log('Cheats passed: jump to waves 6, 15, 21 and 30.');
