@@ -3827,8 +3827,14 @@ ui['village-stage'].onclick = () => {
 // ---------------------------------------------------------------------------
 const SAVE_KEY = 'afkRomeSave.v1';
 const SAVE_VERSION = 1;
-// Offline income settings; capHours and efficiency can be tuned live in the debug panel.
-const OFFLINE = { capHours: 8, efficiency: 1, minSeconds: 60, goldEvery: 10 };
+// Offline income: half of what live play earns, capped by the village level
+// (2 h at village 1–2, 4 h at 3–4, 8 h from 5). Both can be overridden in the debug panel.
+const OFFLINE = { efficiency: 0.5, capOverride: null, minSeconds: 60, goldEvery: 10 };
+
+function offlineCapHours() {
+  if (OFFLINE.capOverride) return OFFLINE.capOverride;
+  return state.townLevel <= 2 ? 2 : state.townLevel <= 4 ? 4 : 8;
+}
 const SAVED_FIELDS = [
   'townLevel', 'wave', 'phase', 'food', 'coins', 'kills', 'patrolKills',
   'guardLevel', 'maxGuardHp', 'spikesLevel', 'farmLevel',
@@ -3864,7 +3870,7 @@ function applySave(data) {
 // Offline income mirrors what the village earns while you watch: the farm's food
 // and the patrol gold. It never buys upgrades or unlocks anything.
 function offlineIncome(seconds, farmLevel) {
-  const capped = Math.max(0, Math.min(seconds, OFFLINE.capHours * 3600));
+  const capped = Math.max(0, Math.min(seconds, offlineCapHours() * 3600));
   if (capped < OFFLINE.minSeconds) return { seconds: capped, food: 0, gold: 0 };
   const k = OFFLINE.efficiency;
   return { seconds: capped, food: Math.floor(Math.floor(capped / 3) * farmLevel * k), gold: Math.floor(capped / OFFLINE.goldEvery * k) };
@@ -3966,18 +3972,18 @@ function clearStats() {
   saveStats();
 }
 
-const DEBUG_KEY = 'afkRomeDebug.v1';
+const DEBUG_KEY = 'afkRomeDebug.v2';
 function loadDebugSettings() {
   try {
     const data = JSON.parse(localStorage.getItem(DEBUG_KEY) || 'null');
-    if (data) Object.assign(OFFLINE, { capHours: Number(data.capHours) || 8, efficiency: Number.isFinite(data.efficiency) ? data.efficiency : 1 });
+    if (data) Object.assign(OFFLINE, { capOverride: Number(data.capOverride) || null, efficiency: Number.isFinite(data.efficiency) ? data.efficiency : 0.5 });
   } catch (error) { /* optional */ }
   ui['afk-efficiency'].value = Math.round(OFFLINE.efficiency * 100);
-  ui['afk-cap'].value = OFFLINE.capHours;
+  ui['afk-cap'].value = OFFLINE.capOverride || '';
 }
 
 function saveDebugSettings() {
-  try { localStorage.setItem(DEBUG_KEY, JSON.stringify({ capHours: OFFLINE.capHours, efficiency: OFFLINE.efficiency })); } catch (error) { /* optional */ }
+  try { localStorage.setItem(DEBUG_KEY, JSON.stringify({ capOverride: OFFLINE.capOverride, efficiency: OFFLINE.efficiency })); } catch (error) { /* optional */ }
 }
 
 const forecastRows = [['10 min', 600], ['1 h', 3600], ['5 h', 18000], ['8 h', 28800], ['24 h', 86400]];
@@ -3985,7 +3991,7 @@ let devKey = '';
 // Refreshed from syncUi (cheap: only rebuilds when something relevant changed).
 function syncDevTools() {
   const key = JSON.stringify([state.food, state.coins, state.guardLevel, state.farmLevel, state.spikesLevel, state.townLevel, state.wave, state.phase,
-    state.archerLevel, state.catapultLevel, state.towerSlot, OFFLINE, stats.events.length, Math.floor(stats.playSeconds / 10)]);
+    state.archerLevel, state.catapultLevel, state.towerSlot, OFFLINE, offlineCapHours(), stats.events.length, Math.floor(stats.playSeconds / 10)]);
   if (key === devKey) return;
   devKey = key;
   ui['afk-forecast'].innerHTML = forecastRows.map(([label, seconds]) => {
@@ -3998,7 +4004,7 @@ function syncDevTools() {
     const buys = parts.length ? parts.join(', ') : 'nothing';
     const capNote = f.capped ? ' <span class="low">(frontline capped — beat the boss)</span>' : '';
     const ok = f.after.guard >= f.rec;
-    return `<tr><td>${label}${seconds > OFFLINE.capHours * 3600 ? ' (cap)' : ''}</td><td>+${formatNumber(f.income.food)}</td><td>+${formatNumber(f.income.gold)}</td><td>${buys}${capNote}</td><td class="${ok ? 'ok' : 'low'}">wave ${f.nextWave}: lv ${f.after.guard}/${f.rec}</td></tr>`;
+    return `<tr><td>${label}${seconds > offlineCapHours() * 3600 ? ` (cap ${offlineCapHours()} h)` : ''}</td><td>+${formatNumber(f.income.food)}</td><td>+${formatNumber(f.income.gold)}</td><td>${buys}${capNote}</td><td class="${ok ? 'ok' : 'low'}">wave ${f.nextWave}: lv ${f.after.guard}/${f.rec}</td></tr>`;
   }).join('');
   const sum = statsSummary();
   const defeatsByWave = Object.entries(sum.defeatsByWave).map(([w, n]) => `${w}×${n}`).join(', ') || '—';
@@ -4048,7 +4054,8 @@ function showAway(income) {
   ui['away-time'].textContent = formatDuration(income.seconds);
   ui['away-food'].textContent = `+${income.food}`;
   ui['away-gold'].textContent = `+${income.gold}`;
-  ui['away-cap'].hidden = income.seconds < OFFLINE.capHours * 3600;
+  ui['away-cap'].hidden = income.seconds < offlineCapHours() * 3600;
+  ui['away-cap'].textContent = `Storage is full after ${offlineCapHours()} h — it grows with your village.`;
   ui.away.hidden = false;
   state.running = false;
 }
@@ -4196,7 +4203,7 @@ document.addEventListener('keydown', (event) => {
   document.querySelectorAll('[data-away]').forEach((button) => { button.onclick = () => simulateAway(Number(button.dataset.away)); });
   ui['afk-custom-go'].onclick = () => simulateAway(Number(ui['afk-custom'].value) * 3600);
   ui['afk-efficiency'].onchange = () => { OFFLINE.efficiency = Math.max(0, Number(ui['afk-efficiency'].value) / 100); saveDebugSettings(); };
-  ui['afk-cap'].onchange = () => { OFFLINE.capHours = Math.max(0.5, Number(ui['afk-cap'].value)); saveDebugSettings(); };
+  ui['afk-cap'].onchange = () => { OFFLINE.capOverride = Number(ui['afk-cap'].value) > 0 ? Number(ui['afk-cap'].value) : null; saveDebugSettings(); };
   ui['stats-export'].onclick = exportStats;
   ui['stats-clear'].onclick = clearStats;
   setInterval(writeSave, 5000);

@@ -64,7 +64,7 @@
                 <span><img src="assets/icons/food.png" alt="Food"><b id="away-food">+0</b></span>
                 <span><img src="assets/icons/gold.png" alt="Gold"><b id="away-gold">+0</b></span>
               </div>
-              <p id="away-cap" hidden>Storage is full after 8 hours — come back sooner to earn more.</p>
+              <p id="away-cap" hidden>Storage is full — it grows with your village.</p>
               <button id="away-collect" class="tile tile-wide tile-accent">Collect</button>
             </div>
           </section>
@@ -157,8 +157,8 @@
               <label class="dev-inline"><input id="afk-custom" type="number" min="0.1" step="0.5" value="2"> h <button id="afk-custom-go">Go</button></label>
             </div>
             <div class="dev-settings">
-              <label>Offline efficiency <input id="afk-efficiency" type="number" min="0" max="200" step="5" value="100"> %</label>
-              <label>Offline cap <input id="afk-cap" type="number" min="0.5" max="72" step="0.5" value="8"> h</label>
+              <label>Offline efficiency <input id="afk-efficiency" type="number" min="0" max="200" step="5" value="50"> %</label>
+              <label>Offline cap <input id="afk-cap" type="number" min="0.5" max="72" step="0.5" placeholder="auto"> h <small>(empty = by village: 2 / 4 / 8 h)</small></label>
             </div>
             <table class="dev-table"><thead><tr><th>Closed for</th><th>Food</th><th>Gold</th><th>Would buy now</th><th>Next wave</th></tr></thead><tbody id="afk-forecast"></tbody></table>
           </div>
