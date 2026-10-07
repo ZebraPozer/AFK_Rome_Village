@@ -1,70 +1,97 @@
 # AGENTS.md — rules for any coding agent working on AFK Rome Village
 
-Read this first. For the latest handoff (what changed and what to do next) see
-`HANDOFF_FOR_CODEX.md`. For art that still needs rendering see `ASSET_REQUESTS.md`.
+Read this first. Latest handoff: `HANDOFF_FOR_CODEX.md`. Art to render: `ASSET_REQUESTS.md`.
+The prototype is a **lab for a future Unreal game**: read `docs/UNREAL_PORT.md` before changing
+architecture.
 
 ## Project
 
-Browser prototype of an idle / AFK village-defence game (Roman legion vs orcs, enemies
-come from the left, village on the right). Plain HTML + Canvas 2D + vanilla JS, no build
-step, no dependencies.
+Browser prototype of an idle / AFK village-defence game (Roman legion vs orcs, enemies come
+from the left, village on the right). Plain HTML + Canvas 2D + vanilla JS classic scripts,
+no dependencies, runs from a double-clicked `prototype/index.html`.
 
 ```
-index.html                     redirect to prototype/ (GitHub Pages entry)
-docs/GAME_DESIGN.md            design doc (Russian); latest decisions are at the END
-docs/references/               sketches, concepts, Claude's original design doc
-ASSET_REQUESTS.md              art to render, with paths and specs
-art/                           full-resolution SOURCE art by category (+ art/_archive: unused)
-prototype/index.html           phone frame + HUD markup + debug panel
-prototype/style.css            all styles (HUD design tokens at the top)
-prototype/app.js               the whole game (single file, sections marked with // ---- banners)
-prototype/assets/              GENERATED web-sized copies of art/ — never edit by hand
-prototype/tools/build_assets.py   art/ → prototype/assets/ (Pillow); list of runtime assets
-prototype/tests/wave-balance.cjs  headless tests (node, no deps)
-prototype/tools/balance-bot.cjs   headless balance bot that plays with the real handlers
+index.html                         redirect to prototype/ (GitHub Pages entry)
+docs/GAME_DESIGN.md                design doc (Russian); latest decisions at the END
+docs/META_LOOP.md                  long-term progression design (Russian)
+docs/GAME_RULES.md                 formulas — the port specification (English)
+docs/GAME_DATA_TABLES.md           GENERATED tables (tools/gen-rules.cjs)
+docs/UNREAL_PORT.md                how the prototype maps to Unreal, parity tests, port order
+docs/TELEMETRY.md                  playtest event schema
+art/                               full-resolution SOURCE art (+ art/_archive: unused)
+prototype/index.html               phone frame + HUD markup + debug panel; script load order
+prototype/style.css                all styles (HUD design tokens at the top)
+prototype/data/*.json              EVERY game number (single source of truth, Unreal imports these)
+prototype/data/game-data.js        GENERATED bundle of the JSON (tools/build-data.cjs)
+prototype/src/sim/                 RULES ONLY — no DOM, no canvas, no audio, no storage
+  events.js                          event bus (emit/onSimEvent) + simRandom (pinned in tests)
+  constants.js waves.js world.js heroes.js combat.js progression.js
+  actions.js                         player commands: callWave, buy, togglePause, cycleSpeed
+  save.js                            save format, offline income, stats log, cheats
+prototype/src/audio/               synthesized SFX, listens to sim events
+prototype/src/render/              canvas drawing (assets, background, village, actors, overlay, scene)
+prototype/src/ui/                  HUD, debug panel, input, browser storage (platform.js)
+prototype/src/main.js              boot: asset loading, frame loop, load save, autosave, error catcher
+prototype/assets/                  GENERATED web-sized copies of art/ (tools/build_assets.py)
+prototype/golden/                  GENERATED parity scenarios for the Unreal port (tools/export-golden.cjs)
+prototype/tests/wave-balance.cjs   headless tests
+prototype/tools/                   load-game.cjs (vm loader), balance-bot.cjs, build-data.cjs,
+                                   gen-rules.cjs, export-golden.cjs, build_assets.py
 ```
 
-Run locally: `python3 -m http.server 4173 --directory prototype` → http://127.0.0.1:4173
+Run locally: double-click `prototype/index.html`, or
+`python3 -m http.server 4173 --directory prototype` → http://127.0.0.1:4173
 
 ## Must-pass checks before every commit
 
 ```sh
 node prototype/tests/wave-balance.cjs     # must print every "... passed." line
-node prototype/tools/balance-bot.cjs      # read the table; keep the bands below
+node prototype/tools/balance-bot.cjs      # read the tables; keep the bands below
+```
+
+The tests also fail if a generated file is stale. After changing data or rules:
+
+```sh
+node prototype/tools/build-data.cjs       # data/*.json → data/game-data.js
+node prototype/tools/gen-rules.cjs        # → docs/GAME_DATA_TABLES.md
+node prototype/tools/export-golden.cjs    # → prototype/golden/*.json (ONLY if the change is intended)
 ```
 
 Balance bands enforced by the tests:
-- Waves 1–5, bot with spells (AUTO) and rotation: end at **20–50 % HP**.
-- Waves 1–5, bot without spells: still win, end at **5–35 % HP**.
-- Wave 1 lasts < 25 s; wave 3 is **lost** with no upgrades (first "lose → upgrade → win" lesson).
-- At most 2 wave enemies on the field; bosses enter alone.
-- Act II (6–10) is balanced assuming spells + rotation; without rotation it must still be beatable.
+- Waves 1–5, bot with spells (AUTO) and rotation: end at **20–50 % HP**; without spells: win at **5–35 %**.
+- Wave 1 lasts < 25 s; wave 3 is **lost** with no upgrades.
+- Human-like session: first 10 waves in **15–35 min** with **1–8 defeats**.
+- Waves 11–30 (balanced bot): end at **15–60 % HP**; all 30 waves complete.
+- At most 2 wave enemies on the field (3 from wave 21); bosses enter alone; no endless waves.
 
-If you add a purchase, spell or hero, teach the bot to use it (`tools/balance-bot.cjs`,
-`autoCastSpells`, `autoLineup`) and re-tune via the `OPENING_*` / `ACT2_*` arrays in `app.js`.
+## Architecture rules (keep the port easy)
+
+- **Numbers go in `prototype/data/*.json`**, never as literals in `src/sim`. Add a `_doc` string
+  for new fields. Rebuild the bundle.
+- **`src/sim` never touches the browser** (document, window, canvas, ctx, ui, localStorage,
+  navigator, performance, audio). It talks out only through `emit()` events and state.
+  The architecture test enforces this and runs a wave with the simulation alone.
+- **Input goes through commands** (`sim/actions.js` and the functions it lists in
+  `docs/GAME_RULES.md` §10). Buttons, keys, bots and golden scenarios all call the same functions.
+- **Randomness only via `simRandom()`**. Tests/bots/golden pin it to 0.5.
+- **Determinism**: fixed 1/60 s steps; core logic must not read wall-clock time (offline income
+  takes `seconds` as a parameter).
+- **Load order** is shared global scope: the `<script>` list in `index.html` and the arrays in
+  `tools/load-game.cjs` must stay identical.
+- Update `docs/GAME_RULES.md` when a formula changes; regenerate tables and golden files.
+- Presentation is throwaway (it will be rebuilt in Unreal): keep it simple, don't over-invest.
 
 ## Conventions
 
-- **Language:** everything the player sees (game, HUD, debug panel) is **English**.
-  Docs (`GAME_DESIGN.md`, READMEs) are **Russian** — the owner (Nikita) speaks Russian.
-- **One HUD style:** one translucent dark surface (`--surface`), rounded-square tiles of one
-  size (`--t`), one margin (`--m`), one radius (`--r`), one accent (`--accent`, gold).
-  No borders, no panels inside panels, no circles. Canvas panels reuse the same values
-  (`HUD_M`, `HUD_T`, `HUD_R`, `HUD_SURFACE` in `app.js`). Keep new UI in this system.
-- **HUD mirrors the debug panel:** HUD buttons call the debug panel's handlers
-  (`ui['wave-button'].onclick()`, `ui['guard-upgrade'].onclick()` …). Put game rules in
-  those handlers / core functions, never only in HUD code.
-- **Tests run app.js in a Node `vm`** with a stub DOM, sliced before `\nPromise.all([`.
-  Code above that line must not touch real DOM APIs without guards
-  (`typeof window`, `try/catch` around `localStorage`, `querySelectorAll` existence).
-  Boot-only code (load save, timers, listeners that need a real page) goes **after** it.
-- **Determinism:** tests stub `Math.random` to 0.5. Do not depend on wall-clock time in
-  core logic (offline income takes `seconds` as a parameter).
-- **Assets:** source art goes into `art/<category>/`, then run
-  `python3 prototype/tools/build_assets.py`; register new files in its `ASSETS` list and in
-  `app.js`. Runtime sprites are pre-cut (no runtime background keying, no crop rects).
-  Paths are case-sensitive on GitHub Pages. New art must have real alpha.
-  Placeholders (tinted sprites, code-drawn props) are listed in `ASSET_REQUESTS.md` —
-  when a real asset lands, remove the matching placeholder code.
-- **Sound** is synthesized (`sfxLib` in `app.js`); no audio files yet.
-- Commit messages: conventional style (`feat:`, `fix:`, `refactor:`, `docs:`).
+- **Language:** everything the player sees is **English**. Design docs and READMEs are
+  **Russian** (Nikita speaks Russian); technical port docs (GAME_RULES, UNREAL_PORT, TELEMETRY) are English.
+- **One HUD style:** one translucent dark surface (`--surface`), rounded-square tiles of one size
+  (`--t`), one margin (`--m`), one radius (`--r`), one accent (`--accent`). No frames inside frames,
+  no circles. Canvas panels reuse `HUD_M`, `HUD_T`, `HUD_R`, `HUD_SURFACE`.
+- **Performance:** never use `ctx.filter` per frame — go through `tinted()`; static layers are
+  baked (`bgCache`).
+- **Assets:** source art in `art/<category>/`, then `python3 prototype/tools/build_assets.py`;
+  runtime sprites are pre-cut; paths are case-sensitive on GitHub Pages; real alpha only.
+  Placeholders are listed in `ASSET_REQUESTS.md`.
+- **Saves:** bump `SAVE_VERSION` (sim/save.js) whenever economy or progression changes.
+- Commit messages: conventional style (`feat:`, `fix:`, `refactor:`, `docs:`, `balance:`, `perf:`).

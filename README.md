@@ -27,6 +27,11 @@ index.html              переадресация на prototype/ (вход д�
 
 docs/
   GAME_DESIGN.md        геймдизайн-документ; актуальные решения — в конце
+  META_LOOP.md          долгосрочная прогрессия (30 волн и дальше)
+  GAME_RULES.md         все формулы — спецификация для переноса в Unreal
+  GAME_DATA_TABLES.md   таблицы, посчитанные из данных (генерируются)
+  UNREAL_PORT.md        как переносить в Unreal: соответствие, порядок, проверки
+  TELEMETRY.md          формат статистики плейтестов
   references/           наброски, концепт роста, документ Клода
 
 art/                    исходная графика в полном размере (её правим и заменяем)
@@ -37,10 +42,15 @@ art/                    исходная графика в полном разм
   _archive/             старые варианты и лишнее — в игре не используется
 
 prototype/              сама игра (это и публикует GitHub Pages)
-  index.html  style.css  app.js  manifest.webmanifest
+  index.html  style.css  manifest.webmanifest
+  data/*.json           ВСЕ числа игры (враги, волны, баланс, цены, герои, боссы, офлайн)
+  data/game-data.js     собирается из JSON (node prototype/tools/build-data.cjs)
+  src/sim/              правила игры без экрана — то, что переносится в Unreal
+  src/audio, render, ui звук, отрисовка, интерфейс (в Unreal делаются заново)
+  src/main.js           запуск
+  golden/               эталонные сценарии для проверки Unreal-версии
   assets/               облегчённые копии из art/ — генерируются, руками не править
-  tests/wave-balance.cjs
-  tools/balance-bot.cjs  tools/build_assets.py
+  tests/, tools/
   README.md             механики, баланс, интерфейс, сохранение, звук
 ```
 
@@ -48,8 +58,18 @@ prototype/              сама игра (это и публикует GitHub P
 
 1. Положить файл в нужную папку `art/` (PNG с настоящей прозрачностью).
 2. Если это новый файл — добавить строку в список `ASSETS` в `prototype/tools/build_assets.py`
-   и путь в `app.js`.
+   и путь в `prototype/src/render/assets.js`.
 3. Запустить `python3 prototype/tools/build_assets.py` (нужен Pillow) — обновится `prototype/assets/`.
+
+## Как поменять число в игре
+
+Все числа — в `prototype/data/*.json` (у каждого файла есть `_doc` с пояснением). После правки:
+
+```sh
+node prototype/tools/build-data.cjs      # пересобрать data/game-data.js
+node prototype/tools/gen-rules.cjs       # обновить docs/GAME_DATA_TABLES.md
+node prototype/tools/export-golden.cjs   # обновить эталоны, если изменение задумано
+```
 
 ## Проверки
 
