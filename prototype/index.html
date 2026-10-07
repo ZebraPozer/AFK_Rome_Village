@@ -145,6 +145,33 @@
             <button id="reset" class="quiet">Reset prototype</button>
           </div>
         </div>
+        <section class="dev-tools" aria-label="AFK simulator and playtest stats">
+          <div class="dev-card">
+            <h3>AFK simulator</h3>
+            <p class="dev-hint">Pretend the player closed the game. Goes through the real “Welcome back” window.</p>
+            <div class="dev-buttons">
+              <button data-away="600">+10 min</button>
+              <button data-away="3600">+1 h</button>
+              <button data-away="18000">+5 h</button>
+              <button data-away="28800">+8 h</button>
+              <label class="dev-inline"><input id="afk-custom" type="number" min="0.1" step="0.5" value="2"> h <button id="afk-custom-go">Go</button></label>
+            </div>
+            <div class="dev-settings">
+              <label>Offline efficiency <input id="afk-efficiency" type="number" min="0" max="200" step="5" value="100"> %</label>
+              <label>Offline cap <input id="afk-cap" type="number" min="0.5" max="72" step="0.5" value="8"> h</label>
+            </div>
+            <table class="dev-table"><thead><tr><th>Closed for</th><th>Food</th><th>Gold</th><th>Would buy now</th><th>Next wave</th></tr></thead><tbody id="afk-forecast"></tbody></table>
+          </div>
+          <div class="dev-card">
+            <h3>Playtest stats</h3>
+            <p class="dev-hint">Recorded locally on every device: waves, purchases, AFK returns, play time.</p>
+            <div id="stats-summary" class="dev-summary"></div>
+            <div class="dev-buttons">
+              <button id="stats-export">Export JSON</button>
+              <button id="stats-clear" class="quiet">Clear stats</button>
+            </div>
+          </div>
+        </section>
         <p id="wave-difficulty" class="note"></p>
         <p id="wave-preview" class="note"></p>
         <p id="boss-progress" class="note"></p>

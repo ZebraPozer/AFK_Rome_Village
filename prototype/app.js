@@ -14,7 +14,8 @@ const ui = Object.fromEntries([
   'hud-pause','hud-sound','hud-wave','hud-speed','hud-upgrade','hud-panel',
   'hud-tab-upgrades','hud-tab-heroes','hud-close','hud-gear',
   'away','away-time','away-food','away-gold','away-cap','away-collect','hint',
-  'trophies','eagles','trophy-pill','eagle-pill','hud-upgrades','hud-heroes','hud-lineup','hud-auto-lineup'
+  'trophies','eagles','trophy-pill','eagle-pill',
+  'afk-custom','afk-custom-go','afk-efficiency','afk-cap','afk-forecast','stats-summary','stats-export','stats-clear','hud-upgrades','hud-heroes','hud-lineup','hud-auto-lineup'
 ].map((id) => [id, document.getElementById(id)]));
 
 // Runtime sprites are pre-cut, web-sized copies built from art/ by tools/build_assets.py.
@@ -571,6 +572,7 @@ function startWave() {
   state.hornFx = HORN_TIME;
   markHint('call');
   if (isBossWave(state.wave)) markHint('boss');
+  stats.waveStartedAt = state.time;
   state.shake = Math.max(state.shake, 0.2);
   playHorn();
   ui.pause.textContent = 'Ⅱ Pause';
@@ -798,6 +800,7 @@ function finishWave() {
   state.coins += reward;
   if (reward) state.floaters.push({ kind: 'reward', amount: reward, x: 585, life: 1.8, duration: 1.8 });
   sfx('fanfare', reward > 0);
+  recordStat('wave', { result: 'victory', first: reward > 0, seconds: Math.round(state.time - stats.waveStartedAt), hp: Math.round(state.guardHp / state.maxGuardHp * 100), guard: state.guardLevel });
   const loot = reward ? bossReward(state.wave) : null;
   if (loot) {
     state.trophies += loot.trophies;
@@ -854,6 +857,7 @@ function failWave() {
   state.holdLine = 0;
   const rec = recommendedLevel(state.wave);
   state.notice = null; // the defeat message replaces anything queued
+  recordStat('wave', { result: 'defeat', seconds: Math.round(state.time - stats.waveStartedAt), hp: 0, guard: state.guardLevel });
   showNotice('DEFEAT', `${frontName().toUpperCase()} FELL`, state.guardLevel < rec
     ? `Upgrade the frontline to lv ${rec}, then retry`
     : state.townLevel < 2 ? 'Build spikes and time your Bash, then retry'
@@ -1405,6 +1409,7 @@ function unlockSystem(id) {
   const sys = SYSTEMS.find((item) => item.id === id);
   state.eagles -= 1;
   state.systems.push(id);
+  recordStat('buy', { item: `system-${id}` });
   showNotice('EAGLE OFFERED', `${sys.name.toUpperCase()} OPENED`, sys.text);
   sfx('fanfare');
   return true;
@@ -1500,6 +1505,7 @@ function trainHero(id) {
   if (!canTrain(id)) return false;
   state.food -= trainPrice(id);
   state.heroes[id].level = heroLevel(id) + 1;
+  recordStat('buy', { item: `train-${id}`, level: heroLevel(id) });
   return true;
 }
 
@@ -1517,6 +1523,7 @@ function makeOffering(god) {
   if (!canOffer(god)) return false;
   state[GODS[god].resource] -= offeringPrice(god);
   state.temple[god] += 1;
+  recordStat('buy', { item: `offer-${god}`, level: state.temple[god] });
   return true;
 }
 
@@ -1539,6 +1546,7 @@ function upgradeTown() {
   if (!canUpgradeTown()) return;
   state.trophies -= 1;
   state.townLevel += 1;
+  recordStat('buy', { item: 'village', level: state.townLevel });
   applyUnlocks();
   syncUi();
 }
@@ -1553,6 +1561,7 @@ function tickPresentation(delta) {
   }
   state.towerFx = Math.max(0, state.towerFx - delta);
   state.hornFx = Math.max(0, state.hornFx - delta);
+  if (state.running) stats.playSeconds += delta;
 }
 
 function update(delta, width, simulationStep = false) {
@@ -3711,6 +3720,7 @@ function syncUi() {
     ? 'Tower: Catapult — area damage · tap the slot to pick the Archer'
     : 'Tower: Archer — single-target damage · tap the slot to pick the Catapult';
   syncHud();
+  syncDevTools();
 }
 
 function frame(now) {
@@ -3756,6 +3766,7 @@ ui['guard-upgrade'].onclick = () => {
   if (state.phase !== 'wave' && state.food >= price) {
     state.food -= price; state.guardLevel += 1; state.maxGuardHp += 20;
     markHint('upgrade');
+    recordStat('buy', { item: 'frontline', level: state.guardLevel, cost: price });
   }
 };
 ui['spikes-upgrade'].onclick = () => {
@@ -3764,20 +3775,22 @@ ui['spikes-upgrade'].onclick = () => {
   if (state.phase !== 'wave' && state.coins >= price) {
     state.coins -= price;
     state.spikesLevel += 1;
+    recordStat('buy', { item: 'spikes', level: state.spikesLevel, cost: price });
   }
 };
 ui['farm-upgrade'].onclick = () => {
   if (!canUpgrade('farm')) return;
   const price = farmPrice();
-  if (state.coins >= price) { state.coins -= price; state.farmLevel += 1; }
+  if (state.coins >= price) { state.coins -= price; state.farmLevel += 1; recordStat('buy', { item: 'farm', level: state.farmLevel, cost: price }); }
 };
-ui.reset.onclick = () => { resetGame(); clearSave(); };
+ui.reset.onclick = () => { resetGame(); clearSave(); recordStat('reset'); };
 ui['archer-upgrade'].onclick = () => {
   if (!canUpgrade('archer')) return;
   const price = archerPrice();
   if (state.archerUnlocked && state.phase !== 'wave' && state.coins >= price) {
     state.coins -= price;
     state.archerLevel += 1;
+    recordStat('buy', { item: 'archer', level: state.archerLevel, cost: price });
   }
 };
 ui['spell-bar'].onclick = (event) => {
@@ -3799,6 +3812,7 @@ ui['catapult-upgrade'].onclick = () => {
   if (state.catapultUnlocked && state.phase !== 'wave' && state.coins >= price) {
     state.coins -= price;
     state.catapultLevel += 1;
+    recordStat('buy', { item: 'catapult', level: state.catapultLevel, cost: price });
   }
 };
 
@@ -3813,9 +3827,8 @@ ui['village-stage'].onclick = () => {
 // ---------------------------------------------------------------------------
 const SAVE_KEY = 'afkRomeSave.v1';
 const SAVE_VERSION = 1;
-const OFFLINE_CAP_SECONDS = 8 * 3600;
-const OFFLINE_MIN_SECONDS = 60;
-const OFFLINE_GOLD_EVERY = 10;   // patrols pay about 1 gold per 10 s while you play
+// Offline income settings; capHours and efficiency can be tuned live in the debug panel.
+const OFFLINE = { capHours: 8, efficiency: 1, minSeconds: 60, goldEvery: 10 };
 const SAVED_FIELDS = [
   'townLevel', 'wave', 'phase', 'food', 'coins', 'kills', 'patrolKills',
   'guardLevel', 'maxGuardHp', 'spikesLevel', 'farmLevel',
@@ -3851,9 +3864,163 @@ function applySave(data) {
 // Offline income mirrors what the village earns while you watch: the farm's food
 // and the patrol gold. It never buys upgrades or unlocks anything.
 function offlineIncome(seconds, farmLevel) {
-  const capped = Math.max(0, Math.min(seconds, OFFLINE_CAP_SECONDS));
-  if (capped < OFFLINE_MIN_SECONDS) return { seconds: capped, food: 0, gold: 0 };
-  return { seconds: capped, food: Math.floor(Math.floor(capped / 3) * farmLevel), gold: Math.floor(capped / OFFLINE_GOLD_EVERY) };
+  const capped = Math.max(0, Math.min(seconds, OFFLINE.capHours * 3600));
+  if (capped < OFFLINE.minSeconds) return { seconds: capped, food: 0, gold: 0 };
+  const k = OFFLINE.efficiency;
+  return { seconds: capped, food: Math.floor(Math.floor(capped / 3) * farmLevel * k), gold: Math.floor(capped / OFFLINE.goldEvery * k) };
+}
+
+// Effective farm rate used for offline income (Ceres included).
+function offlineFarmRate() {
+  return state.farmLevel * (1 + godBonus('ceres'));
+}
+
+// ---------------------------------------------------------------------------
+// Debug: AFK forecast — what an absence pays and what it buys right now.
+// Runs the real purchase handlers on the live state, then restores it.
+// ---------------------------------------------------------------------------
+const FORECAST_FIELDS = ['food', 'coins', 'guardLevel', 'maxGuardHp', 'farmLevel', 'spikesLevel', 'archerLevel', 'catapultLevel', 'hintsSeen'];
+
+function forecastAway(seconds) {
+  const income = offlineIncome(seconds, offlineFarmRate());
+  const backup = JSON.stringify(FORECAST_FIELDS.map((key) => state[key]));
+  const before = { guard: state.guardLevel, farm: state.farmLevel, spikes: state.spikesLevel, tower: state.towerSlot ? state[`${state.towerSlot}Level`] : 0 };
+  const phase = state.phase;
+  if (phase === 'wave') state.phase = 'preparation';
+  stats.muted = true;
+  state.food += income.food;
+  state.coins += income.gold;
+  for (let round = 0; round < 500; round += 1) {
+    const mark = state.food + state.coins;
+    ui['guard-upgrade'].onclick(); ui['farm-upgrade'].onclick(); ui['spikes-upgrade'].onclick();
+    if (state.towerSlot) ui[`${state.towerSlot}-upgrade`].onclick();
+    if (state.food + state.coins === mark) break;
+  }
+  const after = { guard: state.guardLevel, farm: state.farmLevel, spikes: state.spikesLevel, tower: state.towerSlot ? state[`${state.towerSlot}Level`] : 0 };
+  const left = { food: state.food, gold: state.coins };
+  JSON.parse(backup).forEach((value, i) => { state[FORECAST_FIELDS[i]] = value; });
+  state.phase = phase;
+  stats.muted = false;
+  const nextWave = state.phase === 'victory' ? state.wave + 1 : state.wave;
+  const rec = recommendedLevel(nextWave);
+  return { income, before, after, left, nextWave, rec, capped: after.guard >= upgradeLimit('guard') };
+}
+
+// Debug: pretend the player was away — goes through the real Welcome back flow.
+function simulateAway(seconds) {
+  writeSave();
+  const income = offlineIncome(seconds, offlineFarmRate());
+  if (!income.food && !income.gold) return null;
+  showAway({ ...income, simulated: true });
+  return income;
+}
+
+// ---------------------------------------------------------------------------
+// Playtest statistics: a small local event log, exportable as JSON.
+// ---------------------------------------------------------------------------
+const STATS_KEY = 'afkRomeStats.v1';
+const STATS_MAX_EVENTS = 3000;
+const stats = { created: Date.now(), playSeconds: 0, events: [], muted: false, waveStartedAt: 0 };
+
+function recordStat(type, data = {}) {
+  if (stats.muted) return;
+  stats.events.push({ type, at: Math.round(stats.playSeconds), wave: state.wave, town: state.townLevel, ...data });
+  if (stats.events.length > STATS_MAX_EVENTS) stats.events.splice(0, stats.events.length - STATS_MAX_EVENTS);
+}
+
+function statsSummary() {
+  const waves = stats.events.filter((e) => e.type === 'wave');
+  const wins = waves.filter((e) => e.result !== 'defeat');
+  const defeats = waves.filter((e) => e.result === 'defeat');
+  const byWave = {};
+  for (const e of defeats) byWave[e.wave] = (byWave[e.wave] || 0) + 1;
+  const firstClear = {};
+  for (const e of wins) if (!(e.wave in firstClear)) firstClear[e.wave] = e.at;
+  const aways = stats.events.filter((e) => e.type === 'away');
+  return {
+    playMinutes: Math.round(stats.playSeconds / 6) / 10,
+    wavesFought: waves.length, wins: wins.length, defeats: defeats.length, defeatsByWave: byWave,
+    avgFightSeconds: waves.length ? Math.round(waves.reduce((sum, e) => sum + e.seconds, 0) / waves.length) : 0,
+    bossClearMinutes: Object.fromEntries(Object.entries(firstClear).filter(([w]) => w % 5 === 0).map(([w, at]) => [w, Math.round(at / 6) / 10])),
+    purchases: stats.events.filter((e) => e.type === 'buy').length,
+    afkReturns: aways.length,
+    afkHours: Math.round(aways.reduce((sum, e) => sum + e.seconds, 0) / 360) / 10,
+    afkFood: aways.reduce((sum, e) => sum + e.food, 0),
+    afkGold: aways.reduce((sum, e) => sum + e.gold, 0)
+  };
+}
+
+function saveStats() {
+  try { localStorage.setItem(STATS_KEY, JSON.stringify({ created: stats.created, playSeconds: stats.playSeconds, events: stats.events })); } catch (error) { /* optional */ }
+}
+
+function loadStats() {
+  try {
+    const data = JSON.parse(localStorage.getItem(STATS_KEY) || 'null');
+    if (data) Object.assign(stats, { created: data.created || Date.now(), playSeconds: data.playSeconds || 0, events: data.events || [] });
+  } catch (error) { /* optional */ }
+}
+
+function clearStats() {
+  Object.assign(stats, { created: Date.now(), playSeconds: 0, events: [] });
+  saveStats();
+}
+
+const DEBUG_KEY = 'afkRomeDebug.v1';
+function loadDebugSettings() {
+  try {
+    const data = JSON.parse(localStorage.getItem(DEBUG_KEY) || 'null');
+    if (data) Object.assign(OFFLINE, { capHours: Number(data.capHours) || 8, efficiency: Number.isFinite(data.efficiency) ? data.efficiency : 1 });
+  } catch (error) { /* optional */ }
+  ui['afk-efficiency'].value = Math.round(OFFLINE.efficiency * 100);
+  ui['afk-cap'].value = OFFLINE.capHours;
+}
+
+function saveDebugSettings() {
+  try { localStorage.setItem(DEBUG_KEY, JSON.stringify({ capHours: OFFLINE.capHours, efficiency: OFFLINE.efficiency })); } catch (error) { /* optional */ }
+}
+
+const forecastRows = [['10 min', 600], ['1 h', 3600], ['5 h', 18000], ['8 h', 28800], ['24 h', 86400]];
+let devKey = '';
+// Refreshed from syncUi (cheap: only rebuilds when something relevant changed).
+function syncDevTools() {
+  const key = JSON.stringify([state.food, state.coins, state.guardLevel, state.farmLevel, state.spikesLevel, state.townLevel, state.wave, state.phase,
+    state.archerLevel, state.catapultLevel, state.towerSlot, OFFLINE, stats.events.length, Math.floor(stats.playSeconds / 10)]);
+  if (key === devKey) return;
+  devKey = key;
+  ui['afk-forecast'].innerHTML = forecastRows.map(([label, seconds]) => {
+    const f = forecastAway(seconds);
+    const parts = [];
+    if (f.after.guard > f.before.guard) parts.push(`frontline ${f.before.guard}→${f.after.guard}`);
+    if (f.after.farm > f.before.farm) parts.push(`farm ${f.before.farm}→${f.after.farm}`);
+    if (f.after.spikes > f.before.spikes) parts.push(`spikes ${f.before.spikes}→${f.after.spikes}`);
+    if (f.after.tower > f.before.tower) parts.push(`${state.towerSlot} ${f.before.tower}→${f.after.tower}`);
+    const buys = parts.length ? parts.join(', ') : 'nothing';
+    const capNote = f.capped ? ' <span class="low">(frontline capped — beat the boss)</span>' : '';
+    const ok = f.after.guard >= f.rec;
+    return `<tr><td>${label}${seconds > OFFLINE.capHours * 3600 ? ' (cap)' : ''}</td><td>+${formatNumber(f.income.food)}</td><td>+${formatNumber(f.income.gold)}</td><td>${buys}${capNote}</td><td class="${ok ? 'ok' : 'low'}">wave ${f.nextWave}: lv ${f.after.guard}/${f.rec}</td></tr>`;
+  }).join('');
+  const sum = statsSummary();
+  const defeatsByWave = Object.entries(sum.defeatsByWave).map(([w, n]) => `${w}×${n}`).join(', ') || '—';
+  const bosses = Object.entries(sum.bossClearMinutes).map(([w, m]) => `w${w} at ${m} min`).join(', ') || '—';
+  ui['stats-summary'].innerHTML = [
+    ['Play time', `${sum.playMinutes} min`], ['Waves fought', `${sum.wavesFought} (${sum.wins} won)`],
+    ['Defeats', `${sum.defeats} · ${defeatsByWave}`], ['Avg fight', `${sum.avgFightSeconds} s`],
+    ['Bosses cleared', bosses], ['Purchases', sum.purchases],
+    ['AFK returns', `${sum.afkReturns} · ${sum.afkHours} h`], ['AFK income', `${formatNumber(sum.afkFood)} food · ${formatNumber(sum.afkGold)} gold`]
+  ].map(([k, v]) => `<span>${k}</span><b>${v}</b>`).join('');
+}
+
+function exportStats() {
+  const payload = { exportedAt: new Date().toISOString(), summary: statsSummary(), offline: { ...OFFLINE },
+    progress: serializeSave(), events: stats.events };
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+  const link = document.createElement('a');
+  const stamp = new Date().toISOString().slice(0, 16).replace(/[:T]/g, '-');
+  link.href = URL.createObjectURL(blob);
+  link.download = `afk-rome-stats-${stamp}.json`;
+  document.body.appendChild(link); link.click(); link.remove();
+  setTimeout(() => URL.revokeObjectURL(link.href), 1000);
 }
 
 function formatDuration(seconds) {
@@ -3864,6 +4031,7 @@ function formatDuration(seconds) {
 
 function writeSave() {
   try { localStorage.setItem(SAVE_KEY, JSON.stringify(serializeSave())); } catch (error) { /* storage is optional */ }
+  saveStats();
 }
 
 function readSave() {
@@ -3880,7 +4048,7 @@ function showAway(income) {
   ui['away-time'].textContent = formatDuration(income.seconds);
   ui['away-food'].textContent = `+${income.food}`;
   ui['away-gold'].textContent = `+${income.gold}`;
-  ui['away-cap'].hidden = income.seconds < OFFLINE_CAP_SECONDS;
+  ui['away-cap'].hidden = income.seconds < OFFLINE.capHours * 3600;
   ui.away.hidden = false;
   state.running = false;
 }
@@ -3889,6 +4057,7 @@ function collectAway() {
   if (!away.pending) return;
   state.food += away.pending.food;
   state.coins += away.pending.gold;
+  recordStat('away', { seconds: Math.round(away.pending.seconds), food: away.pending.food, gold: away.pending.gold, simulated: Boolean(away.pending.simulated) });
   away.pending = null;
   ui.away.hidden = true;
   state.running = true;
@@ -4015,12 +4184,21 @@ document.addEventListener('keydown', (event) => {
 
 // Boot: restore progress, pay offline income, then autosave regularly and on exit.
 {
+  loadStats();
+  loadDebugSettings();
+  recordStat('session');
   const saved = readSave();
   if (saved && applySave(saved)) {
-    const income = offlineIncome((Date.now() - (saved.savedAt || Date.now())) / 1000, state.farmLevel * (1 + godBonus('ceres')));
+    const income = offlineIncome((Date.now() - (saved.savedAt || Date.now())) / 1000, offlineFarmRate());
     if (income.food || income.gold) showAway(income);
   }
   ui['away-collect'].onclick = collectAway;
+  document.querySelectorAll('[data-away]').forEach((button) => { button.onclick = () => simulateAway(Number(button.dataset.away)); });
+  ui['afk-custom-go'].onclick = () => simulateAway(Number(ui['afk-custom'].value) * 3600);
+  ui['afk-efficiency'].onchange = () => { OFFLINE.efficiency = Math.max(0, Number(ui['afk-efficiency'].value) / 100); saveDebugSettings(); };
+  ui['afk-cap'].onchange = () => { OFFLINE.capHours = Math.max(0.5, Number(ui['afk-cap'].value)); saveDebugSettings(); };
+  ui['stats-export'].onclick = exportStats;
+  ui['stats-clear'].onclick = clearStats;
   setInterval(writeSave, 5000);
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') writeSave(); });
   window.addEventListener('pagehide', writeSave);

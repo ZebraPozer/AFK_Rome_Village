@@ -387,3 +387,23 @@ const saved2 = JSON.parse(run('JSON.stringify(serializeSave(5))'));
 run(`resetGame(); applySave(${JSON.stringify(saved2)})`);
 assert.equal(run('heroLevel("legionary") + "/" + state.temple.mars'), '2/1', 'Training and offerings are saved');
 console.log('Barracks and Temple passed: training, offerings, bonuses and saving.');
+
+// Debug tools: AFK forecast never changes the game; offline efficiency; stats log.
+run('resetGame(); state.wave = 5; finishWave(); upgradeTown(); state.food = 10; state.coins = 5; state.farmLevel = 3;');
+const before = run('JSON.stringify([state.food, state.coins, state.guardLevel, state.farmLevel, state.spikesLevel])');
+const f1h = JSON.parse(run('JSON.stringify(forecastAway(3600))'));
+assert.equal(run('JSON.stringify([state.food, state.coins, state.guardLevel, state.farmLevel, state.spikesLevel])'), before, 'Forecast restores the state');
+assert.equal(f1h.income.food, 3600, '1 h with a level-3 farm = 3600 food');
+assert.ok(f1h.after.guard > f1h.before.guard, 'The forecast shows what the food would buy');
+run('OFFLINE.efficiency = 0.5');
+assert.equal(run('offlineIncome(3600, 3).food'), 1800, 'Offline efficiency scales income');
+run('OFFLINE.efficiency = 1; OFFLINE.capHours = 2');
+assert.equal(run('offlineIncome(5 * 3600, 3).seconds'), 7200, 'Offline cap is configurable');
+run('OFFLINE.capHours = 8');
+run('resetGame(); clearStats(); state.wave = 1; startWave(); state.time += 12; finishWave();');
+assert.equal(run('stats.events.filter(e => e.type === "wave").length'), 1, 'Wave results are logged');
+assert.equal(run('stats.events.at(-1).seconds'), 12);
+run('state.food = 1000; ui["guard-upgrade"].onclick()');
+assert.equal(run('stats.events.at(-1).item'), 'frontline', 'Purchases are logged');
+assert.equal(run('statsSummary().wins'), 1);
+console.log('Debug tools passed: AFK forecast, offline settings and stats log.');
