@@ -123,8 +123,8 @@ function calculateOpeningDifficulty(wave, progress) {
 const OPENING_HP_TUNING = [3.62, 2.44, 4.70, 2.78, 0.70];
 const OPENING_DAMAGE_TUNING = [3.0, 2.8, 1.4, 1.6, 1.15];
 // Act II assumes the player uses hero spells and rotation (balance bot «Авто»).
-const ACT2_HP_TUNING = [1, 3, 1.3, 1.3, 1];
-const ACT2_DAMAGE_TUNING = [1, 3.4, 1.8, 4.8, 1.4];
+const ACT2_HP_TUNING = [1, 2.4, 1.3, 1.2, 1];
+const ACT2_DAMAGE_TUNING = [1, 2.8, 1.8, 3.4, 1.4];
 
 function calculateWaveDifficulty(wave, progress) {
   if (wave <= 5) return calculateOpeningDifficulty(wave, progress);
@@ -142,8 +142,37 @@ function calculateWaveDifficulty(wave, progress) {
   };
 }
 
+// Each wave is tuned for the player the game EXPECTS at that wave (idle-genre rule):
+// under-levelled players lose and must grow, over-levelled players win easily.
+// Values match the balance bot's build at each wave.
+const EXPECTED_PROGRESS = [
+  null,
+  { guardLevel: 1, spikesLevel: 0 }, { guardLevel: 2, spikesLevel: 0 }, { guardLevel: 3, spikesLevel: 0 },
+  { guardLevel: 4, spikesLevel: 1 }, { guardLevel: 5, spikesLevel: 1 },
+  { guardLevel: 6, spikesLevel: 2, archerLevel: 2, catapultLevel: 2 }, { guardLevel: 7, spikesLevel: 2, archerLevel: 3, catapultLevel: 3 },
+  { guardLevel: 8, spikesLevel: 2, archerLevel: 4, catapultLevel: 3 }, { guardLevel: 9, spikesLevel: 2, archerLevel: 5, catapultLevel: 4 },
+  { guardLevel: 10, spikesLevel: 2, archerLevel: 5, catapultLevel: 5 }
+];
+function expectedProgress(wave) {
+  const known = EXPECTED_PROGRESS[wave];
+  const base = known || { guardLevel: wave, spikesLevel: Math.min(2 + Math.floor((wave - 10) / 5), 12), archerLevel: Math.max(5, wave - 5), catapultLevel: Math.max(5, wave - 5) };
+  return { archerLevel: 0, catapultLevel: 0, ...base, maxGuardHp: 80 + 20 * base.guardLevel };
+}
+
+// Frontline level the wave was tuned for — shown to the player as a recommendation.
+function recommendedLevel(wave) {
+  return expectedProgress(wave).guardLevel;
+}
+
+// Is the current build at least what this wave was tuned for?
+function meetsExpected(wave) {
+  const t = expectedProgress(wave);
+  return state.guardLevel >= t.guardLevel && state.spikesLevel >= t.spikesLevel
+    && (state.townLevel < 2 || Math.max(state.archerLevel, state.catapultLevel) >= t.archerLevel);
+}
+
 function getWaveDifficulty(wave) {
-  return state.waveDifficulties[wave] || calculateWaveDifficulty(wave, state);
+  return state.waveDifficulties[wave] || calculateWaveDifficulty(wave, expectedProgress(wave));
 }
 
 const sprites = {};
@@ -735,8 +764,18 @@ function clearProjectiles() {
 // Archer, hero volley, catapult and unlocks.
 // ---------------------------------------------------------------------------
 const ARCHER_UNLOCK_WAVE = 5;
-const GUARD_PRICE_BASE = 5;
-const GUARD_PRICE_STEP = 4;
+// Economy: idle-style exponential prices, so resources (not caps) set the pace.
+// Tuned with the human-like session bot (tools/balance-bot.cjs → session()).
+const ECONOMY = {
+  guardBase: 36, guardGrowth: 1.5,       // food
+  farmBase: 24, farmGrowth: 1.6,         // gold
+  spikesBase: 24, spikesGrowth: 1.5,     // gold
+  archerBase: 24, archerGrowth: 1.35,    // gold
+  catapultBase: 28, catapultGrowth: 1.35 // gold
+};
+const priceAt = (base, growth, level) => Math.round(base * Math.pow(growth, Math.max(0, level - 1)));
+function farmPrice() { return priceAt(ECONOMY.farmBase, ECONOMY.farmGrowth, state.farmLevel); }
+function spikesPrice() { return priceAt(ECONOMY.spikesBase, ECONOMY.spikesGrowth, state.spikesLevel); }
 const TOWER_POP = 0.9;
 const NOTICE_TIME = 3.6;
 const CATAPULT_UNLOCK_WAVE = 5;
@@ -757,7 +796,7 @@ const VOLLEY_ZONE = [-400, -20]; // relative to the legionary
 // ---------------------------------------------------------------------------
 const HOPLITE_UNLOCK_WAVE = 7;
 const RESTED_BONUS = 0.25;      // «Свежие силы»: +25% damage for one wave
-const FATIGUE_PENALTY = 0.15;   // per wave beyond the first in a row
+const FATIGUE_PENALTY = 0.1;    // per wave beyond the first in a row
 const FATIGUE_MAX = 3;
 const heroDefs = {
   legionary: { name: 'Legionary', role: 'front', damageMult: 1, guardTaken: 1,
@@ -852,7 +891,9 @@ function autoLineup() {
     if (!slotUnlocked(slot.role)) continue;
     const options = heroesForRole(slot.role);
     if (!options.length) continue;
-    const best = options.reduce((a, b) => (heroPowerMult(b) > heroPowerMult(a) ? b : a), slotHero(slot.role) || options[0]);
+    // Tower options have their own upgrade levels, so compare level × freshness there.
+    const value = (id) => heroPowerMult(id) * (slot.role === 'tower' ? Math.max(1, state[`${id}Level`] || 0) : 1);
+    const best = options.reduce((a, b) => (value(b) > value(a) ? b : a), slotHero(slot.role) || options[0]);
     if (slot.role === 'front') state.frontHero = best;
     else if (slot.role === 'tower') state.towerSlot = best;
     else state.supportHero = best;
@@ -973,7 +1014,7 @@ function autoCastSpells(width = 1170) {
 
 // Legionary upgrades get steeper so food alone cannot outpace the waves.
 function guardUpgradePrice() {
-  return GUARD_PRICE_BASE + (state.guardLevel - 1) * GUARD_PRICE_STEP;
+  return priceAt(ECONOMY.guardBase, ECONOMY.guardGrowth, state.guardLevel);
 }
 
 function archerInterval(level) {
@@ -981,7 +1022,7 @@ function archerInterval(level) {
 }
 
 function archerPrice() {
-  return 10 + (state.archerLevel - 1) * 7;
+  return priceAt(ECONOMY.archerBase, ECONOMY.archerGrowth, state.archerLevel);
 }
 
 // Shared tower geometry for update() and drawScene() (world is 1170×540).
@@ -1008,7 +1049,7 @@ function archerDamage(level) {
 }
 
 function catapultPrice() {
-  return 12 + (state.catapultLevel - 1) * 8;
+  return priceAt(ECONOMY.catapultBase, ECONOMY.catapultGrowth, state.catapultLevel);
 }
 
 // Damage types: melee (legionary), pierce (archer), area (volley, catapult), contact (spikes).
@@ -1185,7 +1226,7 @@ function collectKillReward(mob) {
   let reward = mob.reward;
   if (!mob.countsForWave) {
     state.patrolKills += 1;
-    reward = state.patrolKills % 3 === 0 ? 1 : 0;
+    reward = 1; // patrols are the steady gold drip between waves
   }
   state.coins += reward;
   if (reward > 0) {
@@ -3115,17 +3156,17 @@ function syncUi() {
   ui['spikes-level'].textContent = state.spikesLevel ? `lv ${state.spikesLevel}` : 'not built';
   ui['farm-level'].textContent = `lv ${state.farmLevel}`;
   const guardPrice = guardUpgradePrice();
-  const spikesPrice = state.spikesLevel === 0 ? 10 : 12 + (state.spikesLevel - 1) * 8;
-  const farmPrice = 6 + (state.farmLevel - 1) * 5;
+  const spikesCost = spikesPrice();
+  const farmCost = farmPrice();
   ui['guard-cost'].textContent = `${guardPrice} food · +1 damage, +20 max HP`;
   ui['spikes-cost'].textContent = state.spikesLevel === 0
-    ? `${spikesPrice} gold · build, 1 passive damage`
-    : `${spikesPrice} gold · +1 passive damage`;
-  ui['farm-cost'].textContent = `${farmPrice} gold · more food`;
+    ? `${spikesCost} gold · build, 1 passive damage`
+    : `${spikesCost} gold · +1 passive damage`;
+  ui['farm-cost'].textContent = `${farmCost} gold · more food`;
   const inBattle = state.phase === 'wave';
   ui['guard-upgrade'].disabled = !canUpgrade('guard') || state.food < guardPrice;
-  ui['spikes-upgrade'].disabled = !canUpgrade('spikes') || state.coins < spikesPrice;
-  ui['farm-upgrade'].disabled = !canUpgrade('farm') || state.coins < farmPrice;
+  ui['spikes-upgrade'].disabled = !canUpgrade('spikes') || state.coins < spikesCost;
+  ui['farm-upgrade'].disabled = !canUpgrade('farm') || state.coins < farmCost;
   ui['village-stage'].textContent = `🏡 Village: ${state.villageStage}/3 · ${villageStages[state.villageStage]}${state.stageOverride ? ' (debug)' : ''}`;
   ui['archer-row'].classList.toggle('locked', !state.archerUnlocked);
   ui['archer-status'].textContent = !state.archerUnlocked ? 'LOCKED' : state.towerSlot === 'archer' ? `LV ${state.archerLevel}` : 'BENCHED';
@@ -3220,7 +3261,7 @@ ui['guard-upgrade'].onclick = () => {
 };
 ui['spikes-upgrade'].onclick = () => {
   if (!canUpgrade('spikes')) return;
-  const price = state.spikesLevel === 0 ? 10 : 12 + (state.spikesLevel - 1) * 8;
+  const price = spikesPrice();
   if (state.phase !== 'wave' && state.coins >= price) {
     state.coins -= price;
     state.spikesLevel += 1;
@@ -3228,7 +3269,7 @@ ui['spikes-upgrade'].onclick = () => {
 };
 ui['farm-upgrade'].onclick = () => {
   if (!canUpgrade('farm')) return;
-  const price = 6 + (state.farmLevel - 1) * 5;
+  const price = farmPrice();
   if (state.coins >= price) { state.coins -= price; state.farmLevel += 1; }
 };
 ui.reset.onclick = () => { resetGame(); clearSave(); };
@@ -3275,7 +3316,7 @@ const SAVE_KEY = 'afkRomeSave.v1';
 const SAVE_VERSION = 1;
 const OFFLINE_CAP_SECONDS = 8 * 3600;
 const OFFLINE_MIN_SECONDS = 60;
-const OFFLINE_GOLD_EVERY = 30;   // patrols pay about 1 gold per 30 s while you play
+const OFFLINE_GOLD_EVERY = 10;   // patrols pay about 1 gold per 10 s while you play
 const SAVED_FIELDS = [
   'townLevel', 'wave', 'phase', 'food', 'coins', 'kills', 'patrolKills',
   'guardLevel', 'maxGuardHp', 'spikesLevel', 'farmLevel',

@@ -28,14 +28,21 @@ const parseTrials = (value) => value ? value.split(',').map(Number) : [];
 const hpTrials = parseTrials(process.env.BALANCE_HP);
 const attackTrials = parseTrials(process.env.BALANCE_ATK);
 
-function shop(targetLevel = Infinity) {
-  // Prioritize production, then buy defenses and the target guard level.
+// The balanced player buys up to the build the game expects at this wave
+// (EXPECTED_PROGRESS in app.js) and invests everything else in the farm.
+function shop(wave) {
+  const target = run(`JSON.stringify(expectedProgress(${wave}))`);
+  const t = JSON.parse(target);
   for (let round = 0; round < 100; round += 1) {
-    if (run('state.townLevel') >= 2) run("ui['archer-upgrade'].onclick(); ui['catapult-upgrade'].onclick()");
-    const before = run('JSON.stringify([state.food,state.coins,state.guardLevel,state.spikesLevel,state.farmLevel,state.guardHp])');
-    run("ui['farm-upgrade'].onclick(); ui['spikes-upgrade'].onclick();");
-    if (run('state.guardLevel') < targetLevel) run("ui['guard-upgrade'].onclick()");
-    const after = run('JSON.stringify([state.food,state.coins,state.guardLevel,state.spikesLevel,state.farmLevel,state.guardHp])');
+    const before = run('JSON.stringify([state.food,state.coins,state.guardLevel,state.spikesLevel,state.farmLevel,state.archerLevel,state.catapultLevel])');
+    if (run('state.townLevel') >= 2) {
+      // Only the defender standing in the tower slot is levelled.
+      if (run(`state[state.towerSlot + 'Level'] < ${t.archerLevel}`)) run("ui[state.towerSlot + '-upgrade'].onclick()");
+    }
+    if (run(`state.spikesLevel < ${t.spikesLevel}`)) run("ui['spikes-upgrade'].onclick()");
+    if (run(`state.guardLevel < ${t.guardLevel}`)) run("ui['guard-upgrade'].onclick()");
+    if (!run('meetsExpected(' + wave + ')')) run("ui['farm-upgrade'].onclick()");
+    const after = run('JSON.stringify([state.food,state.coins,state.guardLevel,state.spikesLevel,state.farmLevel,state.archerLevel,state.catapultLevel])');
     if (before === after) break;
   }
 }
@@ -49,11 +56,12 @@ function play({ waves = 5, spells = true, rotate = true } = {}) {
     if (rotate) run("ui['auto-lineup'].onclick()");
     let preparationTicks = 0;
     shop(wave);
-    while (run(`state.guardLevel < ${wave}`) && preparationTicks++ < 18000) {
-      run('update(1/60, 1170)');
+    while (!run(`meetsExpected(${wave})`) && preparationTicks < 72000) {
+      run('for (let i = 0; i < 60; i++) update(1/60, 1170)');
+      preparationTicks += 60;
       shop(wave);
     }
-    if (preparationTicks >= 18000) throw new Error(`Preparation for wave ${wave} exceeded five minutes`);
+    if (preparationTicks >= 72000) throw new Error(`Preparation for wave ${wave} exceeded twenty minutes`);
     run("ui['wave-button'].onclick()");
     if (Number.isFinite(hpTrials[wave - 1])) run(`state.waveDifficulties[state.wave].hp *= ${hpTrials[wave - 1]}`);
     if (Number.isFinite(attackTrials[wave - 1])) run(`state.waveDifficulties[state.wave].damage *= ${attackTrials[wave - 1]}`);
@@ -107,6 +115,50 @@ if (require.main === module) {
   console.log('No spells:', JSON.stringify(play({ waves: 10, spells: false }).map(r => ({ wave: r.wave, phase: r.phase, hp: Math.round(r.hpRatio * 100) }))));
   console.log('No rotation:', JSON.stringify(play({ waves: 10, rotate: false }).map(r => ({ wave: r.wave, phase: r.phase, hp: Math.round(r.hpRatio * 100) }))));
   for (const seconds of [120, 600]) console.log(`AFK ${seconds}s: ${JSON.stringify(idle(seconds))}`);
+  const human = session();
+  console.log('\nHuman-like first session (buys what it can, waits ≤30 s, ≤60 s before bosses, up to 90 s for the recommended level, upgrades once after a defeat):');
+  console.log('wave | result  | prep s | fight s | HP left | frontline | total min');
+  for (const r of human) console.log(`${String(r.wave).padStart(4)} | ${r.phase.padEnd(7)} | ${String(r.prep).padStart(6)} | ${r.fight.toFixed(0).padStart(7)} | ${String(r.hp).padStart(6)}% | ${String(r.guard).padStart(9)} | ${r.clock.toFixed(1).padStart(9)}`);
 }
 
-module.exports = { play, idle, run };
+// Human-like session: buys whatever it can, then calls the wave once waiting for the next
+// frontline upgrade would take longer than its patience. More patient before bosses and
+// after a defeat. Measures how long the first session really takes.
+function session({ waves = 10, patience = 30, bossPatience = 60, recommendWait = 90, maxMinutes = 120 } = {}) {
+  run('resetGame(); state.autoSpells = true');
+  const report = [];
+  let clock = 0;
+  const tick = (n) => { run(`for (let i = 0; i < ${n}; i++) update(1/60, 1170)`); clock += n / 60; };
+  const buyAll = () => {
+    for (let round = 0; round < 50; round++) {
+      const before = run('state.food + state.coins * 1000 + state.townLevel');
+      run("ui['town-upgrade'].onclick(); ui['guard-upgrade'].onclick(); ui['farm-upgrade'].onclick(); ui['spikes-upgrade'].onclick(); if (state.townLevel >= 2) { ui['archer-upgrade'].onclick(); ui['catapult-upgrade'].onclick(); } ui['auto-lineup'].onclick();");
+      if (run('state.food + state.coins * 1000 + state.townLevel') === before) break;
+    }
+  };
+  // Seconds until the next frontline upgrade is affordable (Infinity if capped).
+  const waitForGuard = () => run(`(() => { if (!canUpgrade('guard')) return Infinity; const need = guardUpgradePrice() - state.food; return need <= 0 ? 0 : need / (state.farmLevel / 3); })()`);
+  for (let wave = 1; wave <= waves && clock < maxMinutes * 60; ) {
+    const isBoss = run(`buildWavePlan(${wave}).some(t => enemyTypes[t].isBoss)`);
+    let prep = 0;
+    const lastFailed = report.length && report.at(-1).wave === wave;
+    const limit = isBoss ? bossPatience : patience;
+    buyAll();
+    // After a defeat a real player upgrades at least once before retrying (up to 3 min).
+    const levelAtDefeat = run('state.guardLevel');
+    while (lastFailed && run('state.guardLevel') === levelAtDefeat && run("canUpgrade('guard')") && prep < 180) { tick(60); prep += 1; buyAll(); }
+    while (waitForGuard() > 0 && waitForGuard() <= limit && prep < 600) { tick(60); prep += 1; buyAll(); }
+    // The HUD shows a recommended frontline level: wait for it if it is reachable soon.
+    const recommended = run(`recommendedLevel(${wave})`);
+    while (run('state.guardLevel') < recommended && waitForGuard() <= recommendWait && prep < 600) { tick(60); prep += 1; buyAll(); }
+    run("ui['wave-button'].onclick()");
+    let fight = 0;
+    while (run('state.phase') === 'wave' && fight < 600 * 60) { tick(1); fight += 1; }
+    const phase = run('state.phase');
+    report.push({ wave, phase, prep, fight: fight / 60, hp: Math.round(run('state.guardHp / state.maxGuardHp') * 100), guard: run('state.guardLevel'), clock: clock / 60 });
+    if (phase !== 'defeat') wave += 1;
+  }
+  return report;
+}
+
+module.exports = { play, idle, run, session };

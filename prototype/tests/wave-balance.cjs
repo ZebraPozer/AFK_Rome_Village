@@ -106,9 +106,7 @@ assert.equal(run('state.coins'), 9, 'Victory reward is paid only once');
 run("state.food = 100; ui['guard-upgrade'].onclick()");
 assert.equal(run('state.guardLevel'), 5, 'Ordinary victories do not unlock a new town tier');
 run('resetGame(); spawnMob("orc", false); collectKillReward(state.mobs[0]); collectKillReward(state.mobs[0])');
-assert.equal(run('state.coins'), 0);
-run('collectKillReward(state.mobs[0])');
-assert.equal(run('state.coins'), 1, 'Three patrol kills pay one coin');
+assert.equal(run('state.coins'), 2, 'Each patrol kill pays one coin');
 console.log('AFK income, progression caps and first-clear rewards passed.');
 
 for (const phase of ['preparation', 'victory', 'defeat']) {
@@ -298,7 +296,18 @@ assert.equal(run('state.heroes.hoplite.unlocked && state.heroes.archer.unlocked'
 assert.equal(run('activeHeroes().join()'), 'hoplite,archer');
 assert.equal(run('applySave({ version: 999 })'), false, 'Unknown save versions are ignored');
 assert.equal(run('offlineIncome(30, 3).food'), 0, 'Short absences pay nothing');
-assert.deepEqual(JSON.parse(run('JSON.stringify(offlineIncome(600, 3))')), { seconds: 600, food: 600, gold: 20 });
+assert.deepEqual(JSON.parse(run('JSON.stringify(offlineIncome(600, 3))')), { seconds: 600, food: 600, gold: 60 });
 assert.equal(run('offlineIncome(48 * 3600, 1).seconds'), 8 * 3600, 'Offline income is capped at 8 hours');
 assert.equal(run('formatDuration(3 * 3600 + 25 * 60)'), '3h 25m');
 console.log('Save, load and offline income passed.');
+
+// Pacing: a human-like player clears the first 10 waves in one session (≈15–35 min),
+// feels danger (at least one defeat, e.g. on a boss) but is not stonewalled.
+const firstSession = require('../tools/balance-bot.cjs').session();
+const sessionMinutes = firstSession.at(-1).clock;
+const defeats = firstSession.filter((r) => r.phase === 'defeat');
+assert.equal(firstSession.at(-1).wave, 10);
+assert.notEqual(firstSession.at(-1).phase, 'defeat', 'The first session reaches the end of wave 10');
+assert.ok(sessionMinutes >= 15 && sessionMinutes <= 35, `First session should take 15–35 min, got ${sessionMinutes.toFixed(1)}`);
+assert.ok(defeats.length >= 1 && defeats.length <= 8, `1–8 defeats expected in the first session, got ${defeats.length}`);
+console.log(`Pacing passed: first 10 waves in ${sessionMinutes.toFixed(1)} min with ${defeats.length} defeats (${defeats.map((r) => r.wave).join(', ')}).`);
