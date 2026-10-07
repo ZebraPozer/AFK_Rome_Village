@@ -5,24 +5,46 @@ already committed on `main` in this folder. Your job: integrate it into the GitH
 (`ZebraPozer/AFK_Rome_Village`), turn on GitHub Pages, and pick up the next tasks.
 Project rules live in `AGENTS.md` — please read it first.
 
+## 0. Quick start (do this in order)
+
+1. Read `AGENTS.md` (rules + checks), then this file.
+2. `git status` must be clean and `git log --oneline -1` should show the last commit of the
+   list in §1 (or a later docs commit). If `art/_archive/` is missing from the archive you got,
+   that is expected — see §1 "If files show as deleted".
+3. Run the checks: `node prototype/tests/wave-balance.cjs` and
+   `node prototype/tools/balance-bot.cjs`. Everything must pass before you push.
+4. Integrate and push (§1), enable GitHub Pages (§1), tell Nikita the URL.
+5. Then continue with §4.
+
 ## 1. Integrate
 
-- My work is **6 commits on top of `534d276`** (that was `origin/main` when I started):
+- My work is **8 commits on top of `534d276`** (that was `origin/main` when I started),
+  plus this docs update:
 
   ```
   65c152a feat: hero spells, hero slots 1/2/3, rotation with fatigue; scarier opening waves
-  7fb42dc feat: synthesized sound effects
+  7fb42dc feat: synthesized sound effects, mute and volume
   6aac033 feat: in-phone HUD
   4acc2b4 refactor: flat single-style HUD; all game/UI text in English
   21bef00 fix: clean orc head icons in roster, compact banners; ASSET_REQUESTS.md
   e875046 feat: save/load with offline AFK income; phone play mode and GitHub Pages entry
-  (+ docs commit with AGENTS.md and this file)
+  7d6eb30 docs: AGENTS.md project rules and HANDOFF_FOR_CODEX.md
+  007e6e0 chore: organize project — art/, docs/, generated prototype/assets (26 MB → 7.6 MB)
   ```
 - If `origin/main` is still `534d276`: just `git push origin main`.
 - If someone pushed since: `git fetch && git rebase origin/main`, then run the checks from
   `AGENTS.md`. Conflicts will most likely be in `prototype/app.js`, `prototype/index.html`,
   `prototype/style.css` — `index.html` and `style.css` were rewritten from scratch, so prefer
   my version of those two and re-apply their changes on top.
+- **The last commit moves almost every file** (see "Folder cleanup" below). If the remote
+  changed assets meanwhile: put their new source art into `art/<category>/`, add it to
+  `prototype/tools/build_assets.py`, run the script, and point `app.js` at
+  `prototype/assets/...`. Do not resurrect the old root `assets/` or `prototype/assets/concepts/`.
+- **If files show as deleted** (`git status` lists `art/_archive/...` as deleted): Nikita may
+  have left the 80 MB `art/` folder (or just `art/_archive/`) out of the zip to keep it small.
+  Do **not** commit those deletions. Run `git restore art/` if the objects are in `.git`;
+  otherwise ask Nikita for the folder. The game itself only needs `prototype/`.
+- Files are committed with LF line endings; keep them that way.
 - Branch `backup/local-before-sync-2026-10-07` is a safety copy of old, stale local work from
   before the session (it was superseded by `534d276`). **Do not push or merge it.**
 - After pushing, enable Pages: Settings → Pages → Source: *Deploy from a branch* → `main`,
@@ -96,5 +118,28 @@ runtime chroma-keying for the legionary/archer is gone. Root `assets/` and
    modules + a small loader in the tests both work).
 6. Light playtest telemetry (wave durations, defeats, purchases) in `localStorage`, exportable.
 7. Wire in assets from `ASSET_REQUESTS.md` as they arrive and delete the placeholders.
+
+## 5. Working with Nikita
+
+- He writes in Russian (often voice-dictated, so expect typos); answer in Russian, keep the
+  game and UI in English.
+- He is the game designer: propose, explain trade-offs briefly, then build. He likes seeing
+  the result (screenshots) more than long explanations.
+- Taste so far: gradual unlocks (Cookie Clicker / AFK Arena pacing), danger should be felt
+  from wave 1 but not punishing; UI simple and flat — **no frames inside frames, no circles,
+  rounded squares, one style**; things must never overlap.
+- Decisions he already made: 3 heroes on the field, 5–6 in the collection; soft rotation
+  (bonus for resting, no forced bench); keep synthesized sounds for now; only the two clean
+  orc head icons are used until new heads are rendered.
+
+## 6. Where things are in `app.js`
+
+Search for these section banners / names:
+`buildWavePlan`, `OPENING_HP_TUNING`, `ACT2_HP_TUNING` (waves and balance) ·
+`Sound:` / `sfxLib` · `startWave` / `finishWave` / `failWave` · `Heroes, slots and rotation`
+(`heroDefs`, `castSpell`, `applyWaveFatigue`, `autoLineup`, `autoCastSpells`) ·
+`update(` (simulation loop) · `drawScene` (rendering) · `In-phone HUD` (`syncHud`) ·
+`Save / load and offline` (`serializeSave`, `applySave`, `offlineIncome`) · the boot block at
+the very end (load save, autosave, listeners).
 
 Thanks — and run the two checks from `AGENTS.md` before every push.
