@@ -171,8 +171,8 @@ const OPENING_DAMAGE_TUNING = [3.0, 2.8, 1.4, 1.6, 1.15];
 const ACT2_HP_TUNING = [1, 2.4, 1.3, 1.2, 1];
 const ACT2_DAMAGE_TUNING = [1, 2.8, 1.8, 3.4, 1.4];
 // Act III (waves 11–30), tuned with the balance bot (spells, rotation and gear).
-const ACT3_HP_TUNING = [1.1, 3.3, 2.5, 0.85, 0.85, 0.85, 2.5, 2.5, 1.1, 0.42, 0.55, 1.45, 0.44, 0.85, 0.28, 0.38, 0.2, 0.2, 1.1, 0.38];
-const ACT3_DAMAGE_TUNING = [2, 1.25, 1.25, 1, 1, 2, 1.25, 1, 1.6, 1, 1.6, 1, 1.25, 1.25, 1, 1, 2, 1.25, 0.8, 0.8];
+const ACT3_HP_TUNING = [1.1, 3.3, 2.5, 0.85, 0.85, 0.85, 2.5, 2.5, 1.1, 0.42, 1.1, 0.65, 1.45, 0.2, 0.85, 0.5, 0.5, 1.45, 1.1, 0.2];
+const ACT3_DAMAGE_TUNING = [2, 1.25, 1.25, 1, 1, 2, 1.25, 1, 1.6, 1, 1, 0.8, 0.8, 1.6, 1, 1.25, 1.25, 0.8, 1, 1.25];
 
 function calculateWaveDifficulty(wave, progress) {
   if (wave <= 5) return calculateOpeningDifficulty(wave, progress);
@@ -184,8 +184,10 @@ function calculateWaveDifficulty(wave, progress) {
   const offense = 1 + 0.35 * (Math.sqrt(dpsRatio) - 1)
     + 0.12 * Math.pow(progress.spikesLevel, 0.75)
     + 0.1 * Math.max(progress.archerLevel || 0, progress.catapultLevel || 0);
-  const tuneHp = wave <= 10 ? ACT2_HP_TUNING[wave - 6] : (ACT3_HP_TUNING[wave - 11] ?? 1);
-  const tuneDamage = wave <= 10 ? ACT2_DAMAGE_TUNING[wave - 6] : (ACT3_DAMAGE_TUNING[wave - 11] ?? 1);
+  // Expected hero training scales enemies the same way it scales heroes.
+  const trained = Math.max(0, (progress.heroLevel || 1) - 1);
+  const tuneHp = (wave <= 10 ? ACT2_HP_TUNING[wave - 6] : (ACT3_HP_TUNING[wave - 11] ?? 1)) * (1 + BARRACKS.damage * trained);
+  const tuneDamage = (wave <= 10 ? ACT2_DAMAGE_TUNING[wave - 6] : (ACT3_DAMAGE_TUNING[wave - 11] ?? 1)) * (1 + BARRACKS.toughness * trained);
   return {
     hp: (1 + 0.3 * step + 0.06 * step * step) * offense * tuneHp,
     damage: (1 + 0.12 * step) * Math.pow(progress.maxGuardHp / 100, 0.25) * tuneDamage
@@ -209,7 +211,9 @@ function expectedProgress(wave) {
   const late = Math.max(0, wave - 10);
   const base = known || { guardLevel: 10 + Math.round(late * 0.75), spikesLevel: 2 + Math.floor(late / 5),
     archerLevel: 5 + Math.round(late * 0.5), catapultLevel: 5 + Math.round(late * 0.5) };
-  return { archerLevel: 0, catapultLevel: 0, ...base, maxGuardHp: 80 + 20 * base.guardLevel };
+  // After the Barracks (wave 20) heroes are expected to train about one level per wave.
+  const heroLevel = wave > 20 ? 1 + (wave - 20) : 1;
+  return { archerLevel: 0, catapultLevel: 0, heroLevel, ...base, maxGuardHp: 80 + 20 * base.guardLevel };
 }
 
 // Frontline level the wave was tuned for — shown to the player as a recommendation.
@@ -220,7 +224,8 @@ function recommendedLevel(wave) {
 // Is the current build at least what this wave was tuned for?
 function meetsExpected(wave) {
   const t = expectedProgress(wave);
-  return state.guardLevel >= t.guardLevel && state.spikesLevel >= t.spikesLevel
+  const trainedEnough = !systemUnlocked('barracks') || activeHeroes().every((id) => heroDefs[id].machine || heroLevel(id) >= t.heroLevel);
+  return trainedEnough && state.guardLevel >= t.guardLevel && state.spikesLevel >= t.spikesLevel
     && (state.townLevel < 2 || Math.max(state.archerLevel, state.catapultLevel) >= t.archerLevel);
 }
 
@@ -309,6 +314,7 @@ const state = {
   gear: [],
   gearDrops: 0,
   eliteKills: 0,
+  temple: { mars: 0, ceres: 0, minerva: 0 },
   towerFx: 0,
   wavePlan: [],
   waveDifficulties: {},
@@ -926,7 +932,7 @@ const BLESSING_HEAL = 0.4;
 
 function freshHeroes() {
   const heroes = {};
-  for (const id of Object.keys(heroDefs)) heroes[id] = { unlocked: id === 'legionary', fatigue: 0, rested: false, cd: 0 };
+  for (const id of Object.keys(heroDefs)) heroes[id] = { unlocked: id === 'legionary', fatigue: 0, rested: false, cd: 0, level: 1 };
   return heroes;
 }
 
@@ -1058,7 +1064,7 @@ function castSpell(id, width = 1170) {
   if (spellBlocked(id)) return false;
   const def = heroDefs[id];
   const guardX = width * 0.52;
-  const mult = heroPowerMult(id) * (1 + gearBonus(id, 'weapon'));
+  const mult = heroDamageMult(id);
   if (def.spell.id === 'shieldBash') {
     const target = bashTarget(width);
     const boss = enemyTypes[target.type]?.isBoss;
@@ -1087,13 +1093,14 @@ function castSpell(id, width = 1170) {
     sfx('bless');
     state.floaters.push({ kind: 'bless', amount: heal, x: guardX, life: 1.4, duration: 1.4 });
   }
-  state.heroes[id].cd = def.spell.cooldown * (1 - Math.min(0.5, gearBonus(id, 'charm')));
+  state.heroes[id].cd = def.spell.cooldown * (1 - Math.min(0.5, gearBonus(id, 'charm'))) * (1 - godBonus('minerva'));
   return true;
 }
 
 // Every hit on the frontline hero goes through here (melee and enemy arrows).
 function hurtGuard(raw, guardX) {
-  let damage = raw * (heroDefs[state.frontHero].guardTaken ?? 1) * (1 - Math.min(0.6, gearBonus(state.frontHero, 'armor')));
+  let damage = raw * (heroDefs[state.frontHero].guardTaken ?? 1) * (1 - Math.min(0.6, gearBonus(state.frontHero, 'armor')))
+    / (1 + BARRACKS.toughness * (heroLevel(state.frontHero) - 1));
   if (state.holdLine > 0) damage *= HOLD_LINE_TAKEN;
   damage = Math.max(1, Math.round(damage));
   state.guardHp = Math.max(0, state.guardHp - damage);
@@ -1229,7 +1236,7 @@ function updateDefenders(dt, width) {
     const pool = ranged.length ? ranged : inRange;
     const target = pool.reduce((lead, mob) => (!lead || mob.x > lead.x ? mob : lead), null);
     if (target) {
-      state.arrows.push({ sx: towerX - 30, sy: platformY - 62, mob: target, t: 0, dur: 0.42, damage: archerDamage(state.archerLevel) * heroPowerMult('archer') * (1 + gearBonus('archer', 'weapon')) });
+      state.arrows.push({ sx: towerX - 30, sy: platformY - 62, mob: target, t: 0, dur: 0.42, damage: archerDamage(state.archerLevel) * heroDamageMult('archer') });
       state.archerCooldown = archerInterval(state.archerLevel);
       sfx('arrow');
     }
@@ -1305,7 +1312,7 @@ function resetGame() {
     waveTotal: 0, spawned: 0, defeated: 0, archerUnlocked: false, wavePlan: [], waveDifficulties: {},
     archerLevel: 0, archerCooldown: 0, arrows: [], volleyFx: 0, volleyDamage: 0, shake: 0,
     towerSlot: null, catapultUnlocked: false, catapultLevel: 0, catapultCooldown: 0, rocks: [], enemyShots: [], dust: [], notice: null, towerFx: 0,
-    heroes: freshHeroes(), frontHero: 'legionary', supportHero: null, autoSpells: false, holdLine: 0, bashFx: 0, blessFx: 0, hornFx: 0, hintsSeen: [], trophies: 0, eagles: 0, systems: [], gear: [], gearDrops: 0, eliteKills: 0,
+    heroes: freshHeroes(), frontHero: 'legionary', supportHero: null, autoSpells: false, holdLine: 0, bashFx: 0, blessFx: 0, hornFx: 0, hintsSeen: [], trophies: 0, eagles: 0, systems: [], gear: [], gearDrops: 0, eliteKills: 0, temple: { mars: 0, ceres: 0, minerva: 0 },
     mobs: [], spawnTimer: 0.6, patrolTimer: 4, patrolSpawned: 0, foodTimer: 3, attackCooldown: 0, attackTimer: 0,
     hitFlash: 0, floaters: [], time: 0, last: 0,
     wavesCleared: 0, villageStage: 1, stageOverride: null, growthFx: 0, growthBanner: 0
@@ -1355,8 +1362,8 @@ const MAX_TOWN = 7;
 const SYSTEMS = [
   { id: 'armory', name: 'Armory', icon: '⚒', wave: 10, text: 'Bosses drop gear for your heroes' },
   // Barracks and Temple are designed (META_LOOP.md) but not built yet: eagles keep.
-  { id: 'barracks', name: 'Barracks', icon: '⚑', wave: 20, text: 'Train heroes with food — levels without a cap', soon: true },
-  { id: 'temple', name: 'Temple', icon: '☉', wave: 30, text: 'Offerings to Mars, Ceres and Minerva', soon: true }
+  { id: 'barracks', name: 'Barracks', icon: '⚑', wave: 20, text: 'Train heroes with food — levels without a cap' },
+  { id: 'temple', name: 'Temple', icon: '☉', wave: 30, text: 'Offerings to Mars, Ceres and Minerva' }
 ];
 
 function bossReward(wave) {
@@ -1461,6 +1468,70 @@ function autoEquip() {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Barracks (eagle of wave 20): every hero trains with food, levels without a cap.
+// Temple (eagle of wave 30): offerings to three gods, each with its own levels.
+// ---------------------------------------------------------------------------
+const BARRACKS = { base: 150, growth: 1.18, damage: 0.06, toughness: 0.05 };
+const GODS = {
+  mars:    { name: 'Mars', icon: '⚔', resource: 'coins', base: 300, growth: 1.25, per: 0.04, text: 'damage of all heroes' },
+  ceres:   { name: 'Ceres', icon: '✶', resource: 'food', base: 400, growth: 1.25, per: 0.08, text: 'food production' },
+  minerva: { name: 'Minerva', icon: '✦', resource: 'coins', base: 350, growth: 1.25, per: 0.03, text: 'spell cooldown', cap: 0.45 }
+};
+
+function heroLevel(id) {
+  return (state.heroes[id] && state.heroes[id].level) || 1;
+}
+
+function trainPrice(id) {
+  return Math.round(BARRACKS.base * Math.pow(BARRACKS.growth, heroLevel(id) - 1));
+}
+
+function canTrain(id) {
+  const hero = state.heroes[id];
+  return systemUnlocked('barracks') && hero && hero.unlocked && !heroDefs[id].machine
+    && state.phase !== 'wave' && state.food >= trainPrice(id);
+}
+
+function trainHero(id) {
+  if (!canTrain(id)) return false;
+  state.food -= trainPrice(id);
+  state.heroes[id].level = heroLevel(id) + 1;
+  return true;
+}
+
+function offeringPrice(god) {
+  const def = GODS[god];
+  return Math.round(def.base * Math.pow(def.growth, state.temple[god]));
+}
+
+function canOffer(god) {
+  return systemUnlocked('temple') && Boolean(GODS[god]) && state.phase !== 'wave'
+    && state[GODS[god].resource] >= offeringPrice(god);
+}
+
+function makeOffering(god) {
+  if (!canOffer(god)) return false;
+  state[GODS[god].resource] -= offeringPrice(god);
+  state.temple[god] += 1;
+  return true;
+}
+
+function godBonus(god) {
+  const def = GODS[god];
+  return Math.min(def.cap ?? Infinity, def.per * state.temple[god]);
+}
+
+// One multiplier for every source of hero damage: fatigue/rest, gear, training, Mars.
+function heroDamageMult(id) {
+  return heroPowerMult(id) * (1 + gearBonus(id, 'weapon')) * (1 + BARRACKS.damage * (heroLevel(id) - 1)) * (1 + godBonus('mars'));
+}
+
+// Food per farm tick (every 3 s), with Ceres.
+function foodPerTick() {
+  return Math.round(state.farmLevel * (1 + godBonus('ceres')));
+}
+
 function upgradeTown() {
   if (!canUpgradeTown()) return;
   state.trophies -= 1;
@@ -1561,8 +1632,9 @@ function update(delta, width, simulationStep = false) {
     }
   }
   if (state.foodTimer <= 0) {
-    state.food += state.farmLevel;
-    state.floaters.push({ kind: 'food', amount: state.farmLevel, x: width * 0.84, life: 1.45, duration: 1.45 });
+    const harvest = foodPerTick();
+    state.food += harvest;
+    state.floaters.push({ kind: 'food', amount: harvest, x: width * 0.84, life: 1.45, duration: 1.45 });
     state.foodTimer = 3;
   }
 
@@ -1639,7 +1711,7 @@ function update(delta, width, simulationStep = false) {
     !mob.dead && mob.x > guardX - 130 && mob.x < guardX - 10 && (!lead || mob.x > lead.x) ? mob : lead
   ), null);
   if (state.guardHp > 0 && target && state.attackCooldown <= 0) {
-    damageMob(target, state.guardLevel * heroDefs[state.frontHero].damageMult * heroPowerMult(state.frontHero) * (1 + gearBonus(state.frontHero, 'weapon')), 'melee');
+    damageMob(target, state.guardLevel * heroDefs[state.frontHero].damageMult * heroDamageMult(state.frontHero), 'melee');
     sfx('sword');
     state.attackTimer = 0.28;
     state.hitFlash = 0.14;
@@ -3476,7 +3548,9 @@ function syncHud() {
 
   // Corner button: upgrades between waves, a lock during combat, a cross when open.
   const affordable = hudUpgrades.filter((row) => (!row.show || row.show()) && !ui[row.button].disabled).length
-    + SYSTEMS.filter((sys) => canUnlockSystem(sys.id)).length;
+    + SYSTEMS.filter((sys) => canUnlockSystem(sys.id)).length
+    + Object.keys(heroDefs).filter((id) => canTrain(id)).length
+    + Object.keys(GODS).filter((god) => canOffer(god)).length;
   ui['hud-upgrade'].classList.toggle('active', hud.open);
   ui['hud-upgrade'].disabled = inWave;
   const upgradeHtml = inWave ? '<span>🔒</span><small>In battle</small>'
@@ -3490,6 +3564,23 @@ function syncHud() {
   const rows = hudUpgrades.filter((row) => !row.show || row.show()).map((row) => ({
     ...row, levelText: ui[row.level].textContent, costText: ui[row.cost].textContent, disabled: Boolean(ui[row.button].disabled)
   }));
+  // Barracks: one training row per hero. Temple: one offering row per god.
+  if (systemUnlocked('barracks')) {
+    for (const id of Object.keys(heroDefs)) {
+      if (!state.heroes[id].unlocked || heroDefs[id].machine) continue;
+      rows.push({ kind: `train-${id}`, icon: '⚑', name: `Train ${heroDefs[id].name}`, train: id,
+        levelText: `lv ${heroLevel(id)}`, costText: `${formatNumber(trainPrice(id))} food · +6% damage, +5% toughness`, disabled: !canTrain(id) });
+    }
+  }
+  if (systemUnlocked('temple')) {
+    for (const [god, def] of Object.entries(GODS)) {
+      const sign = god === 'minerva' ? '−' : '+';
+      rows.push({ kind: `god-${god}`, icon: def.icon, name: `Offer to ${def.name}`, offer: god,
+        levelText: `${sign}${Math.round(godBonus(god) * 100)}%`,
+        costText: `${formatNumber(offeringPrice(god))} ${def.resource === 'coins' ? 'gold' : 'food'} · ${sign}${Math.round(def.per * 100)}% ${def.text}`,
+        disabled: !canOffer(god) });
+    }
+  }
   // Systems bought with an eagle appear once their boss has been beaten.
   for (const sys of SYSTEMS) {
     if (systemUnlocked(sys.id) || state.wavesCleared < sys.wave) continue;
@@ -3499,7 +3590,8 @@ function syncHud() {
   const key = JSON.stringify(rows.map((row) => [row.kind, row.levelText, row.costText, row.disabled]));
   if (key !== hudUpgradesKey) {
     hudUpgradesKey = key;
-    ui['hud-upgrades'].innerHTML = rows.map((row) => `<button class="row" ${row.system ? `data-system="${row.system}"` : `data-upgrade="${row.button}"`} ${row.disabled ? 'disabled' : ''}><i>${row.icon}</i><span><b>${row.name}</b><small>${row.costText}</small></span><em>${row.levelText}</em></button>`).join('');
+    const attr = (row) => row.system ? `data-system="${row.system}"` : row.train ? `data-train="${row.train}"` : row.offer ? `data-offer="${row.offer}"` : `data-upgrade="${row.button}"`;
+    ui['hud-upgrades'].innerHTML = rows.map((row) => `<button class="row" ${attr(row)} ${row.disabled ? 'disabled' : ''}><i>${row.icon}</i><span><b>${row.name}</b><small>${row.costText}</small></span><em>${row.levelText}</em></button>`).join('');
   }
 
   // Wave button: short labels for the phone.
@@ -3716,14 +3808,14 @@ const SAVED_FIELDS = [
   'townLevel', 'wave', 'phase', 'food', 'coins', 'kills', 'patrolKills',
   'guardLevel', 'maxGuardHp', 'spikesLevel', 'farmLevel',
   'archerUnlocked', 'archerLevel', 'catapultUnlocked', 'catapultLevel', 'towerSlot',
-  'wavesCleared', 'waveDifficulties', 'frontHero', 'supportHero', 'autoSpells', 'hintsSeen', 'trophies', 'eagles', 'systems', 'gear', 'gearDrops', 'eliteKills'
+  'wavesCleared', 'waveDifficulties', 'frontHero', 'supportHero', 'autoSpells', 'hintsSeen', 'trophies', 'eagles', 'systems', 'gear', 'gearDrops', 'eliteKills', 'temple'
 ];
 
 function serializeSave(now = Date.now()) {
   const data = { version: SAVE_VERSION, savedAt: now };
   for (const key of SAVED_FIELDS) data[key] = state[key];
   data.heroes = Object.fromEntries(Object.entries(state.heroes).map(([id, hero]) => [id,
-    { unlocked: hero.unlocked, fatigue: hero.fatigue, rested: hero.rested }]));
+    { unlocked: hero.unlocked, fatigue: hero.fatigue, rested: hero.rested, level: hero.level || 1 }]));
   // A fight cannot be resumed: come back to the same wave, ready to start it.
   if (data.phase === 'wave') data.phase = state.wave > state.wavesCleared ? 'preparation' : 'victory';
   return data;
@@ -3749,7 +3841,7 @@ function applySave(data) {
 function offlineIncome(seconds, farmLevel) {
   const capped = Math.max(0, Math.min(seconds, OFFLINE_CAP_SECONDS));
   if (capped < OFFLINE_MIN_SECONDS) return { seconds: capped, food: 0, gold: 0 };
-  return { seconds: capped, food: Math.floor(capped / 3) * farmLevel, gold: Math.floor(capped / OFFLINE_GOLD_EVERY) };
+  return { seconds: capped, food: Math.floor(Math.floor(capped / 3) * farmLevel), gold: Math.floor(capped / OFFLINE_GOLD_EVERY) };
 }
 
 function formatDuration(seconds) {
@@ -3873,8 +3965,10 @@ ui['hud-close'].onclick = () => setHudOpen(false);
 ui['hud-tab-upgrades'].onclick = () => { hud.tab = 'upgrades'; };
 ui['hud-tab-heroes'].onclick = () => { hud.tab = 'heroes'; markHint('heroes'); };
 ui['hud-upgrades'].onclick = (event) => {
-  const row = event.target.closest && event.target.closest('[data-upgrade], [data-system]');
+  const row = event.target.closest && event.target.closest('[data-upgrade], [data-system], [data-train], [data-offer]');
   if (row && row.dataset.system) unlockSystem(row.dataset.system);
+  else if (row && row.dataset.train) trainHero(row.dataset.train);
+  else if (row && row.dataset.offer) makeOffering(row.dataset.offer);
   else if (row) ui[row.dataset.upgrade].onclick();
 };
 ui['hud-lineup'].onclick = (event) => ui.lineup.onclick(event);
@@ -3911,7 +4005,7 @@ document.addEventListener('keydown', (event) => {
 {
   const saved = readSave();
   if (saved && applySave(saved)) {
-    const income = offlineIncome((Date.now() - (saved.savedAt || Date.now())) / 1000, state.farmLevel);
+    const income = offlineIncome((Date.now() - (saved.savedAt || Date.now())) / 1000, state.farmLevel * (1 + godBonus('ceres')));
     if (income.food || income.gold) showAway(income);
   }
   ui['away-collect'].onclick = collectAway;

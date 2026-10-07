@@ -40,6 +40,8 @@ function shop(wave) {
       if (run(`state[state.towerSlot + 'Level'] < ${t.archerLevel}`)) run("ui[state.towerSlot + '-upgrade'].onclick()");
     }
     if (run(`state.spikesLevel < ${t.spikesLevel}`)) run("ui['spikes-upgrade'].onclick()");
+    // After the Barracks: train every hero on the field up to the expected level.
+    run(`for (const id of activeHeroes()) if (!heroDefs[id].machine && heroLevel(id) < ${t.heroLevel}) trainHero(id)`);
     if (run(`state.guardLevel < ${t.guardLevel}`)) run("ui['guard-upgrade'].onclick()");
     if (!run('meetsExpected(' + wave + ')')) run("ui['farm-upgrade'].onclick()");
     const after = run('JSON.stringify([state.food,state.coins,state.guardLevel,state.spikesLevel,state.farmLevel,state.archerLevel,state.catapultLevel])');

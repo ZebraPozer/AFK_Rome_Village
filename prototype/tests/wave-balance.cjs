@@ -361,3 +361,29 @@ run('state.heroes.legionary.cd = 0; spawnMob("orc"); state.mobs[0].x = 1170 * 0.
 assert.ok(run('state.heroes.legionary.cd') < 12, 'A charm shortens the cooldown');
 assert.equal(run('requiredTown(21)'), 5);
 console.log(`Act III passed: 30 waves complete after ${prepHours.toFixed(1)} h of AFK; Armory drops, equips and boosts.`);
+
+// Barracks: hero levels for food. Temple: offerings to Mars, Ceres, Minerva.
+run('resetGame(); state.food = 1e6; state.coins = 1e6;');
+assert.equal(run('trainHero("legionary")'), false, 'No training before the Barracks');
+run('state.eagles = 2; state.wavesCleared = 30; unlockSystem("barracks");');
+const trainCost = run('trainPrice("legionary")');
+assert.equal(run('trainHero("legionary")'), true);
+assert.equal(run('heroLevel("legionary")'), 2);
+assert.equal(run('1e6 - state.food'), trainCost, 'Training costs food');
+assert.ok(run('trainPrice("legionary")') > trainCost, 'Each level costs more');
+assert.ok(Math.abs(run('heroDamageMult("legionary")') - 1.06) < 1e-9, 'A level adds 6% damage');
+run('state.holdLine = 0; state.frontHero = "legionary";');
+assert.equal(run('hurtGuard(105, 600)'), 100, 'A level makes the hero 5% tougher');
+assert.equal(run('trainHero("catapult")'), false, 'Machines do not train');
+assert.equal(run('makeOffering("mars")'), false, 'No offerings before the Temple');
+run('unlockSystem("temple"); makeOffering("mars"); makeOffering("ceres"); makeOffering("minerva");');
+assert.equal(run('state.temple.mars + state.temple.ceres + state.temple.minerva'), 3);
+assert.ok(Math.abs(run('heroDamageMult("legionary")') - 1.06 * 1.04) < 1e-9, 'Mars adds damage to every hero');
+run('state.farmLevel = 10');
+assert.equal(run('foodPerTick()'), 11, 'Ceres +8% food: 10 → 11 per tick (rounded)');
+run('state.heroes.legionary.cd = 0; spawnMob("orc"); state.mobs[0].x = 1170 * 0.52 - 72; castSpell("legionary")');
+assert.ok(Math.abs(run('state.heroes.legionary.cd') - 12 * 0.97) < 1e-9, 'Minerva shortens cooldowns');
+const saved2 = JSON.parse(run('JSON.stringify(serializeSave(5))'));
+run(`resetGame(); applySave(${JSON.stringify(saved2)})`);
+assert.equal(run('heroLevel("legionary") + "/" + state.temple.mars'), '2/1', 'Training and offerings are saved');
+console.log('Barracks and Temple passed: training, offerings, bonuses and saving.');

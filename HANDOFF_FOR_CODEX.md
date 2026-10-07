@@ -107,7 +107,11 @@ runtime chroma-keying for the legionary/archer is gone. Root `assets/` and
 - Trophies & eagles (`bossReward`, `canUpgradeTown`, `requiredTown`, `SYSTEMS`), village 1–7.
 - Waves 11–30 with placeholder enemies and 4 bosses, up to 3 enemies from wave 21,
   Armory gear (`GEAR_SLOTS`, `dropGear`, `autoEquip`, `cycleGearOwner`), tuning `ACT3_*`.
-- Barracks / Temple exist only as "soon" rows — implementing them is the next feature.
+- Barracks (hero levels for food, `trainHero`) and Temple (Mars / Ceres / Minerva offerings,
+  `makeOffering`) are implemented; `heroDamageMult()` combines fatigue, gear, training and Mars.
+  Waves 21–30 were retuned for trained heroes (`expectedProgress().heroLevel`).
+- Balance tuning tip: when measuring a fight, check the phase **every frame** — checking in
+  60-frame batches lets post-wave regeneration leak into the result (this bit us once).
 
 ## 3. Known issues / open decisions
 - Spell/UI icons are font glyphs/emoji; some render as empty boxes on some systems.
