@@ -3,6 +3,8 @@
 
 // Headless playthrough that uses the real combat and shop handlers from app.js.
 // The bot invests in the farm and waits for food to upgrade before each wave.
+// With spells on it plays like an attentive player («Авто» cast policy) and
+// rotates heroes before every wave (freshest hero per slot).
 const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
@@ -38,31 +40,29 @@ function shop(targetLevel = Infinity) {
   }
 }
 
-function play({ waves = 5, buyVolley = false } = {}) {
+function play({ waves = 5, spells = true, rotate = true } = {}) {
   run('resetGame()');
+  run(`state.autoSpells = ${spells}`);
   const report = [];
   for (let wave = 1; wave <= waves; wave += 1) {
     if (wave === 6) run("ui['town-upgrade'].onclick()");
-    if (buyVolley && wave === 4) {
-      run("for (let i = 0; i < 36000 && state.coins < VOLLEY_PRICE; i++) update(1/60, 1170)");
-      run("ui['volley-buy'].onclick()");
-    }
+    if (rotate) run("ui['auto-lineup'].onclick()");
     let preparationTicks = 0;
     shop(wave);
     while (run(`state.guardLevel < ${wave}`) && preparationTicks++ < 18000) {
-      run('if (state.heroUnlocked && aliveMobs().some(m => m.x > 1170 * .52 - 400 && m.x < 1170 * .52 - 20)) castVolley(); update(1/60, 1170)');
+      run('update(1/60, 1170)');
       shop(wave);
     }
     if (preparationTicks >= 18000) throw new Error(`Preparation for wave ${wave} exceeded five minutes`);
     run("ui['wave-button'].onclick()");
     if (Number.isFinite(hpTrials[wave - 1])) run(`state.waveDifficulties[state.wave].hp *= ${hpTrials[wave - 1]}`);
     if (Number.isFinite(attackTrials[wave - 1])) run(`state.waveDifficulties[state.wave].damage *= ${attackTrials[wave - 1]}`);
-    const start = JSON.parse(run('JSON.stringify({hp:state.guardHp,maxHp:state.maxGuardHp,guard:state.guardLevel,spikes:state.spikesLevel,farm:state.farmLevel,archer:state.archerLevel,catapult:state.catapultLevel,hasVolley:state.heroUnlocked,difficulty:state.waveDifficulties[state.wave]})'));
+    const start = JSON.parse(run('JSON.stringify({hp:state.guardHp,maxHp:state.maxGuardHp,guard:state.guardLevel,spikes:state.spikesLevel,farm:state.farmLevel,archer:state.archerLevel,catapult:state.catapultLevel,lineup:activeHeroes(),power:activeHeroes().map(heroPowerMult),difficulty:state.waveDifficulties[state.wave]})'));
     let ticks = 0;
     let peakEnemies = 0;
     let bossSharedField = false;
     while (run('state.phase') === 'wave' && ticks++ < 36000) {
-      run('if (state.heroUnlocked && aliveMobs().some(m => m.x > 1170 * .52 - 400 && m.x < 1170 * .52 - 20)) castVolley(); update(1/60, 1170)');
+      run('update(1/60, 1170)');
       const active = run('state.mobs.filter(mob => !mob.dead).length');
       peakEnemies = Math.max(peakEnemies, active);
       if (active > 1 && run('state.mobs.some(mob => !mob.dead && enemyTypes[mob.type].isBoss)')) bossSharedField = true;
@@ -70,7 +70,7 @@ function play({ waves = 5, buyVolley = false } = {}) {
     if (ticks >= 36000) throw new Error(`Wave ${wave} did not terminate`);
     const end = JSON.parse(run('JSON.stringify({phase:state.phase,hp:state.guardHp,maxHp:state.maxGuardHp,food:state.food,coins:state.coins})'));
     report.push({ wave, ...start, ...end, hpRatio: end.hp / end.maxHp,
-      enemies: run('state.waveTotal'), peakEnemies, bossSharedField, preparationSeconds: preparationTicks / 60 });
+      enemies: run('state.waveTotal'), peakEnemies, bossSharedField, preparationSeconds: preparationTicks / 60, seconds: ticks / 60 });
     if (end.phase === 'defeat') break;
   }
   return report;
@@ -90,7 +90,7 @@ function idle(seconds) {
 
 if (require.main === module) {
   const report = play({ waves: 10 });
-  console.log('wave | prep seconds | enemies / peak | guard/spikes/farm/archer/catapult | enemy HP/ATK | result | guard HP');
+  console.log('wave | prep seconds | enemies / peak | guard/spikes/farm/archer/catapult | enemy HP/ATK | result | guard HP | fight s | lineup');
   for (const row of report) {
     console.log([
       String(row.wave).padStart(4),
@@ -99,11 +99,14 @@ if (require.main === module) {
       `${row.guard}/${row.spikes}/${row.farm}/${row.archer}/${row.catapult}`.padStart(31),
       `${row.difficulty.hp.toFixed(2)}/${row.difficulty.damage.toFixed(2)}`.padStart(12),
       row.phase.padStart(8),
-      `${row.hp}/${row.maxHp} (${Math.round(row.hpRatio * 100)}%)`.padStart(18)
+      `${row.hp}/${row.maxHp} (${Math.round(row.hpRatio * 100)}%)`.padStart(18),
+      row.seconds.toFixed(0).padStart(7),
+      row.lineup.map((id, i) => `${id}×${row.power[i].toFixed(2)}`).join(' ')
     ].join(' | '));
   }
-  console.log('Optional volley:', JSON.stringify(play({ waves: 10, buyVolley: true }).map(r => ({ wave: r.wave, phase: r.phase, hpRatio: r.hpRatio }))));
+  console.log('No spells:', JSON.stringify(play({ waves: 10, spells: false }).map(r => ({ wave: r.wave, phase: r.phase, hp: Math.round(r.hpRatio * 100) }))));
+  console.log('No rotation:', JSON.stringify(play({ waves: 10, rotate: false }).map(r => ({ wave: r.wave, phase: r.phase, hp: Math.round(r.hpRatio * 100) }))));
   for (const seconds of [120, 600]) console.log(`AFK ${seconds}s: ${JSON.stringify(idle(seconds))}`);
 }
 
-module.exports = { play, idle };
+module.exports = { play, idle, run };

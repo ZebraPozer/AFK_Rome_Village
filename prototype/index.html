@@ -36,6 +36,7 @@
             <span class="resource-copy"><small>ЗОЛОТО</small><b id="coins">0</b></span>
           </span>
         </div>
+        <div id="spell-bar" class="spell-bar" aria-label="Спеллы героев"></div>
       </div>
 
       </div>
@@ -47,7 +48,7 @@
             <h2 id="balance-reminder-title">Бот балансировки</h2>
             <span>ПРОВЕРЯТЬ ПОСЛЕ ИЗМЕНЕНИЙ</span>
           </div>
-          <p>Добавили врагов, апгрейды или способности? Повторите прогон: бот развивает ферму, ждёт еду, улучшает оборону и проходит 10 небольших волн. Проверяет прохождение без «Залпа» и с его покупкой, а также фоновую прокачку. Для первых пяти волн без заклинания сохраняем коридор 10–40% HP. Баланс второго акта оцениваем отдельно.</p>
+          <p>Добавили врагов, апгрейды или способности? Повторите прогон: бот развивает ферму, ждёт еду, улучшает оборону и проходит 10 небольших волн. Бот применяет спеллы («АВТО») и ставит самых свежих героев. Для волн 1–5 держим 20–50% HP со спеллами и 5–35% без них. Второй акт проверяем со спеллами и ротацией.</p>
           <label for="balance-bot-command">Запуск в терминале из папки проекта</label>
           <input id="balance-bot-command" type="text" readonly spellcheck="false" value="node prototype/tools/balance-bot.cjs" aria-describedby="balance-bot-hint">
           <p id="balance-bot-hint" class="balance-reminder-hint">Команду можно выделить и скопировать. Новые покупки и активные способности нужно добавить в действия бота.</p>
@@ -73,16 +74,19 @@
           <div><img class="character-icon" src="assets/icons/legionary-head.png" alt=""><span><b>Легионер</b><small>держит рубеж</small></span><em id="guard-status">ГОТОВ</em></div>
           <div><img class="character-icon" src="assets/icons/farmer-head.png" alt=""><span><b>Фермер</b><small>производит еду</small></span><em id="farm-status">+ 1 / 3с</em></div>
           <div id="archer-row" class="locked"><img class="character-icon" src="assets/characters/roman-archer-ally-01.png" alt=""><span><b>Лучник</b><small id="archer-note">после улучшения поселения II</small></span><em id="archer-status">ЗАКРЫТ</em></div>
-          <div id="hero-row" class="locked"><i class="archer-icon">✪</i><span><b>Центурион</b><small id="hero-note">откроется после волны 3</small></span><em id="hero-status">ЗАКРЫТ</em></div>
+        </div>
+        <div class="lineup" aria-label="Состав героев">
+          <span class="upgrade-title">СОСТАВ ГЕРОЕВ · МЕЖДУ ВОЛНАМИ</span>
+          <div id="lineup"></div>
+          <button id="auto-lineup" class="quiet">⇅ Поставить самых свежих</button>
         </div>
         <div class="upgrades" aria-label="Улучшения">
           <span class="upgrade-title">ПОСЕЛЕНИЕ И УЛУЧШЕНИЯ</span>
           <button id="town-upgrade"><b>⌂ Поселение <i id="town-level">ур. 1</i></b><small id="town-cost">Победите босса волны 5</small></button>
-          <button id="guard-upgrade"><b>⚔ Легионер <i id="guard-level">ур. 1</i></b><small id="guard-cost">5 еды · больше урона</small></button>
+          <button id="guard-upgrade"><b>⚔ Передовая <i id="guard-level">ур. 1</i></b><small id="guard-cost">5 еды · больше урона</small></button>
           <button id="spikes-upgrade"><b>⋀ Шипы <i id="spikes-level">не куплены</i></b><small id="spikes-cost">10 монет · пассивный урон</small></button>
           <button id="archer-upgrade"><b>➶ Лучник <i id="archer-level">закрыт</i></b><small id="archer-cost">откроется после волны 1</small></button>
           <button id="catapult-upgrade"><b>☄ Катапульта <i id="catapult-level">закрыта</i></b><small id="catapult-cost">откроется после волны 5</small></button>
-          <button id="volley-buy"><b>➶ Купить «Залп»</b><small id="volley-cost">После волны 3 · 20 монет</small></button>
           <button id="farm-upgrade"><b>✶ Ферма <i id="farm-level">ур. 1</i></b><small id="farm-cost">6 монет · больше еды</small></button>
         </div>
         <div class="debug-controls">
@@ -92,7 +96,7 @@
           <button id="speed">⏩ 1×</button>
         </div>
         <button id="tower-slot">🗼 Слот башни: пусто</button>
-        <button id="volley" class="primary">➶ Залп героя (пробел)</button>
+        <button id="auto-spells">✦ Авто-спеллы: выкл</button>
         <button id="village-stage" class="quiet">🏡 Деревня: ступень 1/3</button>
         <button id="reset" class="quiet">Сбросить прототип</button>
         </div>
@@ -101,8 +105,9 @@
         <p id="wave-preview" class="note wave-preview"></p>
         <p id="boss-progress" class="note boss-progress"></p>
         <p id="specialization-note" class="note specialization-note" hidden></p>
-        <p class="note">Старт — один легионер. В каждой волне <b>1–5 врагов, одновременно не больше двух</b>. После босса пятой волны улучшите поселение: откроются башня и выбор защитника — <b>лучник по одной цели или катапульта по площади</b>.</p>
-        <p class="note">«Залп» можно докупить после третьей волны за <b>20 монет</b>. Активация: кнопка, пробел или нажатие на центуриона. Покупка необязательна.</p>
+        <p class="note">Старт — один легионер со спеллом «Удар щитом» (клавиша 1). В каждой волне <b>1–5 врагов, одновременно не больше двух</b>. После босса пятой волны улучшите поселение: откроются башня и выбор защитника — <b>лучник по одной цели или катапульта по площади</b>.</p>
+        <p class="note">У каждого героя свой спелл: <b>1</b> — передовая («Удар щитом» легионера или «Удержать строй» гоплита), <b>2</b> — башня («Залп» лучника), <b>3</b> — стена («Благословение» жрицы). Можно нажать кнопку внизу экрана или самого героя.</p>
+        <p class="note"><b>Ротация.</b> Когда на слот есть замена, герой копит усталость: со второй волны подряд −15% урона за волну. Герой, который пропустил волну, выходит со «Свежими силами»: +25% урона и спелл сразу готов. Прокачка принадлежит слоту, поэтому замена ничего не стоит.</p>
         <p class="note">Каждую волну легионер начинает с полным здоровьем бесплатно. Фермер производит еду; 3 побеждённых патрульных дают 1 монету. Ускорение <b>1× / 2× / 100×</b> влияет на бой и производство. Сохранений и дохода при закрытой игре пока нет.</p>
         <div class="scene-legend">
           <span><img src="assets/icons/orc-raider-head.png" alt="">ОРДА</span>

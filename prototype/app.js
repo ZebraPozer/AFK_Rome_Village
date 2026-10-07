@@ -7,10 +7,10 @@ const ui = Object.fromEntries([
   'reset','wave-button','wave-difficulty','wave-preview','boss-progress','specialization-note','state-label','live-dot','guard-status','farm-status','loading',
   'guard-upgrade','spikes-upgrade','farm-upgrade','guard-level','spikes-level','farm-level',
   'guard-cost','spikes-cost','farm-cost','guard-health-value','guard-health-bar','archer-row','archer-status','archer-note',
-  'hero-row','hero-note','hero-status',
-  'archer-upgrade','archer-level','archer-cost','volley',
+  'spell-bar','lineup','auto-lineup','auto-spells',
+  'archer-upgrade','archer-level','archer-cost',
   'catapult-upgrade','catapult-level','catapult-cost','tower-slot',
-  'village-stage','town-upgrade','town-level','town-cost','volley-buy','volley-cost'
+  'village-stage','town-upgrade','town-level','town-cost'
 ].map((id) => [id, document.getElementById(id)]));
 
 const sources = {
@@ -102,8 +102,9 @@ function calculateOpeningDifficulty(wave, progress) {
   // The roster itself becomes more dangerous (more shield units, elites and a
   // boss), so raw stat growth must not also rise monotonically. These factors
   // are calibrated by tools/balance-bot.cjs against a farm/upgrade/play loop.
-  const rosterHpTuning = [9.8325, 5.4, 4.69, 2.96, 0.702];
-  if (wave === 1) return { hp: rosterHpTuning[0], damage: 1 };
+  // Early waves: fewer HP and harder hits, so fights are short but you feel every blow.
+  const rosterHpTuning = OPENING_HP_TUNING;
+  if (wave === 1) return { hp: rosterHpTuning[0], damage: OPENING_DAMAGE_TUNING[0] };
   const step = wave - 1;
   const dpsRatio = progress.guardLevel * 0.72 / guardAttackInterval(progress.guardLevel);
   // Sublinear adaptation preserves the advantage of investing in combat.
@@ -112,10 +113,14 @@ function calculateOpeningDifficulty(wave, progress) {
     + 0.12 * Math.pow(progress.spikesLevel, 0.75);
   return {
     hp: (1 + 0.3 * step + 0.06 * step * step) * offense * (rosterHpTuning[wave - 1] || 0.5),
-    damage: (1 + 0.12 * step) * Math.pow(progress.maxGuardHp / 100, 0.25)
+    damage: (1 + 0.12 * step) * Math.pow(progress.maxGuardHp / 100, 0.25) * (OPENING_DAMAGE_TUNING[wave - 1] || 1)
   };
 }
-
+const OPENING_HP_TUNING = [3.62, 2.44, 4.70, 2.78, 0.70];
+const OPENING_DAMAGE_TUNING = [3.0, 2.8, 1.4, 1.6, 1.15];
+// Act II assumes the player uses hero spells and rotation (balance bot «Авто»).
+const ACT2_HP_TUNING = [1, 3, 1.3, 1.3, 1];
+const ACT2_DAMAGE_TUNING = [1, 3.4, 1.8, 4.8, 1.4];
 
 function calculateWaveDifficulty(wave, progress) {
   if (wave <= 5) return calculateOpeningDifficulty(wave, progress);
@@ -128,8 +133,8 @@ function calculateWaveDifficulty(wave, progress) {
     + 0.12 * Math.pow(progress.spikesLevel, 0.75)
     + 0.1 * Math.max(progress.archerLevel || 0, progress.catapultLevel || 0);
   return {
-    hp: (1 + 0.3 * step + 0.06 * step * step) * offense,
-    damage: (1 + 0.12 * step) * Math.pow(progress.maxGuardHp / 100, 0.25)
+    hp: (1 + 0.3 * step + 0.06 * step * step) * offense * (ACT2_HP_TUNING[wave - 6] ?? 1),
+    damage: (1 + 0.12 * step) * Math.pow(progress.maxGuardHp / 100, 0.25) * (ACT2_DAMAGE_TUNING[wave - 6] ?? 1)
   };
 }
 
@@ -179,7 +184,6 @@ const state = {
   archerLevel: 0,
   archerCooldown: 0,
   arrows: [],
-  volleyCooldown: 0,
   volleyFx: 0,
   volleyDamage: 0,
   shake: 0,
@@ -191,7 +195,14 @@ const state = {
   enemyShots: [],
   dust: [],
   notice: null,
-  heroUnlocked: false,
+  heroes: null, // filled by freshHeroes() once heroDefs exist
+  frontHero: 'legionary',
+  supportHero: null,
+  autoSpells: false,
+  holdLine: 0,
+  bashFx: 0,
+  blessFx: 0,
+  hornFx: 0,
   towerFx: 0,
   wavePlan: [],
   waveDifficulties: {},
@@ -439,7 +450,42 @@ function startWave() {
   state.spawned = 0;
   state.defeated = 0;
   state.spawnTimer = 0.2;
+  state.holdLine = 0;
+  prepareHeroesForWave();
+  state.hornFx = HORN_TIME;
+  state.shake = Math.max(state.shake, 0.2);
+  playHorn();
   ui.pause.textContent = 'Ⅱ Пауза';
+}
+
+// Short synthesized war horn; silently skipped where Web Audio is unavailable.
+const HORN_TIME = 1.6;
+let audioCtx = null;
+function playHorn() {
+  const AudioCtor = typeof window !== 'undefined' && (window.AudioContext || window.webkitAudioContext);
+  if (!AudioCtor) return;
+  try {
+    audioCtx = audioCtx || new AudioCtor();
+    const now = audioCtx.currentTime;
+    const gain = audioCtx.createGain();
+    gain.gain.setValueAtTime(0.0001, now);
+    gain.gain.exponentialRampToValueAtTime(0.16, now + 0.12);
+    gain.gain.setValueAtTime(0.16, now + 0.75);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + 1.25);
+    const filter = audioCtx.createBiquadFilter();
+    filter.type = 'lowpass'; filter.frequency.value = 900;
+    gain.connect(filter).connect(audioCtx.destination);
+    for (const [freq, detune] of [[110, 0], [110, 9], [165, -6]]) {
+      const osc = audioCtx.createOscillator();
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(freq * 0.94, now);
+      osc.frequency.linearRampToValueAtTime(freq, now + 0.18);
+      osc.detune.value = detune;
+      osc.connect(gain);
+      osc.start(now);
+      osc.stop(now + 1.3);
+    }
+  } catch (error) { /* audio is decoration only */ }
 }
 
 function finishWave() {
@@ -452,8 +498,12 @@ function finishWave() {
   if (reward) state.floaters.push({ kind: 'reward', amount: reward, x: 585, life: 1.8, duration: 1.8 });
   state.patrolTimer = 5;
   clearProjectiles();
+  applyWaveFatigue();
+  if (state.wavesCleared >= HOPLITE_UNLOCK_WAVE) {
+    unlockHero('hoplite', 'ПОПОЛНЕНИЕ', 'Можно поставить на передовую вместо легионера · отдохнувший герой сильнее');
+  }
 }
-// The boss-gated town grants the tower roles; the spell stays a separate purchase.
+// The boss-gated town opens new hero slots: tower at II, wall at III.
 function applyUnlocks() {
   if (state.townLevel >= 2 && !state.archerUnlocked) {
     state.archerUnlocked = true;
@@ -462,7 +512,14 @@ function applyUnlocks() {
     state.catapultUnlocked = true;
     state.catapultLevel = 1;
     state.towerFx = TOWER_POP;
-    showNotice('ПОСЕЛЕНИЕ II', 'НОВЫЕ ЗАЩИТНИКИ', 'Выбери лучника или катапульту · впереди второй акт');
+    state.heroes.archer.unlocked = true;
+    state.heroes.catapult.unlocked = true;
+    state.heroes.archer.cd = 0;
+    showNotice('ПОСЕЛЕНИЕ II', 'НОВЫЙ ГЕРОЙ · ЛУЧНИК', 'Слот башни: лучник со «Залпом» или катапульта · клавиша 2');
+  }
+  if (state.townLevel >= 3 && !state.heroes.priestess.unlocked) {
+    state.supportHero = 'priestess';
+    unlockHero('priestess', 'ПОСЕЛЕНИЕ III', 'Третий слот «Стена» · «Благословение» лечит передовую · клавиша 3');
   }
 }
 function showNotice(kicker, title, subtitle) {
@@ -482,6 +539,8 @@ function failWave() {
   state.mobs = [];
   clearProjectiles();
   state.guardHp = Math.ceil(state.maxGuardHp * 0.3);
+  state.holdLine = 0;
+  applyWaveFatigue();
 }
 
 function clearProjectiles() {
@@ -496,8 +555,6 @@ function clearProjectiles() {
 // Archer, hero volley, catapult and unlocks.
 // ---------------------------------------------------------------------------
 const ARCHER_UNLOCK_WAVE = 5;
-const HERO_UNLOCK_WAVE = 3;
-const VOLLEY_PRICE = 20;
 const GUARD_PRICE_BASE = 5;
 const GUARD_PRICE_STEP = 4;
 const TOWER_POP = 0.9;
@@ -511,6 +568,223 @@ const ARCHER_RANGE = 430;
 const VOLLEY_COOLDOWN = 18;
 const VOLLEY_FALL = 0.75;
 const VOLLEY_ZONE = [-400, -20]; // relative to the legionary
+
+// ---------------------------------------------------------------------------
+// Heroes, slots and rotation (GAME_DESIGN: «Герои, слоты и ротация»).
+// A hero is a unit with its own spell. Upgrades belong to the slot, so a
+// substitute fights at the same level and rotation never costs resources.
+// The catapult is a tower machine: no spell and it never gets tired.
+// ---------------------------------------------------------------------------
+const HOPLITE_UNLOCK_WAVE = 7;
+const RESTED_BONUS = 0.25;      // «Свежие силы»: +25% damage for one wave
+const FATIGUE_PENALTY = 0.15;   // per wave beyond the first in a row
+const FATIGUE_MAX = 3;
+const heroDefs = {
+  legionary: { name: 'Легионер', role: 'front', damageMult: 1, guardTaken: 1,
+    spell: { id: 'shieldBash', name: 'Удар щитом', icon: '⛨', cooldown: 12, hint: 'оглушает и отбрасывает ближайшего врага' } },
+  hoplite: { name: 'Гоплит', role: 'front', damageMult: 0.85, guardTaken: 0.85,
+    spell: { id: 'holdLine', name: 'Удержать строй', icon: '▥', cooldown: 16, hint: '5 с получает на 70% меньше урона' } },
+  archer: { name: 'Лучник', role: 'tower', damageMult: 1,
+    spell: { id: 'volley', name: 'Залп', icon: '➶', cooldown: VOLLEY_COOLDOWN, hint: 'стрелы накрывают всё перед легионером' } },
+  catapult: { name: 'Катапульта', role: 'tower', machine: true, damageMult: 1, spell: null },
+  priestess: { name: 'Жрица', role: 'support', damageMult: 1,
+    spell: { id: 'blessing', name: 'Благословение', icon: '✚', cooldown: 20, hint: 'лечит бойца передовой на 40% HP' } }
+};
+const slotDefs = [
+  { role: 'front', name: 'Передовая', key: '1' },
+  { role: 'tower', name: 'Башня', key: '2' },
+  { role: 'support', name: 'Стена', key: '3' }
+];
+const BASH_STUN = 2.5;
+const BASH_KNOCK = 120;
+const HOLD_LINE_TIME = 5;
+const HOLD_LINE_TAKEN = 0.3;
+const BLESSING_HEAL = 0.4;
+
+function freshHeroes() {
+  const heroes = {};
+  for (const id of Object.keys(heroDefs)) heroes[id] = { unlocked: id === 'legionary', fatigue: 0, rested: false, cd: 0 };
+  return heroes;
+}
+
+function slotUnlocked(role) {
+  if (role === 'front') return true;
+  if (role === 'tower') return state.archerUnlocked || state.catapultUnlocked;
+  return state.townLevel >= 3;
+}
+
+function slotHero(role) {
+  if (!slotUnlocked(role)) return null;
+  if (role === 'front') return state.frontHero;
+  if (role === 'tower') return state.towerSlot;
+  return state.supportHero;
+}
+
+function activeHeroes() {
+  return slotDefs.map((slot) => slotHero(slot.role)).filter(Boolean);
+}
+
+function heroesForRole(role) {
+  return Object.keys(heroDefs).filter((id) => heroDefs[id].role === role && state.heroes[id].unlocked);
+}
+
+// Rotation only matters when someone could take the slot over.
+function roleHasBench(role) {
+  return heroesForRole(role).length > 1;
+}
+
+function heroPowerMult(id) {
+  const hero = state.heroes[id];
+  if (!hero || heroDefs[id].machine) return 1;
+  if (hero.rested) return 1 + RESTED_BONUS;
+  return 1 - FATIGUE_PENALTY * Math.max(0, hero.fatigue - 1);
+}
+
+function heroCondition(id) {
+  const hero = state.heroes[id];
+  if (heroDefs[id].machine) return { label: 'не устаёт', tone: 'neutral' };
+  if (hero.rested) return { label: `свежие силы +${Math.round(RESTED_BONUS * 100)}%`, tone: 'good' };
+  if (hero.fatigue >= 2) return { label: `устал −${Math.round(FATIGUE_PENALTY * (hero.fatigue - 1) * 100)}%`, tone: 'bad' };
+  if (hero.fatigue === 1 && roleHasBench(heroDefs[id].role)) return { label: 'в строю 1 волну', tone: 'neutral' };
+  return { label: 'в форме', tone: 'neutral' };
+}
+
+function frontName() {
+  return heroDefs[state.frontHero].name;
+}
+
+function cycleSlot(role) {
+  if (state.phase === 'wave' || !slotUnlocked(role)) return false;
+  const options = heroesForRole(role);
+  if (options.length < 2) return false;
+  const current = slotHero(role);
+  const next = options[(options.indexOf(current) + 1) % options.length];
+  if (role === 'front') state.frontHero = next;
+  else if (role === 'tower') state.towerSlot = next;
+  else state.supportHero = next;
+  return true;
+}
+
+// Put the freshest hero into every slot: used by the balance bot and the «Авто» button.
+function autoLineup() {
+  if (state.phase === 'wave') return;
+  for (const slot of slotDefs) {
+    if (!slotUnlocked(slot.role)) continue;
+    const options = heroesForRole(slot.role);
+    if (!options.length) continue;
+    const best = options.reduce((a, b) => (heroPowerMult(b) > heroPowerMult(a) ? b : a), slotHero(slot.role) || options[0]);
+    if (slot.role === 'front') state.frontHero = best;
+    else if (slot.role === 'tower') state.towerSlot = best;
+    else state.supportHero = best;
+  }
+}
+
+// Called once per finished or failed wave.
+function applyWaveFatigue() {
+  const active = new Set(activeHeroes());
+  for (const [id, hero] of Object.entries(state.heroes)) {
+    if (!hero.unlocked || heroDefs[id].machine) continue;
+    if (active.has(id)) {
+      hero.rested = false;
+      hero.fatigue = roleHasBench(heroDefs[id].role) ? Math.min(FATIGUE_MAX, hero.fatigue + 1) : 0;
+    } else {
+      hero.fatigue = 0;
+      hero.rested = true;
+    }
+  }
+}
+
+function prepareHeroesForWave() {
+  for (const id of activeHeroes()) {
+    const def = heroDefs[id];
+    if (!def.spell) continue;
+    const hero = state.heroes[id];
+    // A rested hero walks in with the spell charged; others need half a cooldown.
+    hero.cd = hero.rested ? 0 : Math.max(hero.cd, def.spell.cooldown * 0.5);
+  }
+}
+
+function unlockHero(id, kicker, subtitle) {
+  if (state.heroes[id].unlocked) return;
+  state.heroes[id].unlocked = true;
+  showNotice(kicker, `НОВЫЙ ГЕРОЙ · ${heroDefs[id].name.toUpperCase()}`, subtitle);
+}
+
+function spellBlocked(id) {
+  const def = heroDefs[id];
+  if (!def || !def.spell || !state.heroes[id].unlocked) return 'нет';
+  if (!activeHeroes().includes(id)) return 'в резерве';
+  if (!state.running) return 'пауза';
+  if (state.heroes[id].cd > 0) return `${Math.ceil(state.heroes[id].cd)} с`;
+  if (def.spell.id === 'blessing') return state.guardHp > 0 && state.guardHp < state.maxGuardHp ? null : 'HP полное';
+  if (def.spell.id === 'shieldBash') return bashTarget(1170) ? null : 'нет цели';
+  if (def.spell.id === 'volley' && state.volleyFx > 0) return 'летит';
+  return aliveMobs().length ? null : 'нет врагов';
+}
+
+function bashTarget(width) {
+  const guardX = width * 0.52;
+  return aliveMobs().reduce((lead, mob) => (
+    mob.x > guardX - 150 && mob.x < guardX - 10 && (!lead || mob.x > lead.x) ? mob : lead
+  ), null);
+}
+
+function castSpell(id, width = 1170) {
+  if (spellBlocked(id)) return false;
+  const def = heroDefs[id];
+  const guardX = width * 0.52;
+  const mult = heroPowerMult(id);
+  if (def.spell.id === 'shieldBash') {
+    const target = bashTarget(width);
+    const boss = enemyTypes[target.type]?.isBoss;
+    const dealt = damageMob(target, 2 * state.guardLevel * mult, 'melee');
+    target.stun = boss ? 1.2 : BASH_STUN;
+    target.knock = boss ? 40 : BASH_KNOCK;
+    target.attackCooldown = Math.max(target.attackCooldown, target.stun);
+    state.bashFx = 0.4;
+    state.shake = Math.max(state.shake, 0.18);
+    state.floaters.push({ kind: 'bash', amount: Math.round(dealt * 10) / 10, x: guardX - 60, life: 1.2, duration: 1.2 });
+  } else if (def.spell.id === 'holdLine') {
+    state.holdLine = HOLD_LINE_TIME;
+    state.floaters.push({ kind: 'hold', amount: 70, x: guardX, life: 1.4, duration: 1.4 });
+  } else if (def.spell.id === 'volley') {
+    const difficulty = state.phase === 'wave' ? getWaveDifficulty(state.wave) : { hp: 1 };
+    state.volleyDamage = Math.ceil(4 * difficulty.hp * mult);
+    state.volleyFx = VOLLEY_FALL;
+  } else if (def.spell.id === 'blessing') {
+    const heal = Math.round(state.maxGuardHp * BLESSING_HEAL * mult);
+    state.guardHp = Math.min(state.maxGuardHp, state.guardHp + heal);
+    state.blessFx = 0.8;
+    state.floaters.push({ kind: 'bless', amount: heal, x: guardX, life: 1.4, duration: 1.4 });
+  }
+  state.heroes[id].cd = def.spell.cooldown;
+  return true;
+}
+
+// Every hit on the frontline hero goes through here (melee and enemy arrows).
+function hurtGuard(raw, guardX) {
+  let damage = raw * (heroDefs[state.frontHero].guardTaken ?? 1);
+  if (state.holdLine > 0) damage *= HOLD_LINE_TAKEN;
+  damage = Math.max(1, Math.round(damage));
+  state.guardHp = Math.max(0, state.guardHp - damage);
+  state.floaters.push({ kind: 'hurt', amount: damage, x: guardX, life: 1.05, duration: 1.05 });
+  return damage;
+}
+
+state.heroes = freshHeroes();
+
+// Simple «Авто» policy: also used by the balance bot.
+function autoCastSpells(width = 1170) {
+  const guardX = width * 0.52;
+  for (const id of activeHeroes()) {
+    const spell = heroDefs[id].spell;
+    if (!spell || spellBlocked(id)) continue;
+    if (spell.id === 'volley' && !aliveMobs().some((m) => m.x > guardX - 400 && m.x < guardX - 20)) continue;
+    if (spell.id === 'holdLine' && !aliveMobs().some((m) => m.x >= guardX - 80 - (m.formationX ?? 0) - 1)) continue;
+    if (spell.id === 'blessing' && state.guardHp > state.maxGuardHp * 0.5) continue;
+    castSpell(id, width);
+  }
+}
 
 // Legionary upgrades get steeper so food alone cannot outpace the waves.
 function guardUpgradePrice() {
@@ -596,20 +870,19 @@ function aliveMobs() {
   return state.mobs.filter((mob) => !mob.dead);
 }
 
+// The volley now belongs to the archer hero on the tower.
 function castVolley() {
-  if (!state.running || !state.heroUnlocked || state.volleyCooldown > 0 || state.volleyFx > 0 || aliveMobs().length === 0) return false;
-  const difficulty = state.phase === 'wave' ? getWaveDifficulty(state.wave) : { hp: 1 };
-  state.volleyDamage = Math.ceil(4 * difficulty.hp);
-  state.volleyFx = VOLLEY_FALL;
-  state.volleyCooldown = VOLLEY_COOLDOWN;
-  return true;
+  return castSpell('archer');
 }
 
 function updateDefenders(dt, width) {
   const guardX = width * 0.52;
   const { towerX, platformY } = towerGeometry(width);
   state.archerCooldown = Math.max(0, state.archerCooldown - dt);
-  state.volleyCooldown = Math.max(0, state.volleyCooldown - dt);
+  for (const hero of Object.values(state.heroes)) hero.cd = Math.max(0, hero.cd - dt);
+  state.holdLine = Math.max(0, state.holdLine - dt);
+  state.bashFx = Math.max(0, state.bashFx - dt);
+  state.blessFx = Math.max(0, state.blessFx - dt);
   state.shake = Math.max(0, state.shake - dt);
 
   // Archer: fires at the foremost enemy in range, damage lands when the arrow arrives.
@@ -620,7 +893,7 @@ function updateDefenders(dt, width) {
     const pool = ranged.length ? ranged : inRange;
     const target = pool.reduce((lead, mob) => (!lead || mob.x > lead.x ? mob : lead), null);
     if (target) {
-      state.arrows.push({ sx: towerX - 30, sy: platformY - 62, mob: target, t: 0, dur: 0.42, damage: archerDamage(state.archerLevel) });
+      state.arrows.push({ sx: towerX - 30, sy: platformY - 62, mob: target, t: 0, dur: 0.42, damage: archerDamage(state.archerLevel) * heroPowerMult('archer') });
       state.archerCooldown = archerInterval(state.archerLevel);
     }
   }
@@ -666,10 +939,7 @@ function updateDefenders(dt, width) {
     shot.t += dt;
     if (shot.t >= shot.dur && !shot.done) {
       shot.done = true;
-      if (state.guardHp > 0) {
-        state.guardHp = Math.max(0, state.guardHp - shot.damage);
-        state.floaters.push({ kind: 'hurt', amount: shot.damage, x: guardX, life: 1.05, duration: 1.05 });
-      }
+      if (state.guardHp > 0) hurtGuard(shot.damage, guardX);
     }
   }
   state.enemyShots = state.enemyShots.filter((shot) => !shot.done);
@@ -696,8 +966,9 @@ function resetGame() {
     guardHp: 100, maxGuardHp: 100,
     food: 0, coins: 0, kills: 0, guardLevel: 1, spikesLevel: 0, farmLevel: 1,
     waveTotal: 0, spawned: 0, defeated: 0, archerUnlocked: false, wavePlan: [], waveDifficulties: {},
-    archerLevel: 0, archerCooldown: 0, arrows: [], volleyCooldown: 0, volleyFx: 0, volleyDamage: 0, shake: 0,
-    towerSlot: null, catapultUnlocked: false, catapultLevel: 0, catapultCooldown: 0, rocks: [], enemyShots: [], dust: [], notice: null, heroUnlocked: false, towerFx: 0,
+    archerLevel: 0, archerCooldown: 0, arrows: [], volleyFx: 0, volleyDamage: 0, shake: 0,
+    towerSlot: null, catapultUnlocked: false, catapultLevel: 0, catapultCooldown: 0, rocks: [], enemyShots: [], dust: [], notice: null, towerFx: 0,
+    heroes: freshHeroes(), frontHero: 'legionary', supportHero: null, autoSpells: false, holdLine: 0, bashFx: 0, blessFx: 0, hornFx: 0,
     mobs: [], spawnTimer: 0.6, patrolTimer: 4, patrolSpawned: 0, foodTimer: 3, attackCooldown: 0, attackTimer: 0,
     hitFlash: 0, floaters: [], time: 0, last: 0,
     wavesCleared: 0, villageStage: 1, stageOverride: null, growthFx: 0, growthBanner: 0
@@ -767,6 +1038,8 @@ function update(delta, width, simulationStep = false) {
     if (state.notice.t <= 0) state.notice = state.notice.next || null;
   }
   state.towerFx = Math.max(0, state.towerFx - delta);
+  state.hornFx = Math.max(0, state.hornFx - delta);
+  if (state.autoSpells && state.running) autoCastSpells(width);
   const nextStage = computeVillageStage();
   if (nextStage !== state.villageStage) {
     if (nextStage > state.villageStage) {
@@ -834,6 +1107,16 @@ function update(delta, width, simulationStep = false) {
     mob.attackMotion = Math.max(0, (mob.attackMotion ?? 0) - dt);
     mob.attackCooldown = Math.max(0, mob.attackCooldown - dt);
     if (mob.dead) continue;
+    // «Удар щитом»: a short shove back, then the enemy stands dazed.
+    if (mob.knock > 0) {
+      const shove = Math.min(mob.knock, 650 * dt);
+      mob.x -= shove;
+      mob.knock -= shove;
+    }
+    if (mob.stun > 0) {
+      mob.stun = Math.max(0, mob.stun - dt);
+      continue;
+    }
     const traits = traitsOf(mob.type);
     if (traits.includes('aura') && !mob.dead) {
       mob.auraTimer -= dt;
@@ -863,9 +1146,7 @@ function update(delta, width, simulationStep = false) {
       if (mob === frontline && mob.attackCooldown <= 0) {
         const charge = traits.includes('charge') && !mob.charged;
         mob.charged = true;
-        const damage = charge ? mob.damage * 2 : mob.damage;
-        state.guardHp = Math.max(0, state.guardHp - damage);
-        state.floaters.push({ kind: 'hurt', amount: damage, x: guardX, life: 1.05, duration: 1.05 });
+        hurtGuard(charge ? mob.damage * 2 : mob.damage, guardX);
         mob.attackMotion = 0.32;
         mob.attackCooldown = mob.attackRate;
       }
@@ -887,7 +1168,7 @@ function update(delta, width, simulationStep = false) {
     !mob.dead && mob.x > guardX - 130 && mob.x < guardX - 10 && (!lead || mob.x > lead.x) ? mob : lead
   ), null);
   if (state.guardHp > 0 && target && state.attackCooldown <= 0) {
-    damageMob(target, state.guardLevel, 'melee');
+    damageMob(target, state.guardLevel * heroDefs[state.frontHero].damageMult * heroPowerMult(state.frontHero), 'melee');
     state.attackTimer = 0.28;
     state.hitFlash = 0.14;
     state.attackCooldown = guardAttackInterval(state.guardLevel);
@@ -1816,9 +2097,11 @@ function drawVillageVillagers(width, ground) {
 }
 
 // Hero (gold-crested centurion) and archer on the tower platform.
+const LOW_HP = 0.35;
+
 function heroPosition(width, height) {
-  const { towerX, platformY, ground } = towerGeometry(width, height);
-  return { x: state.towerSlot ? towerX + 34 : towerX + 6, y: state.archerUnlocked ? platformY : ground };
+  const { towerX, platformY } = towerGeometry(width, height);
+  return { x: towerX - 24, y: platformY };
 }
 
 function drawBow(x, y, drawn) {
@@ -1842,38 +2125,163 @@ function drawTowerDefenders(width, height) {
     const recoil = drawn ? 3 : 0;
     drawSprite(sprites.archer, archerX + recoil, platformY, size * 1.18, false, Math.sin(state.time * 2) * -1);
   }
-  if (!state.heroUnlocked) return;
-  // Hero: the legionary sprite with a golden aura reads as an officer.
-  const hero = heroPosition(width, height);
-  const ready = state.volleyCooldown <= 0;
-  ctx.save();
-  // A golden aura marks the hero without recolouring the sprite.
-  ctx.filter = 'drop-shadow(0 0 2px #ffd34d) drop-shadow(0 0 5px #ffc22e)';
-  drawSprite(sprites.guard, hero.x, hero.y, size * 1.08, true, Math.sin(state.time * 1.7) * -1.2);
-  ctx.restore();
-  // Ability badge above the hero.
-  const bx = hero.x;
-  const by = hero.y - size * 1.08 - 26;
-  const pulse = ready ? 1 + Math.sin(state.time * 6) * 0.08 : 1;
+  if (state.towerSlot === 'archer') drawSpellBadge('archer', towerX - 92, platformY - size * 0.7);
+}
+
+// Cooldown ring above a hero; pulses when the spell is ready to use.
+function drawSpellBadge(id, bx, by) {
+  const spell = heroDefs[id].spell;
+  if (!spell) return;
+  const cd = state.heroes[id].cd;
+  const ready = cd <= 0;
+  const usable = !spellBlocked(id);
+  const pulse = usable ? 1 + Math.sin(state.time * 6) * 0.08 : 1;
   ctx.save();
   ctx.translate(bx, by);
   ctx.scale(pulse, pulse);
   ctx.beginPath(); ctx.arc(0, 0, 17, 0, Math.PI * 2); fillInk(ready ? '#ffcf4a' : '#5b4a3c', 3);
   if (!ready) {
-    const progress = 1 - state.volleyCooldown / VOLLEY_COOLDOWN;
+    const progress = 1 - cd / spell.cooldown;
     ctx.beginPath(); ctx.moveTo(0, 0); ctx.arc(0, 0, 14, -Math.PI / 2, -Math.PI / 2 + progress * Math.PI * 2); ctx.closePath();
     ctx.fillStyle = '#c9a34488'; ctx.fill();
   }
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
   ctx.font = ready ? '900 16px system-ui, sans-serif' : '800 12px system-ui, sans-serif';
   ctx.fillStyle = ready ? '#5a321a' : '#fff3d2';
-  ctx.fillText(ready ? '➶' : Math.ceil(state.volleyCooldown), 0, 1);
+  ctx.fillText(ready ? spell.icon : Math.ceil(cd), 0, 1);
   ctx.restore();
-  if (ready && aliveMobs().length) {
+  if (usable && state.phase === 'wave') {
     ctx.save();
     ctx.font = '900 10px system-ui, sans-serif'; ctx.textAlign = 'center';
     ctx.lineWidth = 3.5; ctx.strokeStyle = INK; ctx.lineJoin = 'round';
-    ctx.strokeText('ЗАЛП!', bx, by - 26); ctx.fillStyle = '#ffcf4a'; ctx.fillText('ЗАЛП!', bx, by - 26);
+    const label = spell.name.toUpperCase() + '!';
+    ctx.strokeText(label, bx, by - 26); ctx.fillStyle = '#ffcf4a'; ctx.fillText(label, bx, by - 26);
+    ctx.restore();
+  }
+}
+
+function supportPosition(width, height) {
+  const { towerX, ground } = towerGeometry(width, height);
+  return { x: towerX + 58, y: ground + 4 };
+}
+
+function drawSupportHero(width, height) {
+  if (state.supportHero !== 'priestess') return;
+  const pos = supportPosition(width, height);
+  const size = Math.min(118, height * 0.23);
+  ctx.save();
+  ctx.filter = 'hue-rotate(190deg) saturate(0.7) brightness(1.15)';
+  drawSprite(sprites.archer, pos.x, pos.y, size, true, Math.sin(state.time * 1.8) * -1.2);
+  ctx.restore();
+  // Halo marks her as a healer until she gets her own sprite.
+  ctx.save();
+  ctx.globalAlpha = 0.75 + Math.sin(state.time * 3) * 0.15;
+  ctx.beginPath(); ctx.ellipse(pos.x, pos.y - size - 4, 15, 5, 0, 0, Math.PI * 2);
+  ctx.strokeStyle = '#ffe08a'; ctx.lineWidth = 3; ctx.stroke();
+  ctx.restore();
+  drawSpellBadge('priestess', pos.x, pos.y - size - 30);
+}
+
+function drawFrontHero(width, height, guardX, ground) {
+  const size = Math.min(160, height * 0.32);
+  const low = state.phase === 'wave' && state.guardHp > 0 && state.guardHp / state.maxGuardHp < LOW_HP;
+  const filters = [];
+  if (state.frontHero === 'hoplite') filters.push('sepia(0.55) saturate(1.5) hue-rotate(-12deg)');
+  if (low) filters.push(`drop-shadow(0 0 ${4 + 4 * Math.abs(Math.sin(state.time * 7))}px #ff3b2f)`);
+  const tremble = low ? Math.sin(state.time * 38) * 1.6 : 0;
+  ctx.save();
+  if (filters.length) ctx.filter = filters.join(' ');
+  drawSprite(sprites.guard, guardX + tremble, ground, size, true, Math.sin(state.time * 2.4) * -1.2);
+  ctx.restore();
+  if (state.frontHero === 'hoplite') {
+    // Tall crest so the hoplite reads differently from the legionary.
+    ctx.save();
+    ctx.beginPath(); ctx.ellipse(guardX + tremble + 4, ground - size * 0.98, 22, 9, -0.2, Math.PI, 0);
+    fillInk('#c0392b', 2.5);
+    ctx.restore();
+  }
+  if (state.holdLine > 0) {
+    ctx.save();
+    ctx.globalAlpha = 0.45 + 0.25 * Math.sin(state.time * 10);
+    ctx.beginPath(); ctx.ellipse(guardX, ground - size * 0.5, size * 0.42, size * 0.6, 0, 0, Math.PI * 2);
+    ctx.fillStyle = '#ffd34d33'; ctx.fill();
+    ctx.strokeStyle = '#ffd34d'; ctx.lineWidth = 4; ctx.stroke();
+    ctx.restore();
+  }
+  if (state.blessFx > 0) {
+    ctx.save();
+    ctx.globalAlpha = state.blessFx / 0.8;
+    const beam = ctx.createLinearGradient(0, 0, 0, ground);
+    beam.addColorStop(0, '#fff6c800'); beam.addColorStop(1, '#b8ffb0aa');
+    ctx.fillStyle = beam;
+    ctx.fillRect(guardX - 46, 0, 92, ground);
+    ctx.restore();
+  }
+  if (state.bashFx > 0) {
+    const p = 1 - state.bashFx / 0.4;
+    ctx.save();
+    ctx.globalAlpha = 1 - p;
+    ctx.beginPath(); ctx.arc(guardX - 50, ground - 60, 20 + p * 70, Math.PI * 0.6, Math.PI * 1.4);
+    ctx.strokeStyle = '#fff3bd'; ctx.lineWidth = 7 * (1 - p) + 2; ctx.stroke();
+    ctx.restore();
+  }
+  drawSpellBadge(state.frontHero, guardX, ground - size - 44);
+}
+
+// Between waves the next attackers wait at the forest edge: the threat is always in view.
+function drawLurkingHorde(width, height) {
+  if (state.phase === 'wave' || state.phase === 'complete') return;
+  if (state.phase === 'victory' && state.wave === 5 && state.townLevel < 2) return;
+  const nextWave = state.phase === 'victory' ? state.wave + 1 : state.wave;
+  const plan = buildWavePlan(nextWave);
+  const ground = height * 0.82;
+  ctx.save();
+  plan.forEach((type, i) => {
+    const stats = enemyTypes[type] || enemyTypes.orc;
+    const x = 70 + i * 30 + (stats.isBoss ? 30 : 0);
+    const y = ground + 6 - (i % 2) * 10;
+    const h = Math.min(stats.height, height * (stats.height / 510)) * 0.82;
+    const sway = Math.sin(state.time * 1.6 + i * 1.3) * 3;
+    ctx.save();
+    ctx.filter = 'brightness(0.18) saturate(0)';
+    drawSprite(enemySprite(type), x + sway, y, h, false, 0, 0.78, 0, 0);
+    ctx.restore();
+    // Glowing eyes.
+    const blink = Math.sin(state.time * 0.9 + i * 2.1) > -0.92 ? 1 : 0;
+    if (blink) {
+      ctx.fillStyle = stats.isBoss ? '#ff5a3a' : '#ffb347';
+      ctx.beginPath(); ctx.arc(x + sway + 8, y - h * 0.80, 2.2, 0, Math.PI * 2); ctx.arc(x + sway + 15, y - h * 0.80, 2.2, 0, Math.PI * 2); ctx.fill();
+    }
+  });
+  ctx.restore();
+}
+
+// Red edges and a heartbeat pulse when the frontline hero is about to fall.
+function drawDangerOverlay(width, height) {
+  const ratio = state.guardHp / state.maxGuardHp;
+  let strength = 0;
+  if (state.phase === 'wave' && state.guardHp > 0 && ratio < LOW_HP) {
+    const beat = Math.pow(Math.max(0, Math.sin(state.time * 5.2)), 6);
+    strength = 0.22 + (1 - ratio / LOW_HP) * 0.4 + beat * 0.25;
+  }
+  if (state.hornFx > 0) strength = Math.max(strength, (state.hornFx / HORN_TIME) * 0.35);
+  if (strength <= 0.01) return;
+  const vignette = ctx.createRadialGradient(width / 2, height / 2, height * 0.25, width / 2, height / 2, width * 0.58);
+  vignette.addColorStop(0, '#b0181800');
+  vignette.addColorStop(1, `rgba(150, 18, 18, ${Math.min(0.75, strength)})`);
+  ctx.save();
+  ctx.fillStyle = vignette;
+  ctx.fillRect(0, 0, width, height);
+  ctx.restore();
+  if (state.hornFx > 0) {
+    const p = 1 - state.hornFx / HORN_TIME;
+    ctx.save();
+    ctx.globalAlpha = Math.min(1, (1 - p) * 2);
+    ctx.font = '900 30px system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.lineWidth = 6; ctx.strokeStyle = INK; ctx.lineJoin = 'round';
+    const text = `ВОЛНА ${state.wave} · ОРКИ ИДУТ!`;
+    ctx.strokeText(text, width / 2, height * 0.3 - p * 16);
+    ctx.fillStyle = '#ffcf4a'; ctx.fillText(text, width / 2, height * 0.3 - p * 16);
     ctx.restore();
   }
 }
@@ -2000,6 +2408,17 @@ function drawEnemy(mob, x, groundY, height, bob, opacity, shadowScale) {
     ctx.beginPath(); ctx.ellipse(x, groundY - height * 0.5, height * 0.42, height * 0.56, 0, 0, Math.PI * 2);
     ctx.fillStyle = '#7fc4ff55'; ctx.fill();
     ctx.strokeStyle = '#bfe4ff'; ctx.lineWidth = 2.5; ctx.stroke();
+  }
+  if (mob.stun > 0 && !mob.dead) {
+    ctx.globalAlpha = opacity;
+    ctx.font = '900 14px system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    for (let i = 0; i < 3; i++) {
+      const a = state.time * 6 + i * (Math.PI * 2 / 3);
+      const sx = x + Math.cos(a) * 22;
+      const sy = groundY - height - 4 + Math.sin(a) * 6;
+      ctx.lineWidth = 3; ctx.strokeStyle = INK; ctx.strokeText('★', sx, sy);
+      ctx.fillStyle = '#ffe066'; ctx.fillText('★', sx, sy);
+    }
   }
   ctx.restore();
 }
@@ -2274,7 +2693,7 @@ function drawFloaters(height) {
       continue;
     }
     const resourceIcon = floater.kind === 'food' ? resourceIcons.food : floater.kind === 'reward' ? resourceIcons.gold : null;
-    const label = floater.kind === 'stolen' ? `−${floater.amount} УКРАДЕНО` : floater.kind === 'volley' ? `ЗАЛП −${floater.amount}` : floater.kind === 'food' ? `+${floater.amount}` : floater.kind === 'hurt' ? `−${floater.amount}  ♥` : floater.kind === 'spikes' ? `−${floater.amount}  ⋀` : floater.kind === 'arrow' ? `−${floater.amount}  ➶` : floater.kind === 'reward' ? `ПОБЕДА  +${floater.amount}` : `+${floater.amount}  ☠`;
+    const label = floater.kind === 'bash' ? `УДАР ЩИТОМ −${floater.amount}` : floater.kind === 'hold' ? 'СТРОЙ −70% УРОНА' : floater.kind === 'bless' ? `+${floater.amount} ♥` : floater.kind === 'stolen' ? `−${floater.amount} УКРАДЕНО` : floater.kind === 'volley' ? `ЗАЛП −${floater.amount}` : floater.kind === 'food' ? `+${floater.amount}` : floater.kind === 'hurt' ? `−${floater.amount}  ♥` : floater.kind === 'spikes' ? `−${floater.amount}  ⋀` : floater.kind === 'arrow' ? `−${floater.amount}  ➶` : floater.kind === 'reward' ? `ПОБЕДА  +${floater.amount}` : `+${floater.amount}  ☠`;
     ctx.save();
     ctx.globalAlpha = alpha;
     ctx.translate(floater.x + sway, y);
@@ -2327,6 +2746,7 @@ function drawScene(width, height) {
     drawSprite(sprites.spikes, width * 0.435, ground - 16, spikesHeight, false, 0, 1, 0.84, 0.14);
   }
 
+  drawLurkingHorde(width, height);
   const mobsByDepth = [...state.mobs].sort((a, b) => (a.laneY ?? 0) - (b.laneY ?? 0));
   for (const mob of mobsByDepth) {
     const bob = Math.abs(Math.sin(state.time * 7 + mob.bob)) * -4;
@@ -2358,10 +2778,11 @@ function drawScene(width, height) {
 
   const attackProgress = state.attackTimer > 0 ? Math.sin((1 - state.attackTimer / 0.28) * Math.PI) : 0;
   const guardX = width * 0.52 - attackProgress * 15;
-  drawSprite(sprites.guard, guardX, ground, Math.min(160, height * 0.32), true, Math.sin(state.time * 2.4) * -1.2);
+  drawFrontHero(width, height, guardX, ground);
   drawGuardHealthBar(width * 0.52, ground + 10);
 
-  if ((towerBuilt || state.heroUnlocked) && state.towerFx <= 0) drawTowerDefenders(width, height);
+  if (towerBuilt && state.towerFx <= 0) drawTowerDefenders(width, height);
+  drawSupportHero(width, height);
   drawArrows(height);
   drawVolley(width, height);
   drawRocksAndShots(height);
@@ -2376,10 +2797,65 @@ function drawScene(width, height) {
     ctx.stroke();
     ctx.restore();
   }
+  drawDangerOverlay(width, height);
   drawWaveRoster(width);
   drawFloaters(height);
   drawGrowthBanner(width);
   drawActBanner(width);
+}
+
+let spellBarKey = '';
+function syncSpellBar() {
+  const bar = ui['spell-bar'];
+  const ids = activeHeroes().filter((id) => heroDefs[id].spell);
+  const key = ids.join(',');
+  if (key !== spellBarKey) {
+    spellBarKey = key;
+    const keys = { front: '1', tower: '2', support: '3' };
+    bar.innerHTML = ids.map((id) => {
+      const spell = heroDefs[id].spell;
+      return `<button class="spell-btn" data-hero="${id}" title="${heroDefs[id].name}: ${spell.name} — ${spell.hint}"><kbd>${keys[heroDefs[id].role]}</kbd>${spell.icon}<small>${spell.name}</small><i class="cd"></i></button>`;
+    }).join('') + (ids.length ? '<button class="spell-auto" data-auto="1" title="Герои сами применяют спеллы">АВТО</button>' : '');
+  }
+  if (typeof bar.querySelectorAll !== 'function') return;
+  for (const button of bar.querySelectorAll('.spell-btn')) {
+    const id = button.dataset.hero;
+    const blocked = spellBlocked(id);
+    const cd = state.heroes[id].cd;
+    const overlay = button.querySelector('.cd');
+    overlay.style.display = cd > 0 ? '' : 'none';
+    overlay.style.transform = `scaleY(${cd / heroDefs[id].spell.cooldown})`;
+    overlay.textContent = cd > 0 ? Math.ceil(cd) : '';
+    button.disabled = Boolean(blocked);
+    button.classList.toggle('ready', !blocked);
+    button.classList.toggle('rested', state.heroes[id].rested);
+    button.classList.toggle('tired', state.heroes[id].fatigue >= 2);
+  }
+  const auto = bar.querySelector('.spell-auto');
+  if (auto) auto.classList.toggle('on', state.autoSpells);
+}
+
+let lineupKey = '';
+function syncLineup() {
+  const parts = slotDefs.map((slot) => {
+    if (!slotUnlocked(slot.role)) return { slot, locked: true };
+    const id = slotHero(slot.role);
+    return { slot, id, options: heroesForRole(slot.role), condition: id ? heroCondition(id) : null };
+  });
+  const bench = Object.keys(heroDefs).filter((id) => state.heroes[id].unlocked && !activeHeroes().includes(id) && !heroDefs[id].machine);
+  const key = JSON.stringify([parts.map((p) => [p.id, p.locked, p.options, p.condition]), bench, state.phase === 'wave',
+    bench.map((id) => state.heroes[id].rested)]);
+  if (key === lineupKey) return;
+  lineupKey = key;
+  const unlockText = { tower: 'после улучшения поселения II', support: 'после улучшения поселения III' };
+  const inWave = state.phase === 'wave';
+  ui.lineup.innerHTML = parts.map((p) => {
+    if (p.locked) return `<button class="lineup-row" disabled><span><b>${p.slot.key} · ${p.slot.name}</b><small>${unlockText[p.slot.role]}</small></span><em>ЗАКРЫТ</em></button>`;
+    const def = heroDefs[p.id];
+    const swap = p.options.length > 1 && !inWave;
+    const spell = def.spell ? `«${def.spell.name}» — ${def.spell.hint}` : 'без спелла · не устаёт';
+    return `<button class="lineup-row" data-role="${p.slot.role}" ${swap ? '' : 'disabled'} title="${swap ? 'Нажми, чтобы поставить другого героя' : ''}"><span><b>${p.slot.key} · ${p.slot.name}: ${def.name}${swap ? ' ⇄' : ''}</b><small>${spell}</small></span><em class="${p.condition.tone}">${p.condition.label.toUpperCase()}</em></button>`;
+  }).join('') + `<p class="lineup-bench">${bench.length ? `Отдыхают: ${bench.map((id) => `${heroDefs[id].name}${state.heroes[id].rested ? ' (свежие силы)' : ''}`).join(', ')}` : 'Запасных героев пока нет — ротация откроется, когда на слот появится замена.'}</p>`;
 }
 
 function syncUi() {
@@ -2391,8 +2867,8 @@ function syncUi() {
   ui['guard-health-value'].textContent = `${Math.ceil(state.guardHp)}/${state.maxGuardHp}`;
   ui['guard-health-bar'].style.width = `${state.guardHp / state.maxGuardHp * 100}%`;
   ui['guard-health-bar'].classList.toggle('regenerating', state.regenFlash > 0);
-  ui['guard-status'].textContent = state.guardHp <= 0 ? 'ПАЛ' : state.regenFlash > 0 ? 'ВОССТАНОВЛЕНИЕ' : state.attackTimer > 0 ? 'АТАКА' : 'ГОТОВ';
-  const labels = { preparation: 'ПОДГОТОВКА', wave: state.running ? 'ВОЛНА ИДЁТ' : 'ПАУЗА', victory: 'ПОБЕДА', defeat: 'ЛЕГИОНЕР ПАЛ', complete: 'РУБЕЖ ЗАЩИЩЁН' };
+  ui['guard-status'].textContent = state.guardHp <= 0 ? `${frontName().toUpperCase()} ПАЛ` : state.regenFlash > 0 ? 'ВОССТАНОВЛЕНИЕ' : state.attackTimer > 0 ? 'АТАКА' : 'ГОТОВ';
+  const labels = { preparation: 'ПОДГОТОВКА', wave: state.running ? 'ВОЛНА ИДЁТ' : 'ПАУЗА', victory: 'ПОБЕДА', defeat: `${frontName().toUpperCase()} ПАЛ`, complete: 'РУБЕЖ ЗАЩИЩЁН' };
   const patrolActive = state.phase !== 'wave' && state.mobs.some((mob) => !mob.dead);
   ui['state-label'].textContent = patrolActive ? 'ФОНОВАЯ СТЫЧКА' : labels[state.phase];
   ui['live-dot'].style.background = (state.phase === 'wave' || patrolActive) && state.running ? '#b65a3c' : '#748c58';
@@ -2403,7 +2879,7 @@ function syncUi() {
   const guardPrice = guardUpgradePrice();
   const spikesPrice = state.spikesLevel === 0 ? 10 : 12 + (state.spikesLevel - 1) * 8;
   const farmPrice = 6 + (state.farmLevel - 1) * 5;
-  ui['guard-cost'].textContent = `${guardPrice} еды · +1 урон, +20 макс. HP`;
+  ui['guard-cost'].textContent = `${guardPrice} еды · +1 урон, +20 макс. HP герою передовой`;
   ui['spikes-cost'].textContent = state.spikesLevel === 0
     ? `${spikesPrice} монет · купить, 1 пассивный урон`
     : `${spikesPrice} монет · +1 пассивный урон`;
@@ -2416,15 +2892,10 @@ function syncUi() {
   ui['archer-row'].classList.toggle('locked', !state.archerUnlocked);
   ui['archer-status'].textContent = !state.archerUnlocked ? 'ЗАКРЫТ' : state.towerSlot === 'archer' ? `УР. ${state.archerLevel}` : 'В РЕЗЕРВЕ';
   ui['archer-note'].textContent = state.archerUnlocked ? 'стреляет с башни' : 'после улучшения поселения II';
-  ui['hero-row'].classList.toggle('locked', !state.heroUnlocked);
-  ui['hero-note'].textContent = state.heroUnlocked ? '«Залп» — пробел или нажатие' : `«Залп» можно купить после волны ${HERO_UNLOCK_WAVE}`;
-  ui['volley-buy'].disabled = state.heroUnlocked || state.phase === 'wave' || state.wavesCleared < HERO_UNLOCK_WAVE || state.coins < VOLLEY_PRICE;
-  ui['volley-cost'].textContent = state.heroUnlocked ? 'Куплен · перезарядка 18 с'
-    : state.wavesCleared < HERO_UNLOCK_WAVE ? `После волны ${HERO_UNLOCK_WAVE} · ${VOLLEY_PRICE} монет`
-    : `${VOLLEY_PRICE} монет · необязательная способность по площади`;
-  ui['hero-status'].textContent = !state.heroUnlocked ? 'ЗАКРЫТ' : state.volleyCooldown > 0 ? `${Math.ceil(state.volleyCooldown)} С` : 'ГОТОВ';
+  syncSpellBar();
+  syncLineup();
+  ui['auto-spells'].textContent = `✦ Авто-спеллы: ${state.autoSpells ? 'вкл' : 'выкл'}`;
   ui['tower-slot'].style.display = state.catapultUnlocked ? '' : 'none'; // only useful once there is a second option
-  ui.volley.style.display = state.heroUnlocked ? '' : 'none';
   const slotNames = { archer: 'Лучник', catapult: 'Катапульта' };
   ui['tower-slot'].textContent = state.towerSlot ? `🗼 Слот башни: ${slotNames[state.towerSlot]}${state.catapultUnlocked ? ' ⇄' : ''}` : '🗼 Слот башни: пусто';
   ui['tower-slot'].disabled = state.phase === 'wave' || !state.catapultUnlocked;
@@ -2435,9 +2906,6 @@ function syncUi() {
   ui['archer-level'].textContent = state.archerUnlocked ? `ур. ${state.archerLevel}` : 'закрыт';
   ui['archer-cost'].textContent = state.archerUnlocked ? `${archerPrice()} монет · +0,75 урона, стреляет чаще` : 'после улучшения поселения II';
   ui['archer-upgrade'].disabled = !canUpgrade('archer') || !state.archerUnlocked || state.coins < archerPrice();
-  const volleyReady = state.volleyCooldown <= 0 && state.volleyFx <= 0;
-  ui.volley.disabled = !state.running || !state.heroUnlocked || !volleyReady || aliveMobs().length === 0;
-  ui.volley.textContent = volleyReady ? '➶ Залп героя (пробел)' : `➶ Залп · ${Math.ceil(state.volleyCooldown)} с`;
   for (const kind of ['guard', 'spikes', 'farm', 'archer', 'catapult']) {
     if (state[`${kind}Level`] >= upgradeLimit(kind)) {
       ui[`${kind}-cost`].textContent = kind === 'spikes' && state.wavesCleared < 3
@@ -2451,8 +2919,8 @@ function syncUi() {
     : canUpgradeTown() ? 'Улучшить бесплатно · новые постройки и уровни'
     : `Победите босса волны ${state.townLevel * 5}`;
   const needsTown = state.phase === 'victory' && state.wave === 5 && state.townLevel < 2;
-  ui['wave-button'].disabled = state.phase === 'wave' || state.phase === 'complete' || needsTown;
-  ui['wave-button'].textContent = state.phase === 'defeat' ? '↻ Повторить волну' : state.phase === 'victory' ? `⚑ Вызвать волну ${state.wave + 1}` : state.phase === 'complete' ? `✓ Все ${FINAL_WAVE} волн пройдены` : `⚑ Вызвать волну ${state.wave}`;
+  ui['wave-button'].disabled = state.phase === 'wave' || needsTown;
+  ui['wave-button'].textContent = state.phase === 'defeat' ? '↻ Повторить волну' : state.phase === 'victory' ? `⚑ Вызвать волну ${state.wave + 1}` : state.phase === 'complete' ? `↻ Ещё раз волну ${FINAL_WAVE} (без награды)` : `⚑ Вызвать волну ${state.wave}`;
   if (needsTown) ui['wave-button'].textContent = '⌂ Сначала улучшите поселение';
   const previewWave = state.phase === 'victory' ? state.wave + 1 : state.wave;
   const difficulty = getWaveDifficulty(previewWave);
@@ -2500,7 +2968,9 @@ ui['town-upgrade'].onclick = upgradeTown;
 ui['wave-button'].onclick = () => {
   if (state.phase === 'victory' && state.wave === 5 && state.townLevel < 2) return;
   if (state.phase === 'victory') state.wave += 1;
-  if (state.phase !== 'complete' && state.phase !== 'wave') startWave();
+  // After the campaign the last wave stays replayable to try out the full lineup.
+  if (state.phase === 'complete') state.phase = 'preparation';
+  if (state.phase !== 'wave') startWave();
 };
 ui['guard-upgrade'].onclick = () => {
   if (!canUpgrade('guard')) return;
@@ -2531,18 +3001,19 @@ ui['archer-upgrade'].onclick = () => {
     state.archerLevel += 1;
   }
 };
-ui.volley.onclick = () => castVolley();
-ui['volley-buy'].onclick = () => {
-  if (state.heroUnlocked || state.phase === 'wave' || state.wavesCleared < HERO_UNLOCK_WAVE || state.coins < VOLLEY_PRICE) return;
-  state.coins -= VOLLEY_PRICE;
-  state.heroUnlocked = true;
-  showNotice('НОВАЯ СПОСОБНОСТЬ', 'ЗАЛП', 'Нажми пробел, кнопку или центуриона · перезарядка 18 секунд');
-  syncUi();
+ui['spell-bar'].onclick = (event) => {
+  const target = event.target.closest && event.target.closest('button');
+  if (!target) return;
+  if (target.dataset.auto) state.autoSpells = !state.autoSpells;
+  else castSpell(target.dataset.hero);
 };
-ui['tower-slot'].onclick = () => {
-  if (state.phase === 'wave' || !state.catapultUnlocked) return;
-  state.towerSlot = state.towerSlot === 'archer' ? 'catapult' : 'archer';
+ui.lineup.onclick = (event) => {
+  const target = event.target.closest && event.target.closest('[data-role]');
+  if (target) cycleSlot(target.dataset.role);
 };
+ui['auto-lineup'].onclick = () => autoLineup();
+ui['auto-spells'].onclick = () => { state.autoSpells = !state.autoSpells; };
+ui['tower-slot'].onclick = () => cycleSlot('tower');
 ui['catapult-upgrade'].onclick = () => {
   if (!canUpgrade('catapult')) return;
   const price = catapultPrice();
@@ -2588,18 +3059,24 @@ Promise.all([
   ui.loading.textContent = 'Не удалось загрузить игровые ассеты';
 });
 
-// Tap the hero (or press Space) to cast the volley.
+// Tap a hero to cast their spell; keys 1/2/3 cast the slot spells.
 canvas.addEventListener('click', (event) => {
   const rect = canvas.getBoundingClientRect();
   const x = (event.clientX - rect.left) / rect.width * 1170;
   const y = (event.clientY - rect.top) / rect.height * 540;
-  const hero = heroPosition(1170, 540);
-  if (Math.abs(x - hero.x) < 60 && y > hero.y - 170 && y < hero.y + 10) castVolley();
+  const ground = 540 * 0.82;
+  const archer = heroPosition(1170, 540);
+  const support = supportPosition(1170, 540);
+  if (state.towerSlot === 'archer' && Math.abs(x - archer.x) < 60 && y > archer.y - 170 && y < archer.y + 10) castSpell('archer');
+  else if (state.supportHero && Math.abs(x - support.x) < 45 && y > support.y - 150 && y < support.y + 10) castSpell(state.supportHero);
+  else if (Math.abs(x - 1170 * 0.52) < 60 && y > ground - 175 && y < ground + 15) castSpell(state.frontHero);
 });
 document.addEventListener('keydown', (event) => {
-  if (event.code === 'Space' && !event.repeat && !event.target.closest('button, input, textarea, select, [contenteditable]')) {
-    event.preventDefault();
-    castVolley();
+  if (event.repeat || event.target.closest('button, input, textarea, select, [contenteditable]')) return;
+  const slot = slotDefs.find((item) => item.key === event.key);
+  if (slot) {
+    const id = slotHero(slot.role);
+    if (id && heroDefs[id].spell) castSpell(id);
   }
 });
 
