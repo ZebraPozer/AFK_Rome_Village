@@ -427,3 +427,13 @@ assert.ok(run('heroLevel("legionary")') > 1, 'Heroes are trained after the jump'
 run("ui['wave-button'].onclick()");
 assert.equal(run('state.phase + state.wave'), 'wave30', 'After the jump the wave can be called');
 console.log('Cheats passed: jump to waves 6, 15, 21 and 30.');
+
+// Regression: a catapult in the tower must still finish waves with enemy archers.
+for (const w of [7, 18, 24]) {
+  run(`jumpToWave(${w}); state.autoSpells = false; state.towerSlot = 'catapult';`);
+  run("ui['wave-button'].onclick()");
+  let ticks = 0;
+  while (run('state.phase') === 'wave' && ticks++ < 60 * 300) run('update(1/60, 1170)');
+  assert.notEqual(run('state.phase'), 'wave', `Wave ${w} with a catapult must end (no stalemate with enemy archers)`);
+}
+console.log('No stalemates: catapult waves with enemy archers end.');

@@ -899,8 +899,9 @@ const NOTICE_TIME = 3.6;
 const CATAPULT_UNLOCK_WAVE = 5;
 const FINAL_WAVE = 30;
 const CATAPULT_RANGE = 540;
-const CATAPULT_MIN_RANGE = 280; // cannot lob at enemies right under the wall
+const CATAPULT_MIN_RANGE = 200; // cannot lob at enemies right under the wall, but reaches enemy archers
 const CATAPULT_SPLASH = 62;
+const RANGED_PATIENCE = 90; // seconds before enemy archers stop kiting and charge
 const ARCHER_RANGE = 430;
 const VOLLEY_COOLDOWN = 18;
 const VOLLEY_FALL = 0.75;
@@ -1654,7 +1655,8 @@ function update(delta, width, simulationStep = false) {
   const guardX = width * 0.52;
   const mobSpeed = 28 + state.wave * 2.5;
   // Only blockers (not swarm, not ranged while the legionary stands) fight the legionary in melee.
-  const blocks = (mob) => !traitsOf(mob.type).includes('swarm') && !(traitsOf(mob.type).includes('ranged') && state.guardHp > 0);
+  const charging = state.phase === 'wave' && state.time - stats.waveStartedAt > RANGED_PATIENCE;
+  const blocks = (mob) => !traitsOf(mob.type).includes('swarm') && !(traitsOf(mob.type).includes('ranged') && state.guardHp > 0 && !charging);
   const frontline = state.mobs.reduce((lead, mob) => !mob.dead && blocks(mob) && (!lead || mob.x > lead.x) ? mob : lead, null);
   for (const mob of state.mobs) {
     mob.hit = Math.max(0, mob.hit - dt);
@@ -1684,7 +1686,9 @@ function update(delta, width, simulationStep = false) {
         mob.auraFx = 0.7;
       }
     }
-    const rangedNow = !mob.dead && traits.includes('ranged') && state.guardHp > 0;
+    // Safety net: after 90 s of a wave, archers give up their spot and charge (no endless waves).
+    const archersCharge = state.phase === 'wave' && state.time - stats.waveStartedAt > RANGED_PATIENCE;
+    const rangedNow = !mob.dead && traits.includes('ranged') && state.guardHp > 0 && !archersCharge;
     const holdX = guardX - ((enemyTypes[mob.type] || {}).range || 0) - (mob.formationX ?? 0);
     const attackX = guardX - 72 - (mob.formationX ?? 0);
     const atGuard = blocks(mob) && state.guardHp > 0 && mob.x >= attackX;
@@ -2735,10 +2739,7 @@ function drawSupportHero(width, height) {
   if (state.supportHero !== 'priestess') return;
   const pos = supportPosition(width, height);
   const size = Math.min(118, height * 0.23) * ACTOR_SCALE;
-  ctx.save();
-  ctx.filter = 'hue-rotate(190deg) saturate(0.7) brightness(1.15)';
-  drawSprite(sprites.archer, pos.x, pos.y, size, true, Math.sin(state.time * 1.8) * -1.2);
-  ctx.restore();
+  drawSprite(tinted(sprites.archer, 'hue-rotate(190deg) saturate(0.7) brightness(1.15)'), pos.x, pos.y, size, true, Math.sin(state.time * 1.8) * -1.2);
   // Halo marks her as a healer until she gets her own sprite.
   ctx.save();
   ctx.globalAlpha = 0.75 + Math.sin(state.time * 3) * 0.15;
@@ -2750,14 +2751,12 @@ function drawSupportHero(width, height) {
 function drawFrontHero(width, height, guardX, ground) {
   const size = Math.min(160, height * 0.32) * ACTOR_SCALE;
   const low = state.phase === 'wave' && state.guardHp > 0 && state.guardHp / state.maxGuardHp < LOW_HP;
-  const filters = [];
-  if (state.frontHero === 'hoplite') filters.push('sepia(0.55) saturate(1.5) hue-rotate(-12deg)');
-  if (low) filters.push(`drop-shadow(0 0 ${4 + 4 * Math.abs(Math.sin(state.time * 7))}px #ff3b2f)`);
+  const base = state.frontHero === 'hoplite' ? tinted(sprites.guard, 'sepia(0.55) saturate(1.5) hue-rotate(-12deg)') : sprites.guard;
   const tremble = low ? Math.sin(state.time * 38) * 1.6 : 0;
-  ctx.save();
-  if (filters.length) ctx.filter = filters.join(' ');
-  drawSprite(sprites.guard, guardX + tremble, ground, size, true, Math.sin(state.time * 2.4) * -1.2);
-  ctx.restore();
+  const bob = Math.sin(state.time * 2.4) * -1.2;
+  drawSprite(base, guardX + tremble, ground, size, true, bob);
+  // Low HP: a pulsing red copy on top (cheap, no per-frame filter).
+  if (low) drawSprite(tinted(base, 'sepia(1) saturate(6) hue-rotate(-50deg) brightness(0.9)'), guardX + tremble, ground, size, true, bob, 0.25 + 0.3 * Math.abs(Math.sin(state.time * 7)), 0, 0);
   if (state.frontHero === 'hoplite') {
     // Tall crest so the hoplite reads differently from the legionary.
     ctx.save();
@@ -2808,10 +2807,7 @@ function drawLurkingHorde(width, height) {
     const y = ground + 4 - (i % 2) * 9;
     const h = Math.min(stats.height, height * (stats.height / 510)) * 0.8 * ACTOR_SCALE;
     const sway = Math.sin(state.time * 1.4 + i * 1.3) * 3;
-    ctx.save();
-    ctx.filter = `${look.filter || ''} saturate(0.75) brightness(0.92)`.trim();
-    drawSprite(enemySprite(type), x + sway, y, h, false, 0, 0.9, 0, 0);
-    ctx.restore();
+    drawSprite(tinted(enemySprite(type), `${look.filter || ''} saturate(0.75) brightness(0.92)`.trim()), x + sway, y, h, false, 0, 0.9, 0, 0);
   });
   drawEdgeFog(height, ground);
 }
@@ -2959,18 +2955,12 @@ function drawEnemy(mob, x, groundY, height, bob, opacity, shadowScale) {
   if (look.prop === 'boar') {
     drawShadow(x, groundY + 2, 96, 0.14);
     ctx.save(); ctx.globalAlpha = opacity;
-    if (look.filter && mob.type === 'wolfRider') ctx.filter = look.filter; // grey "wolf" until real art
     drawBoar(x, groundY + bob * 0.5, 1, mob.bob);
     ctx.restore();
     // Rider sits on the boar's back.
-    ctx.save(); if (look.filter) ctx.filter = look.filter;
-    drawSprite(sprite, x - 4, groundY - 36 + bob, height * 0.78, false, 0, opacity, 0, 0);
-    ctx.restore();
+    drawSprite(tinted(sprite, look.filter), x - 4, groundY - 36 + bob, height * 0.78, false, 0, opacity, 0, 0);
   } else {
-    ctx.save();
-    if (look.filter) ctx.filter = look.filter;
-    drawSprite(sprite, x, groundY, height, false, bob, opacity, shadowScale, 0.11);
-    ctx.restore();
+    drawSprite(tinted(sprite, look.filter), x, groundY, height, false, bob, opacity, shadowScale, 0.11);
   }
   ctx.save();
   ctx.globalAlpha = opacity;
@@ -3160,6 +3150,25 @@ function drawShadow(x, y, width, opacity = 0.18) {
   ctx.restore();
 }
 
+// Canvas filters are very slow when applied every frame, so each tinted variant of a
+// sprite is rendered once into its own canvas and reused.
+const tintCache = new Map();
+function tinted(image, filter) {
+  if (!filter || !image || typeof document === 'undefined') return image;
+  let byFilter = tintCache.get(image);
+  if (!byFilter) { byFilter = new Map(); tintCache.set(image, byFilter); }
+  let canvasCopy = byFilter.get(filter);
+  if (!canvasCopy) {
+    canvasCopy = document.createElement('canvas');
+    canvasCopy.width = image.width; canvasCopy.height = image.height;
+    const g = canvasCopy.getContext('2d');
+    g.filter = filter;
+    g.drawImage(image, 0, 0);
+    byFilter.set(filter, canvasCopy);
+  }
+  return canvasCopy;
+}
+
 function drawSprite(sprite, x, groundY, height, flip = false, bob = 0, opacity = 1, shadowScale = 0.72, shadowOpacity = 0.18) {
   const width = height * sprite.width / sprite.height;
   drawShadow(x, groundY + 2, width * shadowScale, shadowOpacity);
@@ -3174,10 +3183,7 @@ function drawSprite(sprite, x, groundY, height, flip = false, bob = 0, opacity =
 function drawStructure(sprite, x, groundY, height) {
   const width = height * sprite.width / sprite.height;
   drawShadow(x, groundY + 3, width * 0.82, 0.16);
-  ctx.save();
-  ctx.filter = 'contrast(0.9) brightness(1.02)';
-  ctx.drawImage(sprite, x - width / 2, groundY - height, width, height);
-  ctx.restore();
+  ctx.drawImage(tinted(sprite, 'contrast(0.9) brightness(1.02)'), x - width / 2, groundY - height, width, height);
 }
 
 function drawGuardHealthBar(x, y) {
@@ -3204,11 +3210,8 @@ function drawEnemyHead(type, x, y, size) {
   const look = enemyLooks[type] || {};
   const image = portraits[type] || portraits[look.sprite] || portraits.orc;
   if (!image) return;
-  ctx.save();
   const filter = portraits[type] ? null : (look.filter || portraitTints[type] || null);
-  if (filter) ctx.filter = filter;
-  ctx.drawImage(image, x - size / 2, y - size / 2, size, size);
-  ctx.restore();
+  ctx.drawImage(tinted(image, filter), x - size / 2, y - size / 2, size, size);
 }
 
 // World units matching the HUD's cqh sizes (the world is 540 high).
@@ -3991,7 +3994,13 @@ function saveDebugSettings() {
 const forecastRows = [['10 min', 600], ['1 h', 3600], ['5 h', 18000], ['8 h', 28800], ['24 h', 86400]];
 let devKey = '';
 // Refreshed from syncUi (cheap: only rebuilds when something relevant changed).
+let devNextAt = 0;
 function syncDevTools() {
+  // At most once per second of real time, and the forecast pauses during fights.
+  const now = typeof performance !== 'undefined' ? performance.now() : 0;
+  if (now && now < devNextAt) return;
+  devNextAt = now + 1000;
+  if (state.phase === 'wave' && devKey) return;
   const key = JSON.stringify([state.food, state.coins, state.guardLevel, state.farmLevel, state.spikesLevel, state.townLevel, state.wave, state.phase,
     state.archerLevel, state.catapultLevel, state.towerSlot, OFFLINE, offlineCapHours(), stats.events.length, Math.floor(stats.playSeconds / 10)]);
   if (key === devKey) return;
