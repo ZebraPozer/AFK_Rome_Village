@@ -120,3 +120,6 @@ button:focus-visible{outline:2px solid #526249;outline-offset:3px}
 .lineup-row em{font-style:normal;font-size:7px;letter-spacing:.6px;color:#72805e;text-align:right}
 .lineup-row em.good{color:#3f8f3a}.lineup-row em.bad{color:#b4502f}
 .lineup-bench{font-size:8px;color:#929388;margin:6px 0 0}
+.sound-row{display:grid;grid-template-columns:1fr 1fr;gap:8px;align-items:center;margin:7px 0}
+#sound-toggle{height:32px;border:1px solid #c1cbb5;border-radius:4px;background:#edf1e5;color:#45563c;font:600 11px system-ui,sans-serif;cursor:pointer}
+#sound-volume{width:100%;accent-color:#6f835e}
