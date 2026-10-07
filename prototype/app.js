@@ -10,7 +10,9 @@ const ui = Object.fromEntries([
   'spell-bar','lineup','auto-lineup','auto-spells',
   'archer-upgrade','archer-level','archer-cost',
   'catapult-upgrade','catapult-level','catapult-cost','tower-slot',
-  'village-stage','town-upgrade','town-level','town-cost','sound-toggle','sound-volume'
+  'village-stage','town-upgrade','town-level','town-cost','sound-toggle','sound-volume',
+  'hud-pause','hud-sound','hud-wave','hud-speed','hud-upgrade','hud-upgrade-badge','hud-panel',
+  'hud-tab-upgrades','hud-tab-heroes','hud-close','hud-upgrades','hud-heroes','hud-lineup','hud-auto-lineup'
 ].map((id) => [id, document.getElementById(id)]));
 
 const sources = {
@@ -2993,7 +2995,7 @@ function syncSpellBar() {
     const keys = { front: '1', tower: '2', support: '3' };
     bar.innerHTML = ids.map((id) => {
       const spell = heroDefs[id].spell;
-      return `<button class="spell-btn" data-hero="${id}" title="${heroDefs[id].name}: ${spell.name} — ${spell.hint}"><kbd>${keys[heroDefs[id].role]}</kbd>${spell.icon}<small>${spell.name}</small><i class="cd"></i></button>`;
+      return `<button class="spell-btn slot-${heroDefs[id].role}" data-hero="${id}" title="${heroDefs[id].name}: ${spell.name} — ${spell.hint}"><kbd>${keys[heroDefs[id].role]}</kbd>${spell.icon}<small>${spell.name}</small><i class="cd"></i></button>`;
     }).join('') + (ids.length ? '<button class="spell-auto" data-auto="1" title="Герои сами применяют спеллы">АВТО</button>' : '');
   }
   if (typeof bar.querySelectorAll !== 'function') return;
@@ -3028,13 +3030,79 @@ function syncLineup() {
   lineupKey = key;
   const unlockText = { tower: 'после улучшения поселения II', support: 'после улучшения поселения III' };
   const inWave = state.phase === 'wave';
-  ui.lineup.innerHTML = parts.map((p) => {
+  ui.lineup.innerHTML = ui['hud-lineup'].innerHTML = parts.map((p) => {
     if (p.locked) return `<button class="lineup-row" disabled><span><b>${p.slot.key} · ${p.slot.name}</b><small>${unlockText[p.slot.role]}</small></span><em>ЗАКРЫТ</em></button>`;
     const def = heroDefs[p.id];
     const swap = p.options.length > 1 && !inWave;
     const spell = def.spell ? `«${def.spell.name}» — ${def.spell.hint}` : 'без спелла · не устаёт';
     return `<button class="lineup-row" data-role="${p.slot.role}" ${swap ? '' : 'disabled'} title="${swap ? 'Нажми, чтобы поставить другого героя' : ''}"><span><b>${p.slot.key} · ${p.slot.name}: ${def.name}${swap ? ' ⇄' : ''}</b><small>${spell}</small></span><em class="${p.condition.tone}">${p.condition.label.toUpperCase()}</em></button>`;
   }).join('') + `<p class="lineup-bench">${bench.length ? `Отдыхают: ${bench.map((id) => `${heroDefs[id].name}${state.heroes[id].rested ? ' (свежие силы)' : ''}`).join(', ')}` : 'Запасных героев пока нет — ротация откроется, когда на слот появится замена.'}</p>`;
+}
+
+// ---------------------------------------------------------------------------
+// In-phone HUD. It mirrors the debug panel: every action calls the same handler,
+// so the rules live in one place.
+// ---------------------------------------------------------------------------
+const hud = { open: false, tab: 'upgrades' };
+const hudUpgrades = [
+  { kind: 'town', icon: '⌂', name: 'Поселение', level: 'town-level', cost: 'town-cost', button: 'town-upgrade' },
+  { kind: 'guard', icon: '⚔', name: 'Передовая', level: 'guard-level', cost: 'guard-cost', button: 'guard-upgrade' },
+  { kind: 'spikes', icon: '⋀', name: 'Шипы', level: 'spikes-level', cost: 'spikes-cost', button: 'spikes-upgrade' },
+  { kind: 'archer', icon: '➶', name: 'Лучник', level: 'archer-level', cost: 'archer-cost', button: 'archer-upgrade', show: () => state.archerUnlocked },
+  { kind: 'catapult', icon: '☄', name: 'Катапульта', level: 'catapult-level', cost: 'catapult-cost', button: 'catapult-upgrade', show: () => state.catapultUnlocked },
+  { kind: 'farm', icon: '✶', name: 'Ферма', level: 'farm-level', cost: 'farm-cost', button: 'farm-upgrade' }
+];
+let hudUpgradesKey = '';
+
+function setHudOpen(open) {
+  hud.open = open && state.phase !== 'wave';
+}
+
+function syncHud() {
+  const inWave = state.phase === 'wave';
+  if (inWave) hud.open = false;
+  const card = canvas.parentElement;
+  if (card && card.classList) card.classList.toggle('panel-open', hud.open);
+  ui['hud-panel'].hidden = !hud.open;
+  ui['hud-upgrades'].hidden = hud.tab !== 'upgrades';
+  ui['hud-heroes'].hidden = hud.tab !== 'heroes';
+  ui['hud-tab-upgrades'].classList.toggle('active', hud.tab === 'upgrades');
+  ui['hud-tab-heroes'].classList.toggle('active', hud.tab === 'heroes');
+
+  // Corner button: upgrades between waves, a lock during combat, a cross when open.
+  const affordable = hudUpgrades.filter((row) => (!row.show || row.show()) && !ui[row.button].disabled).length;
+  ui['hud-upgrade'].classList.toggle('locked', inWave);
+  ui['hud-upgrade'].classList.toggle('open', hud.open);
+  ui['hud-upgrade'].disabled = inWave;
+  ui['hud-upgrade'].innerHTML = inWave
+    ? '<span class="hud-upgrade-icon">🔒</span><small>В БОЮ</small>'
+    : hud.open ? '<span class="hud-upgrade-icon">✕</span><small>ЗАКРЫТЬ</small>'
+    : `<span class="hud-upgrade-icon">⬆</span><small>УЛУЧШЕНИЯ</small>${affordable ? `<i class="hud-badge">${affordable}</i>` : ''}`;
+
+  // Upgrade rows: rebuilt only when their text or state changes.
+  const rows = hudUpgrades.filter((row) => !row.show || row.show()).map((row) => ({
+    ...row, levelText: ui[row.level].textContent, costText: ui[row.cost].textContent, disabled: Boolean(ui[row.button].disabled)
+  }));
+  const key = JSON.stringify(rows.map((row) => [row.kind, row.levelText, row.costText, row.disabled]));
+  if (key !== hudUpgradesKey) {
+    hudUpgradesKey = key;
+    ui['hud-upgrades'].innerHTML = rows.map((row) => `<button class="hud-row" data-upgrade="${row.button}" ${row.disabled ? 'disabled' : ''}><i class="ico">${row.icon}</i><span><b>${row.name}</b><small>${row.costText}</small></span><em>${row.levelText}</em></button>`).join('');
+  }
+
+  // Wave button: short labels for the phone.
+  const needsTown = state.phase === 'victory' && state.wave === 5 && state.townLevel < 2;
+  const left = state.waveTotal - state.defeated;
+  ui['hud-wave'].disabled = inWave;
+  ui['hud-wave'].textContent = inWave ? `⚔ Осталось ${left}`
+    : needsTown ? '⌂ Улучши поселение'
+    : state.phase === 'defeat' ? `↻ Ещё раз · волна ${state.wave}`
+    : state.phase === 'victory' ? `⚑ Волна ${state.wave + 1}`
+    : state.phase === 'complete' ? `↻ Волна ${FINAL_WAVE}`
+    : `⚑ Волна ${state.wave}`;
+  ui['hud-wave'].classList.toggle('pulse', !inWave && !needsTown && !hud.open);
+  ui['hud-speed'].textContent = `${state.speed}×`;
+  ui['hud-pause'].textContent = state.running ? 'Ⅱ' : '▶';
+  ui['hud-sound'].textContent = sound.enabled ? '🔊' : '🔈';
 }
 
 function syncUi() {
@@ -3112,6 +3180,7 @@ function syncUi() {
   if (state.townLevel >= 2) ui['specialization-note'].textContent = state.towerSlot === 'catapult'
     ? 'Специализация башни: катапульта — урон по группе · нажмите слот, чтобы выбрать лучника'
     : 'Специализация башни: лучник — точечный урон · нажмите слот, чтобы выбрать катапульту';
+  syncHud();
 }
 
 function frame(now) {
@@ -3260,6 +3329,29 @@ document.addEventListener('click', (event) => {
   if (button && !button.disabled) sfx('click');
 }, true);
 
+ui['hud-pause'].onclick = () => ui.pause.onclick();
+ui['hud-sound'].onclick = () => ui['sound-toggle'].onclick();
+ui['hud-speed'].onclick = () => ui.speed.onclick();
+ui['hud-wave'].onclick = () => {
+  if (state.phase === 'victory' && state.wave === 5 && state.townLevel < 2) {
+    hud.tab = 'upgrades';
+    setHudOpen(true);
+    return;
+  }
+  hud.open = false;
+  ui['wave-button'].onclick();
+};
+ui['hud-upgrade'].onclick = () => setHudOpen(!hud.open);
+ui['hud-close'].onclick = () => setHudOpen(false);
+ui['hud-tab-upgrades'].onclick = () => { hud.tab = 'upgrades'; };
+ui['hud-tab-heroes'].onclick = () => { hud.tab = 'heroes'; };
+ui['hud-upgrades'].onclick = (event) => {
+  const row = event.target.closest && event.target.closest('[data-upgrade]');
+  if (row) ui[row.dataset.upgrade].onclick();
+};
+ui['hud-lineup'].onclick = (event) => ui.lineup.onclick(event);
+ui['hud-auto-lineup'].onclick = () => autoLineup();
+
 // Tap a hero to cast their spell; keys 1/2/3 cast the slot spells.
 canvas.addEventListener('click', (event) => {
   const rect = canvas.getBoundingClientRect();
@@ -3274,6 +3366,8 @@ canvas.addEventListener('click', (event) => {
 });
 document.addEventListener('keydown', (event) => {
   if (event.repeat || event.target.closest('button, input, textarea, select, [contenteditable]')) return;
+  if (event.key === 'u' || event.key === 'U' || event.key === 'г' || event.key === 'Г') setHudOpen(!hud.open);
+  if (event.key === 'Escape') hud.open = false;
   const slot = slotDefs.find((item) => item.key === event.key);
   if (slot) {
     const id = slotHero(slot.role);

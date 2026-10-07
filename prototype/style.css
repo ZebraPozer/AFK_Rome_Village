@@ -100,19 +100,6 @@ button:focus-visible{outline:2px solid #526249;outline-offset:3px}
   .scene-legend{gap:18px;font-size:7px}
 }
 
-/* Hero spell bar: one button per occupied slot, keys 1/2/3. */
-.spell-bar{position:absolute;z-index:4;left:50%;bottom:16px;transform:translateX(-50%);display:flex;gap:10px;padding:7px;border:1px solid #f8e7b968;border-radius:16px;background:linear-gradient(180deg,#28342ee8,#18221de8);box-shadow:0 6px 18px #17201966;backdrop-filter:blur(7px)}
-.spell-bar:empty{display:none}
-.spell-btn{position:relative;width:78px;height:62px;border:2px solid #d4b765;border-radius:13px;background:radial-gradient(circle at 50% 35%,#fff3c4,#e2b84a);color:#5a321a;font:900 22px/1 system-ui,sans-serif;cursor:pointer;overflow:hidden;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;padding:0}
-.spell-btn small{font:800 7px/1 system-ui,sans-serif;letter-spacing:.2px;text-transform:uppercase}
-.spell-btn kbd{position:absolute;top:3px;left:5px;font:800 8px system-ui,sans-serif;color:#7a5a2a}
-.spell-btn .cd{position:absolute;inset:0;background:#2a2017c4;color:#fff3d2;font:800 16px system-ui,sans-serif;display:flex;align-items:center;justify-content:center;transform-origin:bottom}
-.spell-btn:disabled{cursor:default;filter:saturate(.5) brightness(.85)}
-.spell-btn.ready{animation:spellPulse 1s ease-in-out infinite}
-.spell-btn.rested{border-color:#8fe07a}.spell-btn.tired{border-color:#d0603f}
-.spell-auto{width:44px;border:1px solid #d4b76588;border-radius:11px;background:#33402f;color:#e9dcae;font:800 8px system-ui,sans-serif;cursor:pointer}
-.spell-auto.on{background:#6f835e;color:#fff}
-@keyframes spellPulse{50%{box-shadow:0 0 0 3px #ffd34d88}}
 .lineup{border-top:1px solid #e8e7df;padding-top:10px;margin-bottom:12px}
 .lineup-row{display:flex;align-items:center;gap:8px;width:100%;margin-top:7px;padding:7px 9px;border:1px solid #deddd3;border-radius:5px;background:#fffdf8;font:inherit;text-align:left;cursor:pointer}
 .lineup-row:disabled{cursor:default;opacity:.65}
@@ -123,3 +110,67 @@ button:focus-visible{outline:2px solid #526249;outline-offset:3px}
 .sound-row{display:grid;grid-template-columns:1fr 1fr;gap:8px;align-items:center;margin:7px 0}
 #sound-toggle{height:32px;border:1px solid #c1cbb5;border-radius:4px;background:#edf1e5;color:#45563c;font:600 11px system-ui,sans-serif;cursor:pointer}
 #sound-volume{width:100%;accent-color:#6f835e}
+
+/* ---------- In-phone HUD. Sizes use container units so it scales with the phone. ---------- */
+.game-card{container-type:size}
+.hud{position:absolute;z-index:5;display:flex;gap:1.6cqh}
+.hud button{font-family:system-ui,sans-serif;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.hud-top-left{top:3.2cqh;left:4.2cqw}
+.hud-icon{width:9cqh;height:9cqh;min-width:36px;min-height:36px;border:1px solid #f8e7b968;border-radius:2.6cqh;background:linear-gradient(180deg,#28342ee8,#18221de8);color:#f3e6bf;font-size:3.6cqh;box-shadow:0 4px 12px #17201955}
+.hud-bottom-left{bottom:4cqh;left:4.2cqw;align-items:flex-end}
+.hud-wave{height:12cqh;min-height:44px;padding:0 3.4cqh;border:2px solid #f0d27a;border-radius:3.4cqh;background:linear-gradient(180deg,#c9573a,#963a25);color:#fff6dc;font:900 3.4cqh/1 system-ui,sans-serif;letter-spacing:.3px;text-shadow:0 1px 0 #5a1d10;box-shadow:0 5px 0 #6b2717,0 8px 16px #1720196b;white-space:nowrap}
+.hud-wave:disabled{background:linear-gradient(180deg,#5b5f52,#43473d);border-color:#8b8f7e;box-shadow:0 5px 0 #2f322a;color:#e2e2d3;text-shadow:none;cursor:default}
+.hud-wave.pulse:not(:disabled){animation:wavePulse 1.4s ease-in-out infinite}
+@keyframes wavePulse{50%{box-shadow:0 5px 0 #6b2717,0 0 0 1cqh #f0d27a66}}
+.hud-speed{width:12cqh;height:12cqh;min-width:44px;min-height:44px;border:1px solid #f8e7b968;border-radius:3.4cqh;background:linear-gradient(180deg,#28342ee8,#18221de8);color:#f3e6bf;font:900 3.4cqh system-ui,sans-serif}
+.hud-upgrade{position:absolute;z-index:7;right:4.2cqw;bottom:4cqh;width:19cqh;height:19cqh;min-width:64px;min-height:64px;border:2px solid #f0d27a;border-radius:50%;background:radial-gradient(circle at 50% 35%,#7d9a5f,#4d6a3a);color:#fff6dc;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.6cqh;box-shadow:0 5px 0 #34492a,0 8px 18px #1720196b;cursor:pointer}
+.hud-upgrade-icon{font:900 6.4cqh/1 system-ui,sans-serif}
+.hud-upgrade small{font:800 1.9cqh/1 system-ui,sans-serif;letter-spacing:.3px}
+.hud-upgrade.locked{background:radial-gradient(circle at 50% 35%,#6b6e63,#45483f);border-color:#8b8f7e;box-shadow:0 5px 0 #2f322a;cursor:default}
+.hud-upgrade.open{background:radial-gradient(circle at 50% 35%,#c9573a,#963a25)}
+.hud-badge{position:absolute;top:-.4cqh;right:-.4cqh;min-width:5.6cqh;height:5.6cqh;padding:0 1cqh;border:2px solid #fff6dc;border-radius:3cqh;background:#d9452b;color:#fff;font:900 3cqh/5.2cqh system-ui,sans-serif;font-style:normal}
+/* Spells arc around the upgrade button (Wild Rift style): 1 nearest, then 2 and 3 above. */
+.spell-bar{position:absolute;z-index:6;right:4.2cqw;bottom:4cqh;width:19cqh;height:19cqh;transition:transform .28s ease}
+.spell-btn{position:absolute;width:14cqh;height:14cqh;min-width:48px;min-height:48px;border:2px solid #d4b765;border-radius:50%;background:radial-gradient(circle at 50% 35%,#fff3c4,#e2b84a);color:#5a321a;font:900 5cqh/1 system-ui,sans-serif;cursor:pointer;overflow:hidden;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.3cqh;padding:0;box-shadow:0 4px 10px #1720195e}
+.spell-btn small{font:800 1.5cqh/1 system-ui,sans-serif;max-width:12cqh;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.spell-btn kbd{position:absolute;top:1.4cqh;left:50%;transform:translateX(-50%);font:800 1.6cqh system-ui,sans-serif;color:#7a5a2a;display:none}
+.spell-btn .cd{position:absolute;inset:0;background:#2a2017c4;color:#fff3d2;font:900 4.6cqh system-ui,sans-serif;display:flex;align-items:center;justify-content:center;transform-origin:bottom}
+.spell-btn.slot-front{right:22cqh;bottom:0}
+.spell-btn.slot-tower{right:18cqh;bottom:15cqh}
+.spell-btn.slot-support{right:2.5cqh;bottom:22cqh}
+.spell-btn:disabled{cursor:default;filter:saturate(.5) brightness(.85)}
+.spell-btn.ready{animation:spellPulse 1s ease-in-out infinite}
+.spell-btn.rested{border-color:#8fe07a}.spell-btn.tired{border-color:#d0603f}
+@keyframes spellPulse{50%{box-shadow:0 0 0 1cqh #ffd34d88}}
+.spell-auto{position:absolute;right:36.5cqh;bottom:1cqh;width:9cqh;height:9cqh;min-width:36px;min-height:36px;border:1px solid #d4b76588;border-radius:50%;background:#33402fe6;color:#e9dcae;font:800 1.8cqh system-ui,sans-serif;cursor:pointer}
+.spell-auto.on{background:#6f835e;color:#fff}
+.spell-bar:empty{display:none}
+/* Popup over the farm: spells slide left instead of being covered. */
+.hud-panel{position:absolute;z-index:8;top:max(16cqh, 74px);right:3cqw;bottom:4cqh;width:33cqw;padding:2cqh;border:1px solid #f8e7b968;border-radius:3cqh;background:linear-gradient(180deg,#28342ef2,#18221df2);box-shadow:0 10px 30px #17201980;display:flex;flex-direction:column;gap:1.4cqh;color:#f3e6bf;font-family:system-ui,sans-serif}
+.hud-panel[hidden]{display:none}
+.game-card.panel-open .spell-bar{transform:translateX(-34cqw)}
+.game-card.panel-open .hud-upgrade{display:none}
+/* With the popup open the spells line up along the bottom edge, below the legionary. */
+.game-card.panel-open .spell-btn{width:12cqh;height:12cqh;bottom:0}
+.game-card.panel-open .spell-btn.slot-front{right:0}
+.game-card.panel-open .spell-btn.slot-tower{right:13.5cqh}
+.game-card.panel-open .spell-btn.slot-support{right:27cqh}
+.game-card.panel-open .spell-auto{right:41cqh;bottom:1.5cqh}
+.hud-tabs .hud-close{flex:0 0 7.4cqh;background:#c9573a;color:#fff6dc;border-color:#f0d27a;font-size:3.2cqh}
+.hud-tabs{display:flex;gap:1cqh}
+.hud-tabs button{flex:1;height:7.4cqh;border:1px solid #d4b76555;border-radius:2cqh;background:#ffffff10;color:#cdbf98;font:800 2.6cqh system-ui,sans-serif;cursor:pointer}
+.hud-tabs button.active{background:#f0d27a;color:#3a2516;border-color:#f0d27a}
+.hud-list{display:flex;flex-direction:column;gap:1.1cqh;overflow-y:auto;min-height:0}
+.hud-list[hidden]{display:none}
+.hud-row{display:flex;align-items:center;gap:1.6cqh;width:100%;padding:1.1cqh 1.6cqh;border:1px solid #d4b76544;border-radius:2cqh;background:#fff9e9;color:#3e382c;text-align:left;cursor:pointer;font-family:system-ui,sans-serif}
+.hud-row:disabled{background:#d9d3c2;opacity:.7;cursor:default}
+.hud-row .ico{font:900 3.6cqh/1 system-ui,sans-serif;width:5cqh;text-align:center}
+.hud-row span{flex:1;min-width:0}
+.hud-row b{display:block;font:800 2.6cqh/1.2 system-ui,sans-serif}
+.hud-row small{display:block;font:600 2cqh/1.3 system-ui,sans-serif;color:#776b52}
+.hud-row em{font:800 2.2cqh system-ui,sans-serif;font-style:normal;color:#5b7a3a;white-space:nowrap}
+.hud-row-plain{justify-content:center;background:#ffffff14;color:#f3e6bf;font:800 2.4cqh system-ui,sans-serif}
+#hud-lineup .lineup-row{background:#fff9e9;border-color:#d4b76544;border-radius:2cqh;padding:1.4cqh 1.8cqh;margin-top:1.1cqh}
+#hud-lineup .lineup-row:first-child{margin-top:0}
+#hud-lineup .lineup-row b{font-size:2.6cqh}#hud-lineup .lineup-row small{font-size:2cqh}#hud-lineup .lineup-row em{font-size:1.9cqh}
+#hud-lineup .lineup-bench{font-size:2cqh;color:#cdbf98}

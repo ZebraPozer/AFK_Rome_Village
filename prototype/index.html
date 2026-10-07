@@ -36,7 +36,29 @@
             <span class="resource-copy"><small>ЗОЛОТО</small><b id="coins">0</b></span>
           </span>
         </div>
+        <!-- In-phone HUD: system top-left, wave bottom-left, spells + upgrades bottom-right. -->
+        <div class="hud hud-top-left">
+          <button id="hud-pause" class="hud-icon" aria-label="Пауза">Ⅱ</button>
+          <button id="hud-sound" class="hud-icon" aria-label="Звук">🔊</button>
+        </div>
+        <div class="hud hud-bottom-left">
+          <button id="hud-wave" class="hud-wave">⚑ Волна 1</button>
+          <button id="hud-speed" class="hud-speed">1×</button>
+        </div>
         <div id="spell-bar" class="spell-bar" aria-label="Спеллы героев"></div>
+        <button id="hud-upgrade" class="hud-upgrade" aria-label="Улучшения"><span class="hud-upgrade-icon">⬆</span><small>УЛУЧШЕНИЯ</small><i id="hud-upgrade-badge" class="hud-badge" hidden>0</i></button>
+        <section id="hud-panel" class="hud-panel" hidden aria-label="Улучшения и герои">
+          <div class="hud-tabs">
+            <button id="hud-tab-upgrades" class="active" data-tab="upgrades">Улучшения</button>
+            <button id="hud-tab-heroes" data-tab="heroes">Герои</button>
+            <button id="hud-close" class="hud-close" aria-label="Закрыть">✕</button>
+          </div>
+          <div id="hud-upgrades" class="hud-list"></div>
+          <div id="hud-heroes" class="hud-list" hidden>
+            <div id="hud-lineup"></div>
+            <button id="hud-auto-lineup" class="hud-row hud-row-plain">⇅ Поставить самых свежих</button>
+          </div>
+        </section>
       </div>
 
       </div>
