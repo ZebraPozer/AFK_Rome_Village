@@ -109,13 +109,13 @@ runtime chroma-keying for the legionary/archer is gone. Root `assets/` and
 
 ## 4. Suggested next tasks (Nikita agreed with this direction)
 
-> **Meta loop (decided):** `docs/META_LOOP.md` (Russian). **No resets / no prestige** — like
-> Fallout Shelter the player only goes deeper: endless waves, settlement level 1–200+ (= sum of
-> building levels), visual tiers camp → village → town → city → fortress → castle → capital,
-> each tier gated by a big boss every 10 waves; hero levels for food; buildings as the main
-> gold sink; big-number formatting. Later: several settlements at once — so keep one
-> settlement's data in its own object. The doc's "first step" is the next big feature;
-> open questions for Nikita are at its end.
+> **Meta loop (decided):** `docs/META_LOOP.md` (Russian). **No resets.** ~200 waves of growth.
+> Mini-boss every 5 waves, mega-boss every 10. Only bosses drop special resources:
+> **trophies** (raise the village level, which caps building levels at `level × 5`) and
+> **Aquila eagles** (unlock a new system: wave 10 Armory = hero gear, 20 Barracks = hero levels
+> for food, 30 Temple = offerings to Mars/Ceres/Minerva). Waves 1–30 are a single guided path,
+> the table is in the doc. Keep a settlement's data in its own object (several villages later).
+> The doc's "first step" is the next big feature; open questions for Nikita are at its end.
 
 1. Push + enable Pages, then Nikita playtests on a phone.
 2. First-minute hints (tap Bash when an orc is close, upgrade the frontline with food, …).
