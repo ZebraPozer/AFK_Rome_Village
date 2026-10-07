@@ -96,7 +96,7 @@ function spawnMob(type = 'orc', countsForWave = true) {
   // Ranged orcs keep wide gaps, so a single catapult rock rarely hits more than one.
   const formationX = stats.isBoss ? 0 : (spawnIndex % 4) * (traitsOf(type).includes('ranged') ? 45 : 14);
   state.mobs.push({
-    x: -70, laneY, formationX, attackMotion: 0,
+    x: COMBAT.spawn.startX, laneY, formationX, attackMotion: 0,
     bob: simRandom() * Math.PI * 2, hit: 0, dead: false, type,
     countsForWave,
     hp,
@@ -234,7 +234,7 @@ function failWave() {
   state.running = true;
   state.mobs = [];
   clearProjectiles();
-  state.guardHp = Math.ceil(state.maxGuardHp * 0.3);
+  state.guardHp = Math.ceil(state.maxGuardHp * COMBAT.defeat.hpShareAfter);
   state.holdLine = 0;
   const rec = recommendedLevel(state.wave);
   state.notice = null; // the defeat message replaces anything queued

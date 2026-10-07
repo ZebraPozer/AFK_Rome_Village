@@ -1,0 +1,1556 @@
+{
+  "generatedBy": "prototype/tools/export-golden.cjs",
+  "randomConstant": 0.5,
+  "fixedStep": 0.016666666666666666,
+  "world": {
+    "width": 1170,
+    "height": 540
+  },
+  "scenarios": [
+    {
+      "id": "fight-wave-1-auto",
+      "description": "Wave 1 with the expected build, spells on AUTO.",
+      "save": {
+        "version": 2,
+        "savedAt": 0,
+        "townLevel": 1,
+        "wave": 1,
+        "phase": "preparation",
+        "food": 0,
+        "coins": 0,
+        "kills": 0,
+        "patrolKills": 0,
+        "guardLevel": 1,
+        "maxGuardHp": 100,
+        "spikesLevel": 0,
+        "farmLevel": 2,
+        "archerUnlocked": false,
+        "archerLevel": 0,
+        "catapultUnlocked": false,
+        "catapultLevel": 0,
+        "towerSlot": null,
+        "wavesCleared": 0,
+        "waveDifficulties": {},
+        "frontHero": "legionary",
+        "supportHero": null,
+        "autoSpells": false,
+        "hintsSeen": [
+          "call",
+          "bash",
+          "upgrade",
+          "defeat",
+          "boss",
+          "heroes"
+        ],
+        "trophies": 0,
+        "eagles": 0,
+        "systems": [],
+        "gear": [],
+        "gearDrops": 0,
+        "eliteKills": 0,
+        "temple": {
+          "mars": 0,
+          "ceres": 0,
+          "minerva": 0
+        },
+        "heroes": {
+          "legionary": {
+            "unlocked": true,
+            "fatigue": 0,
+            "rested": false,
+            "level": 1
+          },
+          "hoplite": {
+            "unlocked": false,
+            "fatigue": 0,
+            "rested": false,
+            "level": 1
+          },
+          "archer": {
+            "unlocked": false,
+            "fatigue": 0,
+            "rested": false,
+            "level": 1
+          },
+          "catapult": {
+            "unlocked": false,
+            "fatigue": 0,
+            "rested": false,
+            "level": 1
+          },
+          "priestess": {
+            "unlocked": false,
+            "fatigue": 0,
+            "rested": false,
+            "level": 1
+          }
+        }
+      },
+      "settings": {
+        "autoSpells": true
+      },
+      "commands": [
+        {
+          "atTick": 0,
+          "command": "callWave"
+        }
+      ],
+      "runUntil": "waveEnds",
+      "maxTicks": 36000,
+      "expect": {
+        "phase": "victory",
+        "wave": 1,
+        "guardHp": 46,
+        "maxGuardHp": 100,
+        "kills": 1,
+        "defeated": 1,
+        "coins": 11,
+        "food": 12,
+        "wavesCleared": 1,
+        "trophies": 0,
+        "eagles": 0,
+        "gear": 0,
+        "ticks": 1159
+      }
+    },
+    {
+      "id": "fight-wave-1",
+      "description": "Wave 1 with the expected build, no spells.",
+      "save": {
+        "version": 2,
+        "savedAt": 0,
+        "townLevel": 1,
+        "wave": 1,
+        "phase": "preparation",
+        "food": 0,
+        "coins": 0,
+        "kills": 0,
+        "patrolKills": 0,
+        "guardLevel": 1,
+        "maxGuardHp": 100,
+        "spikesLevel": 0,
+        "farmLevel": 2,
+        "archerUnlocked": false,
+        "archerLevel": 0,
+        "catapultUnlocked": false,
+        "catapultLevel": 0,
+        "towerSlot": null,
+        "wavesCleared": 0,
+        "waveDifficulties": {},
+        "frontHero": "legionary",
+        "supportHero": null,
+        "autoSpells": false,
+        "hintsSeen": [
+          "call",
+          "bash",
+          "upgrade",
+          "defeat",
+          "boss",
+          "heroes"
+        ],
+        "trophies": 0,
+        "eagles": 0,
+        "systems": [],
+        "gear": [],
+        "gearDrops": 0,
+        "eliteKills": 0,
+        "temple": {
+          "mars": 0,
+          "ceres": 0,
+          "minerva": 0
+        },
+        "heroes": {
+          "legionary": {
+            "unlocked": true,
+            "fatigue": 0,
+            "rested": false,
+            "level": 1
+          },
+          "hoplite": {
+            "unlocked": false,
+            "fatigue": 0,
+            "rested": false,
+            "level": 1
+          },
+          "archer": {
+            "unlocked": false,
+            "fatigue": 0,
+            "rested": false,
+            "level": 1
+          },
+          "catapult": {
+            "unlocked": false,
+            "fatigue": 0,
+            "rested": false,
+            "level": 1
+          },
+          "priestess": {
+            "unlocked": false,
+            "fatigue": 0,
+            "rested": false,
+            "level": 1
+          }
+        }
+      },
+      "settings": {
+        "autoSpells": false
+      },
+      "commands": [
+        {
+          "atTick": 0,
+          "command": "callWave"
+        }
+      ],
+      "runUntil": "waveEnds",
+      "maxTicks": 36000,
+      "expect": {
+        "phase": "victory",
+        "wave": 1,
+        "guardHp": 28,
+        "maxGuardHp": 100,
+        "kills": 1,
+        "defeated": 1,
+        "coins": 11,
+        "food": 10,
+        "wavesCleared": 1,
+        "trophies": 0,
+        "eagles": 0,
+        "gear": 0,
+        "ticks": 1027
+      }
+    },
+    {
+      "id": "fight-wave-2-auto",
+      "description": "Wave 2 with the expected build, spells on AUTO.",
+      "save": {
+        "version": 2,
+        "savedAt": 0,
+        "townLevel": 1,
+        "wave": 1,
+        "phase": "victory",
+        "food": 0,
+        "coins": 0,
+        "kills": 0,
+        "patrolKills": 0,
+        "guardLevel": 2,
+        "maxGuardHp": 120,
+        "spikesLevel": 0,
+        "farmLevel": 2,
+        "archerUnlocked": false,
+        "archerLevel": 0,
+        "catapultUnlocked": false,
+        "catapultLevel": 0,
+        "towerSlot": null,
+        "wavesCleared": 1,
+        "waveDifficulties": {},
+        "frontHero": "legionary",
+        "supportHero": null,
+        "autoSpells": false,
+        "hintsSeen": [
+          "call",
+          "bash",
+          "upgrade",
+          "defeat",
+          "boss",
+          "heroes"
+        ],
+        "trophies": 0,
+        "eagles": 0,
+        "systems": [],
+        "gear": [],
+        "gearDrops": 0,
+        "eliteKills": 0,
+        "temple": {
+          "mars": 0,
+          "ceres": 0,
+          "minerva": 0
+        },
+        "heroes": {
+          "legionary": {
+            "unlocked": true,
+            "fatigue": 0,
+            "rested": false,
+            "level": 1
+          },
+          "hoplite": {
+            "unlocked": false,
+            "fatigue": 0,
+            "rested": false,
+            "level": 1
+          },
+          "archer": {
+            "unlocked": false,
+            "fatigue": 0,
+            "rested": false,
+            "level": 1
+          },
+          "catapult": {
+            "unlocked": false,
+            "fatigue": 0,
+            "rested": false,
+            "level": 1
+          },
+          "priestess": {
+            "unlocked": false,
+            "fatigue": 0,
+            "rested": false,
+            "level": 1
+          }
+        }
+      },
+      "settings": {
+        "autoSpells": true
+      },
+      "commands": [
+        {
+          "atTick": 0,
+          "command": "callWave"
+        }
+      ],
+      "runUntil": "waveEnds",
+      "maxTicks": 36000,
+      "expect": {
+        "phase": "victory",
+        "wave": 2,
+        "guardHp": 50,
+        "maxGuardHp": 120,
+        "kills": 2,
+        "defeated": 2,
+        "coins": 16,
+        "food": 12,
+        "wavesCleared": 2,
+        "trophies": 0,
+        "eagles": 0,
+        "gear": 0,
+        "ticks": 1128
+      }
+    },
+    {
+      "id": "fight-wave-2",
+      "description": "Wave 2 with the expected build, no spells.",
+      "save": {
+        "version": 2,
+        "savedAt": 0,
+        "townLevel": 1,
+        "wave": 1,
+        "phase": "victory",
+        "food": 0,
+        "coins": 0,
+        "kills": 0,
+        "patrolKills": 0,
+        "guardLevel": 2,
+        "maxGuardHp": 120,
+        "spikesLevel": 0,
+        "farmLevel": 2,
+        "archerUnlocked": false,
+        "archerLevel": 0,
+        "catapultUnlocked": false,
+        "catapultLevel": 0,
+        "towerSlot": null,
+        "wavesCleared": 1,
+        "waveDifficulties": {},
+        "frontHero": "legionary",
+        "supportHero": null,
+        "autoSpells": false,
+        "hintsSeen": [
+          "call",
+          "bash",
+          "upgrade",
+          "defeat",
+          "boss",
+          "heroes"
+        ],
+        "trophies": 0,
+        "eagles": 0,
+        "systems": [],
+        "gear": [],
+        "gearDrops": 0,
+        "eliteKills": 0,
+        "temple": {
+          "mars": 0,
+          "ceres": 0,
+          "minerva": 0
+        },
+        "heroes": {
+          "legionary": {
+            "unlocked": true,
+            "fatigue": 0,
+            "rested": false,
+            "level": 1
+          },
+          "hoplite": {
+            "unlocked": false,
+            "fatigue": 0,
+            "rested": false,
+            "level": 1
+          },
+          "archer": {
+            "unlocked": false,
+            "fatigue": 0,
+            "rested": false,
+            "level": 1
+          },
+          "catapult": {
+            "unlocked": false,
+            "fatigue": 0,
+            "rested": false,
+            "level": 1
+          },
+          "priestess": {
+            "unlocked": false,
+            "fatigue": 0,
+            "rested": false,
+            "level": 1
+          }
+        }
+      },
+      "settings": {
+        "autoSpells": false
+      },
+      "commands": [
+        {
+          "atTick": 0,
+          "command": "callWave"
+        }
+      ],
+      "runUntil": "waveEnds",
+      "maxTicks": 36000,
+      "expect": {
+        "phase": "victory",
+        "wave": 2,
+        "guardHp": 30,
+        "maxGuardHp": 120,
+        "kills": 2,
+        "defeated": 2,
+        "coins": 16,
+        "food": 10,
+        "wavesCleared": 2,
+        "trophies": 0,
+        "eagles": 0,
+        "gear": 0,
+        "ticks": 1022
+      }
+    },
+    {
+      "id": "fight-wave-3-auto",
+      "description": "Wave 3 with the expected build, spells on AUTO.",
+      "save": {
+        "version": 2,
+        "savedAt": 0,
+        "townLevel": 1,
+        "wave": 2,
+        "phase": "victory",
+        "food": 0,
+        "coins": 0,
+        "kills": 0,
+        "patrolKills": 0,
+        "guardLevel": 3,
+        "maxGuardHp": 140,
+        "spikesLevel": 0,
+        "farmLevel": 3,
+        "archerUnlocked": false,
+        "archerLevel": 0,
+        "catapultUnlocked": false,
+        "catapultLevel": 0,
+        "towerSlot": null,
+        "wavesCleared": 2,
+        "waveDifficulties": {},
+        "frontHero": "legionary",
+        "supportHero": null,
+        "autoSpells": false,
+        "hintsSeen": [
+          "call",
+          "bash",
+          "upgrade",
+          "defeat",
+          "boss",
+          "heroes"
+        ],
+        "trophies": 0,
+        "eagles": 0,
+        "systems": [],
+        "gear": [],
+        "gearDrops": 0,
+        "eliteKills": 0,
+        "temple": {
+          "mars": 0,
+          "ceres": 0,
+          "minerva": 0
+        },
+        "heroes": {
+          "legionary": {
+            "unlocked": true,
+            "fatigue": 0,
+            "rested": false,
+            "level": 1
+          },
+          "hoplite": {
+            "unlocked": false,
+            "fatigue": 0,
+            "rested": false,
+            "level": 1
+          },
+          "archer": {
+            "unlocked": false,
+            "fatigue": 0,
+            "rested": false,
+            "level": 1
+          },
+          "catapult": {
+            "unlocked": false,
+            "fatigue": 0,
+            "rested": false,
+            "level": 1
+          },
+          "priestess": {
+            "unlocked": false,
+            "fatigue": 0,
+            "rested": false,
+            "level": 1
+          }
+        }
+      },
+      "settings": {
+        "autoSpells": true
+      },
+      "commands": [
+        {
+          "atTick": 0,
+          "command": "callWave"
+        }
+      ],
+      "runUntil": "waveEnds",
+      "maxTicks": 36000,
+      "expect": {
+        "phase": "victory",
+        "wave": 3,
+        "guardHp": 41,
+        "maxGuardHp": 140,
+        "kills": 2,
+        "defeated": 2,
+        "coins": 20,
+        "food": 24,
+        "wavesCleared": 3,
+        "trophies": 0,
+        "eagles": 0,
+        "gear": 0,
+        "ticks": 1549
+      }
+    },
+    {
+      "id": "fight-wave-3",
+      "description": "Wave 3 with the expected build, no spells.",
+      "save": {
+        "version": 2,
+        "savedAt": 0,
+        "townLevel": 1,
+        "wave": 2,
+        "phase": "victory",
+        "food": 0,
+        "coins": 0,
+        "kills": 0,
+        "patrolKills": 0,
+        "guardLevel": 3,
+        "maxGuardHp": 140,
+        "spikesLevel": 0,
+        "farmLevel": 3,
+        "archerUnlocked": false,
+        "archerLevel": 0,
+        "catapultUnlocked": false,
+        "catapultLevel": 0,
+        "towerSlot": null,
+        "wavesCleared": 2,
+        "waveDifficulties": {},
+        "frontHero": "legionary",
+        "supportHero": null,
+        "autoSpells": false,
+        "hintsSeen": [
+          "call",
+          "bash",
+          "upgrade",
+          "defeat",
+          "boss",
+          "heroes"
+        ],
+        "trophies": 0,
+        "eagles": 0,
+        "systems": [],
+        "gear": [],
+        "gearDrops": 0,
+        "eliteKills": 0,
+        "temple": {
+          "mars": 0,
+          "ceres": 0,
+          "minerva": 0
+        },
+        "heroes": {
+          "legionary": {
+            "unlocked": true,
+            "fatigue": 0,
+            "rested": false,
+            "level": 1
+          },
+          "hoplite": {
+            "unlocked": false,
+            "fatigue": 0,
+            "rested": false,
+            "level": 1
+          },
+          "archer": {
+            "unlocked": false,
+            "fatigue": 0,
+            "rested": false,
+            "level": 1
+          },
+          "catapult": {
+            "unlocked": false,
+            "fatigue": 0,
+            "rested": false,
+            "level": 1
+          },
+          "priestess": {
+            "unlocked": false,
+            "fatigue": 0,
+            "rested": false,
+            "level": 1
+          }
+        }
+      },
+      "settings": {
+        "autoSpells": false
+      },
+      "commands": [
+        {
+          "atTick": 0,
+          "command": "callWave"
+        }
+      ],
+      "runUntil": "waveEnds",
+      "maxTicks": 36000,
+      "expect": {
+        "phase": "victory",
+        "wave": 3,
+        "guardHp": 26,
+        "maxGuardHp": 140,
+        "kills": 2,
+        "defeated": 2,
+        "coins": 20,
+        "food": 21,
+        "wavesCleared": 3,
+        "trophies": 0,
+        "eagles": 0,
+        "gear": 0,
+        "ticks": 1330
+      }
+    },
+    {
+      "id": "fight-wave-5-auto",
+      "description": "Wave 5 with the expected build, spells on AUTO.",
+      "save": {
+        "version": 2,
+        "savedAt": 0,
+        "townLevel": 1,
+        "wave": 4,
+        "phase": "victory",
+        "food": 0,
+        "coins": 0,
+        "kills": 0,
+        "patrolKills": 0,
+        "guardLevel": 5,
+        "maxGuardHp": 180,
+        "spikesLevel": 1,
+        "farmLevel": 4,
+        "archerUnlocked": false,
+        "archerLevel": 0,
+        "catapultUnlocked": false,
+        "catapultLevel": 0,
+        "towerSlot": null,
+        "wavesCleared": 4,
+        "waveDifficulties": {},
+        "frontHero": "legionary",
+        "supportHero": null,
+        "autoSpells": false,
+        "hintsSeen": [
+          "call",
+          "bash",
+          "upgrade",
+          "defeat",
+          "boss",
+          "heroes"
+        ],
+        "trophies": 0,
+        "eagles": 0,
+        "systems": [],
+        "gear": [],
+        "gearDrops": 0,
+        "eliteKills": 0,
+        "temple": {
+          "mars": 0,
+          "ceres": 0,
+          "minerva": 0
+        },
+        "heroes": {
+          "legionary": {
+            "unlocked": true,
+            "fatigue": 0,
+            "rested": false,
+            "level": 1
+          },
+          "hoplite": {
+            "unlocked": false,
+            "fatigue": 0,
+            "rested": false,
+            "level": 1
+          },
+          "archer": {
+            "unlocked": false,
+            "fatigue": 0,
+            "rested": false,
+            "level": 1
+          },
+          "catapult": {
+            "unlocked": false,
+            "fatigue": 0,
+            "rested": false,
+            "level": 1
+          },
+          "priestess": {
+            "unlocked": false,
+            "fatigue": 0,
+            "rested": false,
+            "level": 1
+          }
+        }
+      },
+      "settings": {
+        "autoSpells": true
+      },
+      "commands": [
+        {
+          "atTick": 0,
+          "command": "callWave"
+        }
+      ],
+      "runUntil": "waveEnds",
+      "maxTicks": 36000,
+      "expect": {
+        "phase": "victory",
+        "wave": 5,
+        "guardHp": 50,
+        "maxGuardHp": 180,
+        "kills": 4,
+        "defeated": 4,
+        "coins": 37,
+        "food": 48,
+        "wavesCleared": 5,
+        "trophies": 1,
+        "eagles": 0,
+        "gear": 0,
+        "ticks": 2206
+      }
+    },
+    {
+      "id": "fight-wave-5",
+      "description": "Wave 5 with the expected build, no spells.",
+      "save": {
+        "version": 2,
+        "savedAt": 0,
+        "townLevel": 1,
+        "wave": 4,
+        "phase": "victory",
+        "food": 0,
+        "coins": 0,
+        "kills": 0,
+        "patrolKills": 0,
+        "guardLevel": 5,
+        "maxGuardHp": 180,
+        "spikesLevel": 1,
+        "farmLevel": 4,
+        "archerUnlocked": false,
+        "archerLevel": 0,
+        "catapultUnlocked": false,
+        "catapultLevel": 0,
+        "towerSlot": null,
+        "wavesCleared": 4,
+        "waveDifficulties": {},
+        "frontHero": "legionary",
+        "supportHero": null,
+        "autoSpells": false,
+        "hintsSeen": [
+          "call",
+          "bash",
+          "upgrade",
+          "defeat",
+          "boss",
+          "heroes"
+        ],
+        "trophies": 0,
+        "eagles": 0,
+        "systems": [],
+        "gear": [],
+        "gearDrops": 0,
+        "eliteKills": 0,
+        "temple": {
+          "mars": 0,
+          "ceres": 0,
+          "minerva": 0
+        },
+        "heroes": {
+          "legionary": {
+            "unlocked": true,
+            "fatigue": 0,
+            "rested": false,
+            "level": 1
+          },
+          "hoplite": {
+            "unlocked": false,
+            "fatigue": 0,
+            "rested": false,
+            "level": 1
+          },
+          "archer": {
+            "unlocked": false,
+            "fatigue": 0,
+            "rested": false,
+            "level": 1
+          },
+          "catapult": {
+            "unlocked": false,
+            "fatigue": 0,
+            "rested": false,
+            "level": 1
+          },
+          "priestess": {
+            "unlocked": false,
+            "fatigue": 0,
+            "rested": false,
+            "level": 1
+          }
+        }
+      },
+      "settings": {
+        "autoSpells": false
+      },
+      "commands": [
+        {
+          "atTick": 0,
+          "command": "callWave"
+        }
+      ],
+      "runUntil": "waveEnds",
+      "maxTicks": 36000,
+      "expect": {
+        "phase": "victory",
+        "wave": 5,
+        "guardHp": 16,
+        "maxGuardHp": 180,
+        "kills": 4,
+        "defeated": 4,
+        "coins": 37,
+        "food": 44,
+        "wavesCleared": 5,
+        "trophies": 1,
+        "eagles": 0,
+        "gear": 0,
+        "ticks": 2146
+      }
+    },
+    {
+      "id": "fight-wave-7-auto",
+      "description": "Wave 7 with the expected build, spells on AUTO.",
+      "save": {
+        "version": 2,
+        "savedAt": 0,
+        "townLevel": 2,
+        "wave": 6,
+        "phase": "victory",
+        "food": 0,
+        "coins": 0,
+        "kills": 0,
+        "patrolKills": 0,
+        "guardLevel": 7,
+        "maxGuardHp": 220,
+        "spikesLevel": 2,
+        "farmLevel": 5,
+        "archerUnlocked": true,
+        "archerLevel": 3,
+        "catapultUnlocked": true,
+        "catapultLevel": 3,
+        "towerSlot": "archer",
+        "wavesCleared": 6,
+        "waveDifficulties": {},
+        "frontHero": "legionary",
+        "supportHero": null,
+        "autoSpells": false,
+        "hintsSeen": [
+          "call",
+          "bash",
+          "upgrade",
+          "defeat",
+          "boss",
+          "heroes"
+        ],
+        "trophies": 0,
+        "eagles": 0,
+        "systems": [],
+        "gear": [],
+        "gearDrops": 0,
+        "eliteKills": 0,
+        "temple": {
+          "mars": 0,
+          "ceres": 0,
+          "minerva": 0
+        },
+        "heroes": {
+          "legionary": {
+            "unlocked": true,
+            "fatigue": 0,
+            "rested": false,
+            "level": 1
+          },
+          "hoplite": {
+            "unlocked": false,
+            "fatigue": 0,
+            "rested": false,
+            "level": 1
+          },
+          "archer": {
+            "unlocked": true,
+            "fatigue": 1,
+            "rested": false,
+            "level": 1
+          },
+          "catapult": {
+            "unlocked": true,
+            "fatigue": 0,
+            "rested": false,
+            "level": 1
+          },
+          "priestess": {
+            "unlocked": false,
+            "fatigue": 0,
+            "rested": false,
+            "level": 1
+          }
+        }
+      },
+      "settings": {
+        "autoSpells": true
+      },
+      "commands": [
+        {
+          "atTick": 0,
+          "command": "callWave"
+        }
+      ],
+      "runUntil": "waveEnds",
+      "maxTicks": 36000,
+      "expect": {
+        "phase": "victory",
+        "wave": 7,
+        "guardHp": 135,
+        "maxGuardHp": 220,
+        "kills": 4,
+        "defeated": 4,
+        "coins": 38,
+        "food": 50,
+        "wavesCleared": 7,
+        "trophies": 0,
+        "eagles": 0,
+        "gear": 0,
+        "ticks": 1949
+      }
+    },
+    {
+      "id": "fight-wave-10-auto",
+      "description": "Wave 10 with the expected build, spells on AUTO.",
+      "save": {
+        "version": 2,
+        "savedAt": 0,
+        "townLevel": 2,
+        "wave": 9,
+        "phase": "victory",
+        "food": 0,
+        "coins": 0,
+        "kills": 0,
+        "patrolKills": 0,
+        "guardLevel": 10,
+        "maxGuardHp": 280,
+        "spikesLevel": 2,
+        "farmLevel": 6,
+        "archerUnlocked": true,
+        "archerLevel": 5,
+        "catapultUnlocked": true,
+        "catapultLevel": 5,
+        "towerSlot": "catapult",
+        "wavesCleared": 9,
+        "waveDifficulties": {},
+        "frontHero": "hoplite",
+        "supportHero": null,
+        "autoSpells": false,
+        "hintsSeen": [
+          "call",
+          "bash",
+          "upgrade",
+          "defeat",
+          "boss",
+          "heroes"
+        ],
+        "trophies": 0,
+        "eagles": 0,
+        "systems": [],
+        "gear": [],
+        "gearDrops": 0,
+        "eliteKills": 0,
+        "temple": {
+          "mars": 0,
+          "ceres": 0,
+          "minerva": 0
+        },
+        "heroes": {
+          "legionary": {
+            "unlocked": true,
+            "fatigue": 2,
+            "rested": false,
+            "level": 1
+          },
+          "hoplite": {
+            "unlocked": true,
+            "fatigue": 0,
+            "rested": true,
+            "level": 1
+          },
+          "archer": {
+            "unlocked": true,
+            "fatigue": 3,
+            "rested": false,
+            "level": 1
+          },
+          "catapult": {
+            "unlocked": true,
+            "fatigue": 0,
+            "rested": false,
+            "level": 1
+          },
+          "priestess": {
+            "unlocked": false,
+            "fatigue": 0,
+            "rested": false,
+            "level": 1
+          }
+        }
+      },
+      "settings": {
+        "autoSpells": true
+      },
+      "commands": [
+        {
+          "atTick": 0,
+          "command": "callWave"
+        }
+      ],
+      "runUntil": "waveEnds",
+      "maxTicks": 36000,
+      "expect": {
+        "phase": "victory",
+        "wave": 10,
+        "guardHp": 30,
+        "maxGuardHp": 280,
+        "kills": 5,
+        "defeated": 5,
+        "coins": 62,
+        "food": 132,
+        "wavesCleared": 10,
+        "trophies": 2,
+        "eagles": 1,
+        "gear": 0,
+        "ticks": 4155
+      }
+    },
+    {
+      "id": "fight-wave-15-auto",
+      "description": "Wave 15 with the expected build, spells on AUTO.",
+      "save": {
+        "version": 2,
+        "savedAt": 0,
+        "townLevel": 3,
+        "wave": 14,
+        "phase": "victory",
+        "food": 0,
+        "coins": 0,
+        "kills": 0,
+        "patrolKills": 0,
+        "guardLevel": 14,
+        "maxGuardHp": 360,
+        "spikesLevel": 3,
+        "farmLevel": 9,
+        "archerUnlocked": true,
+        "archerLevel": 8,
+        "catapultUnlocked": true,
+        "catapultLevel": 8,
+        "towerSlot": "catapult",
+        "wavesCleared": 14,
+        "waveDifficulties": {},
+        "frontHero": "hoplite",
+        "supportHero": null,
+        "autoSpells": false,
+        "hintsSeen": [
+          "call",
+          "bash",
+          "upgrade",
+          "defeat",
+          "boss",
+          "heroes"
+        ],
+        "trophies": 1,
+        "eagles": 0,
+        "systems": [
+          "armory"
+        ],
+        "gear": [],
+        "gearDrops": 0,
+        "eliteKills": 0,
+        "temple": {
+          "mars": 0,
+          "ceres": 0,
+          "minerva": 0
+        },
+        "heroes": {
+          "legionary": {
+            "unlocked": true,
+            "fatigue": 3,
+            "rested": false,
+            "level": 1
+          },
+          "hoplite": {
+            "unlocked": true,
+            "fatigue": 0,
+            "rested": true,
+            "level": 1
+          },
+          "archer": {
+            "unlocked": true,
+            "fatigue": 3,
+            "rested": false,
+            "level": 1
+          },
+          "catapult": {
+            "unlocked": true,
+            "fatigue": 0,
+            "rested": false,
+            "level": 1
+          },
+          "priestess": {
+            "unlocked": false,
+            "fatigue": 0,
+            "rested": false,
+            "level": 1
+          }
+        }
+      },
+      "settings": {
+        "autoSpells": true
+      },
+      "commands": [
+        {
+          "atTick": 0,
+          "command": "callWave"
+        }
+      ],
+      "runUntil": "waveEnds",
+      "maxTicks": 36000,
+      "expect": {
+        "phase": "defeat",
+        "wave": 15,
+        "guardHp": 108,
+        "maxGuardHp": 360,
+        "kills": 3,
+        "defeated": 4,
+        "coins": 6,
+        "food": 189,
+        "wavesCleared": 14,
+        "trophies": 1,
+        "eagles": 0,
+        "gear": 0,
+        "ticks": 3852
+      }
+    },
+    {
+      "id": "fight-wave-20-auto",
+      "description": "Wave 20 with the expected build, spells on AUTO.",
+      "save": {
+        "version": 2,
+        "savedAt": 0,
+        "townLevel": 4,
+        "wave": 19,
+        "phase": "victory",
+        "food": 0,
+        "coins": 0,
+        "kills": 0,
+        "patrolKills": 0,
+        "guardLevel": 18,
+        "maxGuardHp": 440,
+        "spikesLevel": 4,
+        "farmLevel": 11,
+        "archerUnlocked": true,
+        "archerLevel": 10,
+        "catapultUnlocked": true,
+        "catapultLevel": 10,
+        "towerSlot": "catapult",
+        "wavesCleared": 19,
+        "waveDifficulties": {},
+        "frontHero": "hoplite",
+        "supportHero": "priestess",
+        "autoSpells": false,
+        "hintsSeen": [
+          "call",
+          "bash",
+          "upgrade",
+          "defeat",
+          "boss",
+          "heroes"
+        ],
+        "trophies": 1,
+        "eagles": 0,
+        "systems": [
+          "armory"
+        ],
+        "gear": [
+          {
+            "id": 1,
+            "slot": "weapon",
+            "rarity": 0,
+            "owner": "hoplite"
+          }
+        ],
+        "gearDrops": 1,
+        "eliteKills": 0,
+        "temple": {
+          "mars": 0,
+          "ceres": 0,
+          "minerva": 0
+        },
+        "heroes": {
+          "legionary": {
+            "unlocked": true,
+            "fatigue": 3,
+            "rested": false,
+            "level": 1
+          },
+          "hoplite": {
+            "unlocked": true,
+            "fatigue": 0,
+            "rested": true,
+            "level": 1
+          },
+          "archer": {
+            "unlocked": true,
+            "fatigue": 3,
+            "rested": false,
+            "level": 1
+          },
+          "catapult": {
+            "unlocked": true,
+            "fatigue": 0,
+            "rested": false,
+            "level": 1
+          },
+          "priestess": {
+            "unlocked": true,
+            "fatigue": 0,
+            "rested": false,
+            "level": 1
+          }
+        }
+      },
+      "settings": {
+        "autoSpells": true
+      },
+      "commands": [
+        {
+          "atTick": 0,
+          "command": "callWave"
+        }
+      ],
+      "runUntil": "waveEnds",
+      "maxTicks": 36000,
+      "expect": {
+        "phase": "victory",
+        "wave": 20,
+        "guardHp": 69,
+        "maxGuardHp": 440,
+        "kills": 5,
+        "defeated": 5,
+        "coins": 111,
+        "food": 528,
+        "wavesCleared": 20,
+        "trophies": 3,
+        "eagles": 1,
+        "gear": 3,
+        "ticks": 8783
+      }
+    },
+    {
+      "id": "fight-wave-25-auto",
+      "description": "Wave 25 with the expected build, spells on AUTO.",
+      "save": {
+        "version": 2,
+        "savedAt": 0,
+        "townLevel": 5,
+        "wave": 24,
+        "phase": "victory",
+        "food": 0,
+        "coins": 0,
+        "kills": 0,
+        "patrolKills": 0,
+        "guardLevel": 21,
+        "maxGuardHp": 500,
+        "spikesLevel": 5,
+        "farmLevel": 14,
+        "archerUnlocked": true,
+        "archerLevel": 13,
+        "catapultUnlocked": true,
+        "catapultLevel": 13,
+        "towerSlot": "catapult",
+        "wavesCleared": 24,
+        "waveDifficulties": {},
+        "frontHero": "hoplite",
+        "supportHero": "priestess",
+        "autoSpells": false,
+        "hintsSeen": [
+          "call",
+          "bash",
+          "upgrade",
+          "defeat",
+          "boss",
+          "heroes"
+        ],
+        "trophies": 2,
+        "eagles": 0,
+        "systems": [
+          "armory",
+          "barracks"
+        ],
+        "gear": [
+          {
+            "id": 1,
+            "slot": "weapon",
+            "rarity": 0,
+            "owner": "hoplite"
+          },
+          {
+            "id": 2,
+            "slot": "armor",
+            "rarity": 1,
+            "owner": "hoplite"
+          },
+          {
+            "id": 3,
+            "slot": "charm",
+            "rarity": 1,
+            "owner": "hoplite"
+          }
+        ],
+        "gearDrops": 3,
+        "eliteKills": 0,
+        "temple": {
+          "mars": 0,
+          "ceres": 0,
+          "minerva": 0
+        },
+        "heroes": {
+          "legionary": {
+            "unlocked": true,
+            "fatigue": 3,
+            "rested": false,
+            "level": 6
+          },
+          "hoplite": {
+            "unlocked": true,
+            "fatigue": 0,
+            "rested": true,
+            "level": 6
+          },
+          "archer": {
+            "unlocked": true,
+            "fatigue": 3,
+            "rested": false,
+            "level": 6
+          },
+          "catapult": {
+            "unlocked": true,
+            "fatigue": 0,
+            "rested": false,
+            "level": 6
+          },
+          "priestess": {
+            "unlocked": true,
+            "fatigue": 0,
+            "rested": false,
+            "level": 6
+          }
+        }
+      },
+      "settings": {
+        "autoSpells": true
+      },
+      "commands": [
+        {
+          "atTick": 0,
+          "command": "callWave"
+        }
+      ],
+      "runUntil": "waveEnds",
+      "maxTicks": 36000,
+      "expect": {
+        "phase": "defeat",
+        "wave": 25,
+        "guardHp": 150,
+        "maxGuardHp": 500,
+        "kills": 4,
+        "defeated": 4,
+        "coins": 17,
+        "food": 1204,
+        "wavesCleared": 24,
+        "trophies": 2,
+        "eagles": 0,
+        "gear": 3,
+        "ticks": 15687
+      }
+    },
+    {
+      "id": "fight-wave-30-auto",
+      "description": "Wave 30 with the expected build, spells on AUTO.",
+      "save": {
+        "version": 2,
+        "savedAt": 0,
+        "townLevel": 6,
+        "wave": 29,
+        "phase": "victory",
+        "food": 0,
+        "coins": 0,
+        "kills": 0,
+        "patrolKills": 0,
+        "guardLevel": 25,
+        "maxGuardHp": 580,
+        "spikesLevel": 6,
+        "farmLevel": 16,
+        "archerUnlocked": true,
+        "archerLevel": 15,
+        "catapultUnlocked": true,
+        "catapultLevel": 15,
+        "towerSlot": "catapult",
+        "wavesCleared": 29,
+        "waveDifficulties": {},
+        "frontHero": "hoplite",
+        "supportHero": "priestess",
+        "autoSpells": false,
+        "hintsSeen": [
+          "call",
+          "bash",
+          "upgrade",
+          "defeat",
+          "boss",
+          "heroes"
+        ],
+        "trophies": 2,
+        "eagles": 0,
+        "systems": [
+          "armory",
+          "barracks"
+        ],
+        "gear": [
+          {
+            "id": 1,
+            "slot": "weapon",
+            "rarity": 0,
+            "owner": "priestess"
+          },
+          {
+            "id": 2,
+            "slot": "armor",
+            "rarity": 1,
+            "owner": "hoplite"
+          },
+          {
+            "id": 3,
+            "slot": "charm",
+            "rarity": 1,
+            "owner": "hoplite"
+          },
+          {
+            "id": 4,
+            "slot": "weapon",
+            "rarity": 1,
+            "owner": "hoplite"
+          }
+        ],
+        "gearDrops": 4,
+        "eliteKills": 0,
+        "temple": {
+          "mars": 0,
+          "ceres": 0,
+          "minerva": 0
+        },
+        "heroes": {
+          "legionary": {
+            "unlocked": true,
+            "fatigue": 3,
+            "rested": false,
+            "level": 11
+          },
+          "hoplite": {
+            "unlocked": true,
+            "fatigue": 0,
+            "rested": true,
+            "level": 11
+          },
+          "archer": {
+            "unlocked": true,
+            "fatigue": 3,
+            "rested": false,
+            "level": 11
+          },
+          "catapult": {
+            "unlocked": true,
+            "fatigue": 0,
+            "rested": false,
+            "level": 11
+          },
+          "priestess": {
+            "unlocked": true,
+            "fatigue": 0,
+            "rested": false,
+            "level": 11
+          }
+        }
+      },
+      "settings": {
+        "autoSpells": true
+      },
+      "commands": [
+        {
+          "atTick": 0,
+          "command": "callWave"
+        }
+      ],
+      "runUntil": "waveEnds",
+      "maxTicks": 36000,
+      "expect": {
+        "phase": "complete",
+        "wave": 30,
+        "guardHp": 125,
+        "maxGuardHp": 580,
+        "kills": 6,
+        "defeated": 6,
+        "coins": 166,
+        "food": 880,
+        "wavesCleared": 30,
+        "trophies": 4,
+        "eagles": 1,
+        "gear": 6,
+        "ticks": 10019
+      }
+    }
+  ]
+}

@@ -4,6 +4,7 @@
 const WORLD = { width: 1170, height: 540 };
 const GROUND_RATIO = 0.7;
 const ACTOR_SCALE = 0.8;
+const COMBAT = GAME_DATA.combat; // data/combat.json: geometry and combat timings
 // ---------------------------------------------------------------------------
 // Archer, hero volley, catapult and unlocks.
 // ---------------------------------------------------------------------------

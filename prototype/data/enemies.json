@@ -278,5 +278,10 @@
     "enrage": {
       "description": "enrage: +50% damage below half HP"
     }
+  },
+  "damageRules": {
+    "_doc": "pierce (arrows) vs shield trait: x shieldPierceFactor. Armor subtracts `armor` from every non-area hit, but a hit never drops below armorFloor x raw damage. Barrier (shaman aura) absorbs damage first.",
+    "shieldPierceFactor": 0.5,
+    "armorFloor": 0.25
   }
 }

@@ -1,0 +1,645 @@
+{
+  "generatedBy": "prototype/tools/export-golden.cjs",
+  "randomConstant": 0.5,
+  "fixedStep": 0.016666666666666666,
+  "world": {
+    "width": 1170,
+    "height": 540
+  },
+  "prices": {
+    "guard": [
+      36,
+      54,
+      81,
+      122,
+      182,
+      273,
+      410,
+      615,
+      923,
+      1384,
+      1550,
+      1736,
+      1944,
+      2178,
+      2439,
+      2732,
+      3059,
+      3427,
+      3838,
+      4298,
+      4814,
+      5392,
+      6039,
+      6764,
+      7575,
+      8484,
+      9502,
+      10643,
+      11920,
+      13350
+    ],
+    "farm": [
+      24,
+      38,
+      61,
+      98,
+      157,
+      252,
+      403,
+      644,
+      1031,
+      1649,
+      1847,
+      2069,
+      2317,
+      2595,
+      2907,
+      3255,
+      3646,
+      4084,
+      4574,
+      5122,
+      5737,
+      6426,
+      7197,
+      8060,
+      9027,
+      10111,
+      11324,
+      12683,
+      14205,
+      15909
+    ],
+    "spikes": [
+      24,
+      36,
+      54,
+      81,
+      122,
+      182,
+      273,
+      410,
+      615,
+      923,
+      1033,
+      1157,
+      1296,
+      1452,
+      1626,
+      1821,
+      2040,
+      2284,
+      2559,
+      2866,
+      3209,
+      3595,
+      4026,
+      4509,
+      5050,
+      5656,
+      6335,
+      7095,
+      7946,
+      8900
+    ],
+    "archer": [
+      24,
+      32,
+      44,
+      59,
+      80,
+      108,
+      145,
+      196,
+      265,
+      357,
+      400,
+      448,
+      502,
+      562,
+      630,
+      706,
+      790,
+      885,
+      991,
+      1110,
+      1243,
+      1393,
+      1560,
+      1747,
+      1957,
+      2191,
+      2454,
+      2749,
+      3079,
+      3448
+    ],
+    "catapult": [
+      28,
+      38,
+      51,
+      69,
+      93,
+      126,
+      169,
+      229,
+      309,
+      417,
+      467,
+      523,
+      586,
+      656,
+      735,
+      823,
+      922,
+      1033,
+      1156,
+      1295,
+      1451,
+      1625,
+      1820,
+      2038,
+      2283,
+      2557,
+      2863,
+      3207,
+      3592,
+      4023
+    ]
+  },
+  "difficulty": [
+    {
+      "wave": 1,
+      "hp": 3.62,
+      "damage": 3,
+      "recommended": 1
+    },
+    {
+      "wave": 2,
+      "hp": 3.873,
+      "damage": 3.282,
+      "recommended": 2
+    },
+    {
+      "wave": 3,
+      "hp": 11.364,
+      "damage": 1.888,
+      "recommended": 3
+    },
+    {
+      "wave": 4,
+      "hp": 10.706,
+      "damage": 2.447,
+      "recommended": 4
+    },
+    {
+      "wave": 5,
+      "hp": 3.823,
+      "damage": 1.971,
+      "recommended": 5
+    },
+    {
+      "wave": 6,
+      "hp": 4.62,
+      "damage": 1.546,
+      "recommended": 6
+    },
+    {
+      "wave": 7,
+      "hp": 16.003,
+      "damage": 4.842,
+      "recommended": 7
+    },
+    {
+      "wave": 8,
+      "hp": 11.957,
+      "damage": 3.45,
+      "recommended": 8
+    },
+    {
+      "wave": 9,
+      "hp": 14.791,
+      "damage": 7.167,
+      "recommended": 9
+    },
+    {
+      "wave": 10,
+      "hp": 15.56,
+      "damage": 3.224,
+      "recommended": 10
+    },
+    {
+      "wave": 11,
+      "hp": 21.93,
+      "damage": 5.001,
+      "recommended": 11
+    },
+    {
+      "wave": 12,
+      "hp": 80.103,
+      "damage": 3.377,
+      "recommended": 12
+    },
+    {
+      "wave": 13,
+      "hp": 73.621,
+      "damage": 3.578,
+      "recommended": 12
+    },
+    {
+      "wave": 14,
+      "hp": 29.692,
+      "damage": 3.069,
+      "recommended": 13
+    },
+    {
+      "wave": 15,
+      "hp": 36.64,
+      "damage": 3.278,
+      "recommended": 14
+    },
+    {
+      "wave": 16,
+      "hp": 42.528,
+      "damage": 6.981,
+      "recommended": 15
+    },
+    {
+      "wave": 17,
+      "hp": 145.551,
+      "damage": 4.573,
+      "recommended": 15
+    },
+    {
+      "wave": 18,
+      "hp": 166.259,
+      "damage": 3.875,
+      "recommended": 16
+    },
+    {
+      "wave": 19,
+      "hp": 85.188,
+      "damage": 6.551,
+      "recommended": 17
+    },
+    {
+      "wave": 20,
+      "hp": 37.267,
+      "damage": 4.316,
+      "recommended": 18
+    },
+    {
+      "wave": 21,
+      "hp": 117.195,
+      "damage": 4.714,
+      "recommended": 18
+    },
+    {
+      "wave": 22,
+      "hp": 81.558,
+      "damage": 4.15,
+      "recommended": 19
+    },
+    {
+      "wave": 23,
+      "hp": 217.717,
+      "damage": 4.548,
+      "recommended": 20
+    },
+    {
+      "wave": 24,
+      "hp": 34.845,
+      "damage": 9.934,
+      "recommended": 21
+    },
+    {
+      "wave": 25,
+      "hp": 175.078,
+      "damage": 6.692,
+      "recommended": 21
+    },
+    {
+      "wave": 26,
+      "hp": 118.056,
+      "damage": 9.079,
+      "recommended": 22
+    },
+    {
+      "wave": 27,
+      "hp": 137.529,
+      "damage": 9.827,
+      "recommended": 23
+    },
+    {
+      "wave": 28,
+      "hp": 452.394,
+      "damage": 6.788,
+      "recommended": 24
+    },
+    {
+      "wave": 29,
+      "hp": 391.746,
+      "damage": 9.056,
+      "recommended": 24
+    },
+    {
+      "wave": 30,
+      "hp": 81.048,
+      "damage": 12.163,
+      "recommended": 25
+    }
+  ],
+  "offline": [
+    {
+      "village": 1,
+      "seconds": 30,
+      "farmLevel": 1,
+      "food": 0,
+      "gold": 0
+    },
+    {
+      "village": 1,
+      "seconds": 30,
+      "farmLevel": 5,
+      "food": 0,
+      "gold": 0
+    },
+    {
+      "village": 1,
+      "seconds": 600,
+      "farmLevel": 1,
+      "food": 100,
+      "gold": 30
+    },
+    {
+      "village": 1,
+      "seconds": 600,
+      "farmLevel": 5,
+      "food": 500,
+      "gold": 30
+    },
+    {
+      "village": 1,
+      "seconds": 3600,
+      "farmLevel": 1,
+      "food": 600,
+      "gold": 180
+    },
+    {
+      "village": 1,
+      "seconds": 3600,
+      "farmLevel": 5,
+      "food": 3000,
+      "gold": 180
+    },
+    {
+      "village": 1,
+      "seconds": 7200,
+      "farmLevel": 1,
+      "food": 1200,
+      "gold": 360
+    },
+    {
+      "village": 1,
+      "seconds": 7200,
+      "farmLevel": 5,
+      "food": 6000,
+      "gold": 360
+    },
+    {
+      "village": 1,
+      "seconds": 7200,
+      "farmLevel": 1,
+      "food": 1200,
+      "gold": 360
+    },
+    {
+      "village": 1,
+      "seconds": 7200,
+      "farmLevel": 5,
+      "food": 6000,
+      "gold": 360
+    },
+    {
+      "village": 1,
+      "seconds": 7200,
+      "farmLevel": 1,
+      "food": 1200,
+      "gold": 360
+    },
+    {
+      "village": 1,
+      "seconds": 7200,
+      "farmLevel": 5,
+      "food": 6000,
+      "gold": 360
+    },
+    {
+      "village": 3,
+      "seconds": 30,
+      "farmLevel": 1,
+      "food": 0,
+      "gold": 0
+    },
+    {
+      "village": 3,
+      "seconds": 30,
+      "farmLevel": 5,
+      "food": 0,
+      "gold": 0
+    },
+    {
+      "village": 3,
+      "seconds": 600,
+      "farmLevel": 1,
+      "food": 100,
+      "gold": 30
+    },
+    {
+      "village": 3,
+      "seconds": 600,
+      "farmLevel": 5,
+      "food": 500,
+      "gold": 30
+    },
+    {
+      "village": 3,
+      "seconds": 3600,
+      "farmLevel": 1,
+      "food": 600,
+      "gold": 180
+    },
+    {
+      "village": 3,
+      "seconds": 3600,
+      "farmLevel": 5,
+      "food": 3000,
+      "gold": 180
+    },
+    {
+      "village": 3,
+      "seconds": 7200,
+      "farmLevel": 1,
+      "food": 1200,
+      "gold": 360
+    },
+    {
+      "village": 3,
+      "seconds": 7200,
+      "farmLevel": 5,
+      "food": 6000,
+      "gold": 360
+    },
+    {
+      "village": 3,
+      "seconds": 14400,
+      "farmLevel": 1,
+      "food": 2400,
+      "gold": 720
+    },
+    {
+      "village": 3,
+      "seconds": 14400,
+      "farmLevel": 5,
+      "food": 12000,
+      "gold": 720
+    },
+    {
+      "village": 3,
+      "seconds": 14400,
+      "farmLevel": 1,
+      "food": 2400,
+      "gold": 720
+    },
+    {
+      "village": 3,
+      "seconds": 14400,
+      "farmLevel": 5,
+      "food": 12000,
+      "gold": 720
+    },
+    {
+      "village": 5,
+      "seconds": 30,
+      "farmLevel": 1,
+      "food": 0,
+      "gold": 0
+    },
+    {
+      "village": 5,
+      "seconds": 30,
+      "farmLevel": 5,
+      "food": 0,
+      "gold": 0
+    },
+    {
+      "village": 5,
+      "seconds": 600,
+      "farmLevel": 1,
+      "food": 100,
+      "gold": 30
+    },
+    {
+      "village": 5,
+      "seconds": 600,
+      "farmLevel": 5,
+      "food": 500,
+      "gold": 30
+    },
+    {
+      "village": 5,
+      "seconds": 3600,
+      "farmLevel": 1,
+      "food": 600,
+      "gold": 180
+    },
+    {
+      "village": 5,
+      "seconds": 3600,
+      "farmLevel": 5,
+      "food": 3000,
+      "gold": 180
+    },
+    {
+      "village": 5,
+      "seconds": 7200,
+      "farmLevel": 1,
+      "food": 1200,
+      "gold": 360
+    },
+    {
+      "village": 5,
+      "seconds": 7200,
+      "farmLevel": 5,
+      "food": 6000,
+      "gold": 360
+    },
+    {
+      "village": 5,
+      "seconds": 28800,
+      "farmLevel": 1,
+      "food": 4800,
+      "gold": 1440
+    },
+    {
+      "village": 5,
+      "seconds": 28800,
+      "farmLevel": 5,
+      "food": 24000,
+      "gold": 1440
+    },
+    {
+      "village": 5,
+      "seconds": 28800,
+      "farmLevel": 1,
+      "food": 4800,
+      "gold": 1440
+    },
+    {
+      "village": 5,
+      "seconds": 28800,
+      "farmLevel": 5,
+      "food": 24000,
+      "gold": 1440
+    }
+  ],
+  "effectiveDamage": [
+    {
+      "type": "orcShield",
+      "raw": 4,
+      "kind": "pierce",
+      "result": 2
+    },
+    {
+      "type": "orcShield",
+      "raw": 4,
+      "kind": "melee",
+      "result": 4
+    },
+    {
+      "type": "boar",
+      "raw": 4,
+      "kind": "melee",
+      "result": 3
+    },
+    {
+      "type": "boar",
+      "raw": 4,
+      "kind": "area",
+      "result": 4
+    },
+    {
+      "type": "troll",
+      "raw": 1,
+      "kind": "melee",
+      "result": 0.25
+    },
+    {
+      "type": "troll",
+      "raw": 10,
+      "kind": "pierce",
+      "result": 8
+    }
+  ]
+}

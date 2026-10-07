@@ -32,22 +32,23 @@ function guardAttackInterval(level) {
   return Math.max(i.min, i.base + (level - 1) * i.perLevel);
 }
 
+// Difficulty formula; every constant lives in data/balance.json → difficulty.
+function difficultyOffense(progress, withTower) {
+  const k = GAME_DATA.balance.difficulty;
+  const dpsRatio = progress.guardLevel * k.dpsReference / guardAttackInterval(progress.guardLevel);
+  // Sublinear adaptation to the EXPECTED build (never the live one): investing in combat pays off.
+  return 1 + k.offenseDps * (Math.sqrt(dpsRatio) - 1) + k.offenseSpikes * Math.pow(progress.spikesLevel, k.spikesExponent)
+    + (withTower ? k.offenseTower * Math.max(progress.archerLevel || 0, progress.catapultLevel || 0) : 0);
+}
+
 function calculateOpeningDifficulty(wave, progress) {
-  // The roster itself becomes more dangerous (more shield units, elites and a
-  // boss), so raw stat growth must not also rise monotonically. These factors
-  // are calibrated by tools/balance-bot.cjs against a farm/upgrade/play loop.
   // Early waves: fewer HP and harder hits, so fights are short but you feel every blow.
-  const rosterHpTuning = OPENING_HP_TUNING;
-  if (wave === 1) return { hp: rosterHpTuning[0], damage: OPENING_DAMAGE_TUNING[0] };
+  const k = GAME_DATA.balance.difficulty;
+  if (wave === 1) return { hp: OPENING_HP_TUNING[0], damage: OPENING_DAMAGE_TUNING[0] };
   const step = wave - 1;
-  const dpsRatio = progress.guardLevel * 0.72 / guardAttackInterval(progress.guardLevel);
-  // Sublinear adaptation preserves the advantage of investing in combat.
-  // Economy, stored resources, gate upgrades and current health never raise difficulty.
-  const offense = 1 + 0.35 * (Math.sqrt(dpsRatio) - 1)
-    + 0.12 * Math.pow(progress.spikesLevel, 0.75);
   return {
-    hp: (1 + 0.3 * step + 0.06 * step * step) * offense * (rosterHpTuning[wave - 1] || 0.5),
-    damage: (1 + 0.12 * step) * Math.pow(progress.maxGuardHp / 100, 0.25) * (OPENING_DAMAGE_TUNING[wave - 1] || 1)
+    hp: (1 + k.hpLinear * step + k.hpQuadratic * step * step) * difficultyOffense(progress, false) * (OPENING_HP_TUNING[wave - 1] || k.missingOpeningTuning),
+    damage: (1 + k.damagePerStep * step) * Math.pow(progress.maxGuardHp / k.hpReference, k.hpExponent) * (OPENING_DAMAGE_TUNING[wave - 1] || 1)
   };
 }
 const OPENING_HP_TUNING = GAME_DATA.balance.opening.hp;
@@ -61,21 +62,16 @@ const ACT3_DAMAGE_TUNING = GAME_DATA.balance.act3.damage;
 
 function calculateWaveDifficulty(wave, progress) {
   if (wave <= 5) return calculateOpeningDifficulty(wave, progress);
+  const k = GAME_DATA.balance.difficulty;
   // Act II starts a gentler curve while introducing new enemy traits.
-  const step = wave <= 5 ? wave - 1 : (wave - 6) + 2.5;
-  const dpsRatio = progress.guardLevel * 0.72 / guardAttackInterval(progress.guardLevel);
-  // Sublinear adaptation preserves the advantage of investing in combat.
-  // Economy, stored resources and current health never raise difficulty.
-  const offense = 1 + 0.35 * (Math.sqrt(dpsRatio) - 1)
-    + 0.12 * Math.pow(progress.spikesLevel, 0.75)
-    + 0.1 * Math.max(progress.archerLevel || 0, progress.catapultLevel || 0);
+  const step = (wave - 6) + k.act2StepOffset;
   // Expected hero training scales enemies the same way it scales heroes.
   const trained = Math.max(0, (progress.heroLevel || 1) - 1);
   const tuneHp = (wave <= 10 ? ACT2_HP_TUNING[wave - 6] : (ACT3_HP_TUNING[wave - 11] ?? 1)) * (1 + BARRACKS.damage * trained);
   const tuneDamage = (wave <= 10 ? ACT2_DAMAGE_TUNING[wave - 6] : (ACT3_DAMAGE_TUNING[wave - 11] ?? 1)) * (1 + BARRACKS.toughness * trained);
   return {
-    hp: (1 + 0.3 * step + 0.06 * step * step) * offense * tuneHp,
-    damage: (1 + 0.12 * step) * Math.pow(progress.maxGuardHp / 100, 0.25) * tuneDamage
+    hp: (1 + k.hpLinear * step + k.hpQuadratic * step * step) * difficultyOffense(progress, true) * tuneHp,
+    damage: (1 + k.damagePerStep * step) * Math.pow(progress.maxGuardHp / k.hpReference, k.hpExponent) * tuneDamage
   };
 }
 

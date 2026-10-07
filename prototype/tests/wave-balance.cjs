@@ -442,6 +442,12 @@ console.log('No stalemates: catapult waves with enemy archers end.');
     const hit = code.match(forbidden);
     assert.equal(hit, null, `${file} must not use ${hit && hit[0]} (simulation stays engine-agnostic)`);
   }
-  require('node:child_process').execFileSync(process.execPath, [require('node:path').join(__dirname, '../tools/build-data.cjs'), '--check'], { stdio: 'pipe' });
-  console.log('Architecture passed: sim runs without DOM, no browser globals in src/sim, data bundle up to date.');
+  for (const tool of ['build-data.cjs', 'gen-rules.cjs', 'export-golden.cjs']) {
+    try {
+      require('node:child_process').execFileSync(process.execPath, [require('node:path').join(__dirname, '../tools', tool), '--check'], { stdio: 'pipe' });
+    } catch (error) {
+      assert.fail(String(error.stderr || error.message).trim());
+    }
+  }
+  console.log('Architecture passed: sim runs without DOM, no browser globals in src/sim; data bundle, rule tables and golden scenarios up to date.');
 }

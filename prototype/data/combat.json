@@ -1,0 +1,47 @@
+{
+  "_doc": "Battlefield geometry (world units, world = 1170 x 540; x grows to the right, enemies come from x < 0) and combat timings. frontlineX = share of world width where the frontline hero stands.",
+  "frontlineX": 0.52,
+  "melee": {
+    "reachFar": 130,
+    "reachNear": 10,
+    "standOff": 72,
+    "_doc": "The frontline hits the foremost enemy with x in (frontX-reachFar, frontX-reachNear). Blocking enemies stop at frontX-standOff-formationX."
+  },
+  "slipPastAt": 8,
+  "spikes": {
+    "zone": [
+      212,
+      156
+    ],
+    "_doc": "Spikes hurt enemies with x in [frontX-212, frontX-156]."
+  },
+  "projectiles": {
+    "arrowFlight": 0.42,
+    "enemyArrowFlight": 0.55,
+    "rockFlight": 0.9
+  },
+  "aura": {
+    "everySeconds": 6,
+    "radius": 240,
+    "barrierPerWaveHp": 3,
+    "firstAfter": 2.5
+  },
+  "charge": {
+    "firstHitMultiplier": 2
+  },
+  "enrage": {
+    "belowHpShare": 0.5,
+    "multiplier": 1.5
+  },
+  "defeat": {
+    "hpShareAfter": 0.3
+  },
+  "spawn": {
+    "startX": -70
+  },
+  "simulation": {
+    "fixedStep": 0.016666666666666666,
+    "maxFrameDelta": 0.05,
+    "_doc": "At speed > 1 the frame time is split into fixed 1/60 s steps; a frame never advances more than maxFrameDelta x speed."
+  }
+}

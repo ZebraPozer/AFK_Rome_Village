@@ -143,16 +143,16 @@ function spellBlocked(id) {
 }
 
 function bashTarget(width) {
-  const guardX = width * 0.52;
+  const guardX = width * COMBAT.frontlineX;
   return aliveMobs().reduce((lead, mob) => (
-    mob.x > guardX - 150 && mob.x < guardX - 10 && (!lead || mob.x > lead.x) ? mob : lead
+    mob.x > guardX - GAME_DATA.heroes.spells.shieldBash.reach && mob.x < guardX - COMBAT.melee.reachNear && (!lead || mob.x > lead.x) ? mob : lead
   ), null);
 }
 
 function castSpell(id, width = 1170) {
   if (spellBlocked(id)) return false;
   const def = heroDefs[id];
-  const guardX = width * 0.52;
+  const guardX = width * COMBAT.frontlineX;
   const mult = heroDamageMult(id);
   if (def.spell.id === 'shieldBash') {
     const target = bashTarget(width);
@@ -202,7 +202,7 @@ state.heroes = freshHeroes();
 
 // Simple «Авто» policy: also used by the balance bot.
 function autoCastSpells(width = 1170) {
-  const guardX = width * 0.52;
+  const guardX = width * COMBAT.frontlineX;
   for (const id of activeHeroes()) {
     const spell = heroDefs[id].spell;
     if (!spell || spellBlocked(id)) continue;

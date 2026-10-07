@@ -52,8 +52,9 @@ function catapultPrice() {
 function effectiveDamage(mob, raw, type) {
   const stats = enemyTypes[mob.type] || {};
   let damage = raw;
-  if (type === 'pierce' && traitsOf(mob.type).includes('shield')) damage *= 0.5;
-  if (stats.armor && type !== 'area') damage = Math.max(raw * 0.25, damage - stats.armor);
+  const rules = GAME_DATA.enemies.damageRules;
+  if (type === 'pierce' && traitsOf(mob.type).includes('shield')) damage *= rules.shieldPierceFactor;
+  if (stats.armor && type !== 'area') damage = Math.max(raw * rules.armorFloor, damage - stats.armor);
   return damage;
 }
 
@@ -98,7 +99,7 @@ function castVolley() {
 }
 
 function updateDefenders(dt, width) {
-  const guardX = width * 0.52;
+  const guardX = width * COMBAT.frontlineX;
   const { towerX, platformY } = towerGeometry(width);
   state.archerCooldown = Math.max(0, state.archerCooldown - dt);
   const onField = activeHeroes();
@@ -115,12 +116,12 @@ function updateDefenders(dt, width) {
   // Archer: fires at the foremost enemy in range, damage lands when the arrow arrives.
   if (state.archerUnlocked && state.towerSlot === 'archer' && state.archerCooldown <= 0) {
     // Priority: enemy archers first (only our archer outranges them), then the foremost enemy.
-    const inRange = aliveMobs().filter((mob) => mob.x > guardX - ARCHER_RANGE && mob.x < guardX + 8);
+    const inRange = aliveMobs().filter((mob) => mob.x > guardX - ARCHER_RANGE && mob.x < guardX + COMBAT.slipPastAt);
     const ranged = inRange.filter((mob) => traitsOf(mob.type).includes('ranged'));
     const pool = ranged.length ? ranged : inRange;
     const target = pool.reduce((lead, mob) => (!lead || mob.x > lead.x ? mob : lead), null);
     if (target) {
-      state.arrows.push({ sx: towerX - 30, sy: platformY - 62, mob: target, t: 0, dur: 0.42, damage: archerDamage(state.archerLevel) * heroDamageMult('archer') });
+      state.arrows.push({ sx: towerX - 30, sy: platformY - 62, mob: target, t: 0, dur: COMBAT.projectiles.arrowFlight, damage: archerDamage(state.archerLevel) * heroDamageMult('archer') });
       state.archerCooldown = archerInterval(state.archerLevel);
       emit('sfx', { name: 'arrow' });
     }
@@ -142,8 +143,8 @@ function updateDefenders(dt, width) {
       if (score > bestScore) { best = mob; bestScore = score; }
     }
     if (best) {
-      const flight = 0.9;
-      const blocked = best.x >= guardX - 72 - (best.formationX ?? 0) - 1;
+      const flight = COMBAT.projectiles.rockFlight;
+      const blocked = best.x >= guardX - COMBAT.melee.standOff - (best.formationX ?? 0) - 1;
       const lead = blocked ? 0 : walkSpeed(state.wave) * best.speed * flight * 0.8;
       state.rocks.push({ sx: towerX - 34, sy: platformY - 40, tx: Math.min(best.x + lead, guardX - CATAPULT_MIN_RANGE + 40), laneY: best.laneY ?? 0, t: 0, dur: flight, damage: catapultDamage(state.catapultLevel) });
       state.catapultCooldown = catapultInterval(state.catapultLevel);
@@ -255,7 +256,7 @@ function update(delta, width, simulationStep = false) {
   if (!simulationStep && state.speed > 1) {
     let remaining = delta * state.speed;
     while (remaining > 1e-9 && state.running) {
-      const step = Math.min(remaining, 1 / 60);
+      const step = Math.min(remaining, COMBAT.simulation.fixedStep);
       update(step, width, true);
       remaining -= step;
     }
@@ -319,7 +320,7 @@ function update(delta, width, simulationStep = false) {
   } else if (state.regenDelay === 0 && state.guardHp < state.maxGuardHp) {
     // Recover only after the entire skirmish ends, in about two seconds.
     // Recovery is deliberately calm and readable: a full heal takes about four seconds.
-    state.guardHp = Math.min(state.maxGuardHp, state.guardHp + state.maxGuardHp * 0.25 * dt);
+    state.guardHp = Math.min(state.maxGuardHp, state.guardHp + state.maxGuardHp * GAME_DATA.economy.recovery.hpPerSecondShare * dt);
     state.regenFlash = 0.45;
     if (state.regenParticleTimer === 0) {
       for (const offset of [-32, 0, 32]) {
@@ -336,7 +337,7 @@ function update(delta, width, simulationStep = false) {
     state.foodTimer = GAME_DATA.economy.farm.tickSeconds;
   }
 
-  const guardX = width * 0.52;
+  const guardX = width * COMBAT.frontlineX;
   const mobSpeed = walkSpeed(state.wave);
   // Only blockers (not swarm, not ranged while the legionary stands) fight the legionary in melee.
   const charging = state.phase === 'wave' && state.time - stats.waveStartedAt > RANGED_PATIENCE;
@@ -362,11 +363,11 @@ function update(delta, width, simulationStep = false) {
       mob.auraTimer -= dt;
       mob.auraFx = Math.max(0, mob.auraFx - dt);
       if (mob.auraTimer <= 0) {
-        const amount = Math.ceil(3 * (mob.countsForWave ? getWaveDifficulty(state.wave).hp : 1));
+        const amount = Math.ceil(COMBAT.aura.barrierPerWaveHp * (mob.countsForWave ? getWaveDifficulty(state.wave).hp : 1));
         for (const ally of state.mobs) {
-          if (ally !== mob && !ally.dead && Math.abs(ally.x - mob.x) <= 240) ally.barrier = Math.max(ally.barrier || 0, amount);
+          if (ally !== mob && !ally.dead && Math.abs(ally.x - mob.x) <= COMBAT.aura.radius) ally.barrier = Math.max(ally.barrier || 0, amount);
         }
-        mob.auraTimer = 6;
+        mob.auraTimer = COMBAT.aura.everySeconds;
         mob.auraFx = 0.7;
       }
     }
@@ -374,12 +375,12 @@ function update(delta, width, simulationStep = false) {
     const archersCharge = state.phase === 'wave' && state.time - stats.waveStartedAt > RANGED_PATIENCE;
     const rangedNow = !mob.dead && traits.includes('ranged') && state.guardHp > 0 && !archersCharge;
     const holdX = guardX - ((enemyTypes[mob.type] || {}).range || 0) - (mob.formationX ?? 0);
-    const attackX = guardX - 72 - (mob.formationX ?? 0);
+    const attackX = guardX - COMBAT.melee.standOff - (mob.formationX ?? 0);
     const atGuard = blocks(mob) && state.guardHp > 0 && mob.x >= attackX;
     if (rangedNow && mob.x >= holdX) {
       mob.x = Math.min(mob.x, holdX);
       if (mob.attackCooldown <= 0) {
-        state.enemyShots.push({ sx: mob.x + 18, laneY: mob.laneY ?? 0, t: 0, dur: 0.55, damage: mob.damage });
+        state.enemyShots.push({ sx: mob.x + 18, laneY: mob.laneY ?? 0, t: 0, dur: COMBAT.projectiles.enemyArrowFlight, damage: mob.damage });
         emit('sfx', { name: 'arrow', option: true });
         mob.attackMotion = 0.32;
         mob.attackCooldown = mob.attackRate;
@@ -389,8 +390,8 @@ function update(delta, width, simulationStep = false) {
       if (mob === frontline && mob.attackCooldown <= 0) {
         const charge = traits.includes('charge') && !mob.charged;
         mob.charged = true;
-        const enraged = traits.includes('enrage') && mob.hp < mob.maxHp / 2;
-        hurtGuard((charge ? mob.damage * 2 : mob.damage) * (enraged ? 1.5 : 1), guardX);
+        const enraged = traits.includes('enrage') && mob.hp < mob.maxHp * COMBAT.enrage.belowHpShare;
+        hurtGuard((charge ? mob.damage * COMBAT.charge.firstHitMultiplier : mob.damage) * (enraged ? COMBAT.enrage.multiplier : 1), guardX);
         mob.attackMotion = 0.32;
         mob.attackCooldown = mob.attackRate;
       }
@@ -398,7 +399,7 @@ function update(delta, width, simulationStep = false) {
       mob.x += mobSpeed * mob.speed * (opening ? boost.factor : 1) * dt;
     }
 
-    if (state.spikesLevel > 0 && !mob.dead && mob.x >= guardX - 212 && mob.x <= guardX - 156) {
+    if (state.spikesLevel > 0 && !mob.dead && mob.x >= guardX - COMBAT.spikes.zone[0] && mob.x <= guardX - COMBAT.spikes.zone[1]) {
       mob.spikesCooldown = Math.max(0, (mob.spikesCooldown ?? 0) - dt);
       if (mob.spikesCooldown <= 0) {
         mob.spikesCooldown = 0.75;
@@ -409,7 +410,7 @@ function update(delta, width, simulationStep = false) {
   }
 
   const target = state.mobs.reduce((lead, mob) => (
-    !mob.dead && mob.x > guardX - 130 && mob.x < guardX - 10 && (!lead || mob.x > lead.x) ? mob : lead
+    !mob.dead && mob.x > guardX - COMBAT.melee.reachFar && mob.x < guardX - COMBAT.melee.reachNear && (!lead || mob.x > lead.x) ? mob : lead
   ), null);
   if (state.guardHp > 0 && target && state.attackCooldown <= 0) {
     damageMob(target, state.guardLevel * heroDefs[state.frontHero].damageMult * heroDamageMult(state.frontHero), 'melee');
@@ -423,7 +424,7 @@ function update(delta, width, simulationStep = false) {
 
   state.mobs = state.mobs.filter((mob) => {
     if (mob.dead) return mob.hit > 0;
-    if (mob.x > guardX + 8) {
+    if (mob.x > guardX + COMBAT.slipPastAt) {
       // Mark it gone so arrows or rocks already in flight cannot count it twice.
       mob.dead = true;
       mob.hit = 0;

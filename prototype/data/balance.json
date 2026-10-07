@@ -150,5 +150,20 @@
       "towerPerWave": 0.5,
       "heroLevelFromWave": 20
     }
+  },
+  "difficulty": {
+    "_doc": "hp = (1 + hpLinear*step + hpQuadratic*step^2) * offense * tuning; damage = (1 + damagePerStep*step) * (expectedMaxHp/hpReference)^hpExponent * tuning. step = wave-1 for waves 1-5, (wave-6)+act2StepOffset after. offense = 1 + offenseDps*(sqrt(dpsRatio)-1) + offenseSpikes*spikes^spikesExponent + offenseTower*towerLevel (tower term from wave 6); dpsRatio = guardLevel*dpsReference/attackInterval(guardLevel).",
+    "hpLinear": 0.3,
+    "hpQuadratic": 0.06,
+    "damagePerStep": 0.12,
+    "offenseDps": 0.35,
+    "dpsReference": 0.72,
+    "offenseSpikes": 0.12,
+    "spikesExponent": 0.75,
+    "offenseTower": 0.1,
+    "hpReference": 100,
+    "hpExponent": 0.25,
+    "act2StepOffset": 2.5,
+    "missingOpeningTuning": 0.5
   }
 }
